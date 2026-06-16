@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1280" role="img" aria-label="Sample manga page 1">
+  <rect width="900" height="1280" fill="#f8f5ef"/>
+  <rect x="56" y="56" width="788" height="1168" fill="#fffdf8" stroke="#141414" stroke-width="6"/>
+  <rect x="88" y="90" width="480" height="330" fill="#111"/>
+  <path d="M128 372c132-150 246-204 404-246" stroke="#faf8f4" stroke-width="20" fill="none"/>
+  <circle cx="644" cy="168" r="64" fill="#fffdf8" stroke="#111" stroke-width="6"/>
+  <text x="644" y="162" text-anchor="middle" font-family="Georgia,serif" font-size="24" fill="#111">Cổng</text>
+  <text x="644" y="194" text-anchor="middle" font-family="Georgia,serif" font-size="24" fill="#111">mở rồi</text>
+  <rect x="88" y="452" width="330" height="310" fill="#eee7db" stroke="#111" stroke-width="5"/>
+  <path d="M132 710l86-180 72 180 38-108 54 108" fill="none" stroke="#111" stroke-width="10"/>
+  <rect x="450" y="452" width="362" height="310" fill="#161616" stroke="#111" stroke-width="5"/>
+  <path d="M500 710c120-220 196-220 276 0" fill="none" stroke="#faf8f4" stroke-width="12"/>
+  <rect x="88" y="794" width="724" height="390" fill="#fffdf8" stroke="#111" stroke-width="5"/>
+  <path d="M150 1070c145-220 338-280 586-150" fill="none" stroke="#111" stroke-width="16"/>
+  <circle cx="224" cy="920" r="58" fill="#fffdf8" stroke="#111" stroke-width="6"/>
+  <text x="224" y="914" text-anchor="middle" font-family="Georgia,serif" font-size="22" fill="#111">Đi</text>
+  <text x="224" y="944" text-anchor="middle" font-family="Georgia,serif" font-size="22" fill="#111">tiếp</text>
+</svg>

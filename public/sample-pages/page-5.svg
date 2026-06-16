@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1280" role="img" aria-label="Sample manga page 5">
+  <rect width="900" height="1280" fill="#f8f5ef"/>
+  <rect x="56" y="56" width="788" height="1168" fill="#fffdf8" stroke="#111" stroke-width="6"/>
+  <rect x="88" y="88" width="724" height="360" fill="#eee7db" stroke="#111" stroke-width="5"/>
+  <path d="M122 388c230-210 430-210 656 0" stroke="#111" stroke-width="18" fill="none"/>
+  <rect x="88" y="488" width="724" height="250" fill="#fffdf8" stroke="#111" stroke-width="5"/>
+  <text x="450" y="630" text-anchor="middle" font-family="Georgia,serif" font-size="42" fill="#111">MỘT TRANG NỮA</text>
+  <rect x="88" y="778" width="340" height="340" fill="#111" stroke="#111" stroke-width="5"/>
+  <rect x="472" y="778" width="340" height="340" fill="#eee7db" stroke="#111" stroke-width="5"/>
+  <path d="M146 1052h220M526 1052h220" stroke="#faf8f4" stroke-width="12"/>
+  <path d="M526 1048h220" stroke="#111" stroke-width="12"/>
+</svg>

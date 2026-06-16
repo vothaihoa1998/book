@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1280" role="img" aria-label="Sample manga page 3">
+  <rect width="900" height="1280" fill="#f8f5ef"/>
+  <rect x="54" y="54" width="792" height="1172" fill="#fffdf8" stroke="#111" stroke-width="6"/>
+  <rect x="88" y="88" width="724" height="250" fill="#111"/>
+  <text x="450" y="222" text-anchor="middle" font-family="Georgia,serif" font-size="54" fill="#faf8f4">CHƯƠNG 1</text>
+  <rect x="88" y="374" width="340" height="360" fill="#fffdf8" stroke="#111" stroke-width="5"/>
+  <path d="M138 664c70-160 154-214 250-220" fill="none" stroke="#111" stroke-width="12"/>
+  <rect x="472" y="374" width="340" height="360" fill="#eee7db" stroke="#111" stroke-width="5"/>
+  <path d="M522 682c80-70 158-80 240-30" fill="none" stroke="#111" stroke-width="14"/>
+  <rect x="88" y="768" width="724" height="360" fill="#fffdf8" stroke="#111" stroke-width="5"/>
+  <path d="M140 1060c164-240 360-284 620-120" fill="none" stroke="#111" stroke-width="18"/>
+  <circle cx="648" cy="846" r="70" fill="#fffdf8" stroke="#111" stroke-width="6"/>
+  <text x="648" y="840" text-anchor="middle" font-family="Georgia,serif" font-size="22" fill="#111">Không</text>
+  <text x="648" y="870" text-anchor="middle" font-family="Georgia,serif" font-size="22" fill="#111">lùi</text>
+</svg>

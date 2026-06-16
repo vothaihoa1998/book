@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+:root {
+  --background: #faf8f4;
+  --foreground: #121212;
+  --surface: #fffdf8;
+  --surface-strong: #f2eee6;
+  --muted: #6f6a61;
+  --border: oklch(0.9 0.008 82);
+  --accent: #4f46e5;
+  --accent-2: #10b981;
+  --graphite: #0e0e10;
+  --graphite-text: #edeae3;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-strong: var(--surface-strong);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Newsreader", "Newsreader Fallback", Georgia, serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    linear-gradient(90deg, rgba(18, 18, 18, 0.03) 1px, transparent 1px),
+    var(--background);
+  background-size: 72px 72px;
+  color: var(--foreground);
+  font-family: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+  text-rendering: geometricprecision;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+img {
+  max-width: 100%;
+}
+
+::selection {
+  background: rgba(79, 70, 229, 0.18);
+}
+
+.font-display {
+  font-family: var(--font-newsreader), "Newsreader", Georgia, serif;
+}
+
+.font-ui {
+  font-family: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-code {
+  font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+}
+
+.hairline {
+  border: 1px solid var(--border);
+  box-shadow: 0 14px 40px rgba(18, 18, 18, 0.06);
+}
+
+.ink-on-dark {
+  color: #faf8f4 !important;
+}
+
+.ink-on-dark-soft {
+  color: rgba(250, 248, 244, 0.9) !important;
+}
+
+.grain {
+  position: relative;
+}
+
+.grain::after {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.16;
+  background-image: radial-gradient(rgba(18, 18, 18, 0.16) 0.7px, transparent 0.7px);
+  background-size: 5px 5px;
+  mix-blend-mode: multiply;
+}
+
+.reader-theme-sepia {
+  --background: #f1e6d2;
+  --foreground: #241c16;
+}
+
+.reader-theme-graphite-dark {
+  --background: #0e0e10;
+  --foreground: #edeae3;
+}
+
+.reader-theme-pure-black {
+  --background: #000000;
+  --foreground: #f2f2f2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
