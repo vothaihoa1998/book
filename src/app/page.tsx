@@ -1,19 +1,34 @@
-import { ArrowRight, BookMarked, Clock3, Play } from "lucide-react";
+import { ArrowRight, BookMarked, LogIn, Play } from "lucide-react";
 import Link from "next/link";
 import { MangaCover } from "@/components/manga-cover";
 import { MangaRail } from "@/components/manga-rail";
-import { getHome } from "@/lib/sources";
+import { latestHistoryByManga } from "@/lib/library";
+import { getHome, getManga } from "@/lib/sources";
+import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { formatDate, truncate } from "@/lib/utils";
 
-export const revalidate = 1800;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const home = await getHome();
+  const [home, user, supabase] = await Promise.all([getHome(), getVerifiedUser(), createServerSupabaseClient()]);
   const featured = home.featured;
+  const history = user && supabase
+    ? await supabase
+      .from("reading_history")
+      .select("manga_id, chapter_id, page_index, scroll_percent, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(24)
+    : null;
+  const latestHistory = latestHistoryByManga(history?.data ?? []).slice(0, 6);
+  const continueItems = await Promise.all(latestHistory.map((item) => getManga(item.manga_id)));
+  const completed = [...home.trending, ...home.recent, ...home.recommended].filter((item) => item.status === "completed");
+  const action = [...home.trending, ...home.recent].filter((item) => item.genres.some((genre) => /action/i.test(genre)));
+  const romance = [...home.trending, ...home.recommended].filter((item) => item.genres.some((genre) => /romance/i.test(genre)));
+  const fantasy = [...home.trending, ...home.recommended].filter((item) => item.genres.some((genre) => /fantasy|isekai/i.test(genre)));
 
   return (
     <main>
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl gap-10 px-4 py-10 sm:px-6 md:grid-cols-[minmax(280px,420px)_1fr] md:items-center md:py-16 lg:px-8">
+      <section className="mx-auto grid min-h-[calc(92vh-4rem)] max-w-7xl gap-10 px-4 py-8 sm:px-6 md:grid-cols-[minmax(240px,380px)_1fr] md:items-center md:py-12 lg:px-8">
         <Link href={`/manga/${encodeURIComponent(featured.id)}`} className="group mx-auto w-full max-w-[360px] md:max-w-none">
           <MangaCover manga={featured} priority className="hairline" />
         </Link>
@@ -67,25 +82,27 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="border-y border-border bg-foreground ink-on-dark">
-        <div className="mx-auto grid max-w-7xl gap-5 px-4 py-8 sm:px-6 md:grid-cols-[240px_1fr_auto] md:items-center lg:px-8">
-          <div className="flex items-center gap-3">
-            <Clock3 size={18} />
-            <span className="font-code text-[11px] uppercase">Đang đọc dở</span>
+      {!user && (
+        <section className="border-y border-border bg-surface/70">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-5 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+            <p className="flex items-center gap-2 text-sm text-muted"><LogIn size={16} /> Đăng nhập để đồng bộ lịch sử và bookmark giữa các thiết bị.</p>
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              Đăng nhập <ArrowRight size={16} />
+            </Link>
           </div>
-          <p className="font-display text-2xl leading-tight ink-on-dark-soft">
-            Đồng bộ lịch sử qua Supabase khi đăng nhập; nếu chưa có tài khoản, reader vẫn lưu tiến độ trên thiết bị này.
-          </p>
-          <Link href="/login" className="inline-flex items-center gap-2 text-sm font-semibold">
-            Đăng nhập <ArrowRight size={16} />
-          </Link>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {user && continueItems.length > 0 && <MangaRail label="Tiếp tục đọc" title="Quay lại đúng bộ đang dở" items={continueItems} />}
         <MangaRail label="Mới cập nhật" title="Những chương vừa lên kệ" items={home.recent.slice(0, 12)} />
+        <MangaRail label="Mới ra mắt" title="Truyện mới để thử ngay" items={home.recent.slice(4, 16)} />
         <MangaRail label="Đề xuất" title="Có thể hợp gu đọc của bạn" items={home.recommended.slice(0, 12)} />
         <MangaRail label="Thịnh hành" title="Được theo dõi nhiều" items={home.trending.slice(0, 12)} />
+        <MangaRail label="Đã hoàn thành" title="Đọc liền mạch không phải chờ" items={completed.slice(0, 12)} />
+        <MangaRail label="Action nổi bật" title="Nhịp nhanh, dễ vào truyện" items={action.slice(0, 12)} />
+        <MangaRail label="Romance nhẹ nhàng" title="Cho buổi đọc chậm hơn" items={romance.slice(0, 12)} />
+        <MangaRail label="Fantasy / Isekai" title="Rời khỏi đời thường một chút" items={fantasy.slice(0, 12)} />
       </div>
     </main>
   );

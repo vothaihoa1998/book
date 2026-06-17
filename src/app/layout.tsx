@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter, Newsreader } from "next/font/google";
+import Script from "next/script";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { PwaRegister } from "@/components/pwa-register";
 import { SiteHeader } from "@/components/site-header";
@@ -49,7 +50,48 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" className={`${inter.variable} ${newsreader.variable} ${geistMono.variable}`}>
+    <html lang="vi" data-scroll-behavior="smooth" suppressHydrationWarning className={`${inter.variable} ${newsreader.variable} ${geistMono.variable}`}>
+      <head>
+        <Script id="inkrail-theme" strategy="beforeInteractive">
+          {`(() => {
+  try {
+    const stored = localStorage.getItem('inkrail-theme');
+    document.documentElement.dataset.theme = stored === 'light' ? 'light' : 'dark';
+  } catch {
+    document.documentElement.dataset.theme = 'dark';
+  }
+})();`}
+        </Script>
+        <Script id="strip-extension-link-attrs" strategy="beforeInteractive">
+          {`(() => {
+  const stripAttrs = (root = document) => {
+    root.querySelectorAll?.('[rtrvr-ls],[rtrvr-ro]').forEach((element) => {
+      Array.from(element.attributes).forEach((attribute) => {
+        if (attribute.name.startsWith('rtrvr-')) element.removeAttribute(attribute.name);
+      });
+    });
+  };
+
+  stripAttrs();
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'attributes' && mutation.attributeName?.startsWith('rtrvr-')) {
+        mutation.target.removeAttribute(mutation.attributeName);
+        return;
+      }
+
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) stripAttrs(node);
+      });
+    });
+  });
+
+  observer.observe(document.documentElement, { attributes: true, childList: true, subtree: true });
+  window.addEventListener('load', () => window.setTimeout(() => observer.disconnect(), 3000), { once: true });
+})();`}
+        </Script>
+      </head>
       <body className="min-h-screen pb-16 font-ui md:pb-0">
         <SiteHeader />
         {children}

@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
 :root {
+  --background: #101011;
+  --foreground: #f5f0e8;
+  --surface: #17171a;
+  --surface-strong: #202126;
+  --muted: #a39c91;
+  --border: rgba(245, 240, 232, 0.13);
+  --accent: #6558ff;
+  --accent-2: #34d399;
+  --graphite: #0e0e10;
+  --graphite-text: #edeae3;
+  --radius: 0.5rem;
+}
+
+html[data-theme="light"] {
   --background: #faf8f4;
   --foreground: #121212;
   --surface: #fffdf8;
@@ -9,9 +23,6 @@
   --border: oklch(0.9 0.008 82);
   --accent: #4f46e5;
   --accent-2: #10b981;
-  --graphite: #0e0e10;
-  --graphite-text: #edeae3;
-  --radius: 0.5rem;
 }
 
 @theme inline {
@@ -43,7 +54,7 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    linear-gradient(90deg, rgba(18, 18, 18, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--foreground) 4%, transparent) 1px, transparent 1px),
     var(--background);
   background-size: 72px 72px;
   color: var(--foreground);
@@ -86,15 +97,15 @@ img {
 
 .hairline {
   border: 1px solid var(--border);
-  box-shadow: 0 14px 40px rgba(18, 18, 18, 0.06);
+  box-shadow: 0 14px 40px color-mix(in srgb, #000 24%, transparent);
 }
 
 .ink-on-dark {
-  color: #faf8f4 !important;
+  color: var(--background) !important;
 }
 
 .ink-on-dark-soft {
-  color: rgba(250, 248, 244, 0.9) !important;
+  color: color-mix(in srgb, var(--background) 88%, transparent) !important;
 }
 
 .grain {
@@ -115,6 +126,11 @@ img {
 .reader-theme-sepia {
   --background: #f1e6d2;
   --foreground: #241c16;
+}
+
+.reader-theme-paper {
+  --background: #f7f1e7;
+  --foreground: #191512;
 }
 
 .reader-theme-graphite-dark {

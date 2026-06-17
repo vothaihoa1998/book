@@ -3,19 +3,10 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, Download, Maximize2, Settings, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, Columns2, Download, Maximize2, Moon, PanelTop, Settings, Smartphone, Sun, X } from "lucide-react";
 import Link from "next/link";
-import { type Chapter, type Manga, imageProxyUrl } from "@/lib/types";
+import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-type ReaderPrefs = {
-  theme: "warm-light" | "sepia" | "graphite-dark" | "pure-black";
-  direction: "vertical" | "horizontal-ltr" | "horizontal-rtl";
-  fit: "width" | "height" | "original" | "smart";
-  brightness: number;
-  fontSize: number;
-  gap: number;
-};
 
 const defaultPrefs: ReaderPrefs = {
   theme: "warm-light",
@@ -61,7 +52,13 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
     bookmarkState === "saved" ? "Đã lưu bookmark" :
     bookmarkState === "anonymous" ? "Đăng nhập để đồng bộ bookmark" :
     bookmarkState === "error" ? "Không lưu được bookmark" :
-    "F fullscreen / S settings / B toggle UI";
+    "Chạm giữa màn hình để ẩn hoặc hiện giao diện";
+
+  useEffect(() => {
+    if (!showUi || showSettings) return;
+    const timer = window.setTimeout(() => setShowUi(false), 3200);
+    return () => window.clearTimeout(timer);
+  }, [showUi, showSettings]);
 
   useEffect(() => {
     const progress = localStorage.getItem(`inkrail-progress:${chapter.id}`);
@@ -181,7 +178,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
-        <div className="fixed inset-x-0 top-16 z-30 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl md:top-16">
+        <div className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center gap-3">
             <Link href={`/manga/${encodeURIComponent(manga.id)}`} className="inline-flex size-10 items-center justify-center rounded-[8px] border border-border bg-surface">
               <ArrowLeft size={16} />
@@ -204,6 +201,12 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       )}
 
       <button aria-label="Ẩn hoặc hiện giao diện đọc" onClick={() => setShowUi((value) => !value)} className="fixed inset-x-1/3 top-1/3 z-10 h-1/3 cursor-default" />
+      {prefs.direction !== "vertical" && !showUi && previousChapter && (
+        <Link aria-label="Chương trước" href={`/read/${encodeURIComponent(previousChapter.id)}`} className="fixed inset-y-0 left-0 z-10 w-1/4" />
+      )}
+      {prefs.direction !== "vertical" && !showUi && nextChapter && (
+        <Link aria-label="Chương sau" href={`/read/${encodeURIComponent(nextChapter.id)}`} className="fixed inset-y-0 right-0 z-10 w-1/4" />
+      )}
 
       <main
         className={cn(
@@ -263,36 +266,52 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       )}
 
       {showSettings && (
-        <div className="fixed inset-0 z-50 bg-foreground/40 p-4 backdrop-blur-sm" onClick={() => setShowSettings(false)}>
-          <div className="ml-auto h-full max-w-sm overflow-auto border border-border bg-background p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/55 p-3 backdrop-blur-sm md:p-4" onClick={() => setShowSettings(false)}>
+          <div className="ml-auto flex h-full max-w-sm flex-col overflow-auto rounded-[8px] border border-border bg-background p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-3xl font-semibold">Reader</h2>
+              <div>
+                <p className="font-code text-[11px] uppercase text-muted">Reader</p>
+                <h2 className="mt-1 font-display text-3xl font-semibold">Không gian đọc</h2>
+              </div>
               <button onClick={() => setShowSettings(false)} className="grid size-9 place-items-center rounded-[8px] border border-border bg-surface">
                 <X size={16} />
               </button>
             </div>
             <Setting label="Theme">
-              <select value={prefs.theme} onChange={(event) => setPrefs({ ...prefs, theme: event.target.value as ReaderPrefs["theme"] })} className="h-11 w-full rounded-[8px] border border-border bg-surface px-3 text-sm">
-                <option value="warm-light">Warm light</option>
-                <option value="sepia">Sepia</option>
-                <option value="graphite-dark">Graphite dark</option>
-                <option value="pure-black">Pure black</option>
-              </select>
+              <Segmented
+                value={prefs.theme}
+                options={[
+                  { value: "warm-light", label: "Warm", icon: <Sun size={14} /> },
+                  { value: "paper", label: "Paper", icon: <Sun size={14} /> },
+                  { value: "sepia", label: "Sepia", icon: <Sun size={14} /> },
+                  { value: "graphite-dark", label: "Dark", icon: <Moon size={14} /> },
+                  { value: "pure-black", label: "Black", icon: <Moon size={14} /> },
+                ]}
+                onChange={(theme) => setPrefs({ ...prefs, theme: theme as ReaderPrefs["theme"] })}
+              />
             </Setting>
-            <Setting label="Direction">
-              <select value={prefs.direction} onChange={(event) => setPrefs({ ...prefs, direction: event.target.value as ReaderPrefs["direction"] })} className="h-11 w-full rounded-[8px] border border-border bg-surface px-3 text-sm">
-                <option value="vertical">Vertical webtoon</option>
-                <option value="horizontal-ltr">Dual page LTR</option>
-                <option value="horizontal-rtl">Dual page RTL</option>
-              </select>
+            <Setting label="Kiểu đọc">
+              <Segmented
+                value={prefs.direction}
+                options={[
+                  { value: "vertical", label: "Dọc", icon: <Smartphone size={14} /> },
+                  { value: "horizontal-ltr", label: "LTR", icon: <Columns2 size={14} /> },
+                  { value: "horizontal-rtl", label: "RTL", icon: <Columns2 size={14} /> },
+                ]}
+                onChange={(direction) => setPrefs({ ...prefs, direction: direction as ReaderPrefs["direction"] })}
+              />
             </Setting>
             <Setting label="Fit">
-              <select value={prefs.fit} onChange={(event) => setPrefs({ ...prefs, fit: event.target.value as ReaderPrefs["fit"] })} className="h-11 w-full rounded-[8px] border border-border bg-surface px-3 text-sm">
-                <option value="width">Width</option>
-                <option value="height">Height</option>
-                <option value="original">Original</option>
-                <option value="smart">Smart</option>
-              </select>
+              <Segmented
+                value={prefs.fit}
+                options={[
+                  { value: "width", label: "Rộng", icon: <PanelTop size={14} /> },
+                  { value: "height", label: "Cao", icon: <PanelTop size={14} /> },
+                  { value: "smart", label: "Smart", icon: <PanelTop size={14} /> },
+                  { value: "original", label: "Gốc", icon: <PanelTop size={14} /> },
+                ]}
+                onChange={(fit) => setPrefs({ ...prefs, fit: fit as ReaderPrefs["fit"] })}
+              />
             </Setting>
             <Setting label={`Brightness ${prefs.brightness}%`}>
               <input type="range" min="0" max="60" value={prefs.brightness} onChange={(event) => setPrefs({ ...prefs, brightness: Number(event.target.value) })} className="w-full" />
@@ -318,5 +337,25 @@ function Setting({ label, children }: { label: string; children: React.ReactNode
       <span className="mb-2 block font-code text-[11px] uppercase text-muted">{label}</span>
       {children}
     </label>
+  );
+}
+
+function Segmented({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string; icon?: React.ReactNode }>; onChange: (value: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cn(
+            "inline-flex h-10 items-center gap-2 rounded-[8px] border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:border-foreground/30",
+            value === option.value && "border-foreground bg-foreground text-background",
+          )}
+        >
+          {option.icon} {option.label}
+        </button>
+      ))}
+    </div>
   );
 }

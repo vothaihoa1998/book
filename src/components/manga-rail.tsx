@@ -2,6 +2,8 @@ import { type Manga } from "@/lib/types";
 import { MangaCard } from "./manga-card";
 
 export function MangaRail({ label, title, items }: { label: string; title: string; items: Manga[] }) {
+  if (!items.length) return null;
+
   return (
     <section className="py-12 md:py-16">
       <div className="mb-6 flex items-end justify-between gap-4">
@@ -11,8 +13,8 @@ export function MangaRail({ label, title, items }: { label: string; title: strin
         </div>
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-        {items.map((manga) => (
-          <MangaCard key={`${manga.source}-${manga.sourceId}`} manga={manga} compact />
+        {items.map((manga, index) => (
+          <MangaCard key={`${manga.source}-${manga.sourceId}-${index}`} manga={manga} compact />
         ))}
       </div>
     </section>

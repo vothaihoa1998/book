@@ -2,6 +2,7 @@ import "server-only";
 
 import { type Chapter, type Manga, makeScopedId, slugify } from "../types";
 import { fetchJson, unique } from "./http";
+import { applySearchFilters, type NormalizedSearchParams } from "./search-utils";
 
 const API = "https://otruyenapi.com/v1/api";
 const CDN = "https://img.otruyenapi.com/uploads/comics";
@@ -74,11 +75,20 @@ function itemsFromResponse(response: Record<string, unknown>) {
   return ((data.items || response.items || []) as OTruyenItem[]).filter(Boolean);
 }
 
-export async function searchOTruyen(query: string) {
+export async function searchOTruyen(query: string, options: Partial<Pick<NormalizedSearchParams, "page" | "status" | "sort" | "genres" | "year">> = {}) {
+  const page = options.page ?? 1;
   const response = await fetchJson<Record<string, unknown>>(
-    `${API}/tim-kiem?keyword=${encodeURIComponent(query)}`,
+    `${API}/tim-kiem?keyword=${encodeURIComponent(query)}&page=${page}`,
   );
-  return itemsFromResponse(response).map(mapManga);
+  return applySearchFilters(itemsFromResponse(response).map(mapManga), {
+    q: query,
+    source: "otruyen",
+    status: options.status ?? "all",
+    sort: options.sort ?? "relevance",
+    year: options.year ?? "all",
+    page,
+    genres: options.genres ?? [],
+  });
 }
 
 export async function getRecentOTruyen(limit = 12) {

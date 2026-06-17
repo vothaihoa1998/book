@@ -2,9 +2,9 @@ import "server-only";
 
 import { cache } from "react";
 import { getSampleChapter, getSampleChapters, getSampleManga, sampleManga } from "../sample-data";
-import { readCache, writeCache } from "../supabase/cache";
+import { logSourceFetch, readCache, readCacheWithStatus, writeCache, writeCacheWithStatus } from "../supabase/cache";
 import { type Json } from "../supabase/types";
-import { type Chapter, type HomePayload, type Manga, type MangaSearchParams, parseScopedId } from "../types";
+import { type Chapter, type HomePayload, type Manga, type MangaSearchParams, type MangaSearchResult, parseScopedId } from "../types";
 import { searchFirecrawlManga } from "./firecrawl";
 import {
   getMangaDex,
@@ -15,16 +15,7 @@ import {
   searchMangaDex,
 } from "./mangadex";
 import { getOTruyenChapter, getOTruyenChapters, getOTruyenManga, getRecentOTruyen, searchOTruyen } from "./otruyen";
-
-function dedupeManga(items: Manga[]) {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = `${item.title.toLowerCase()}-${item.sourceId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
+import { applySearchFilters, dedupeManga, normalizeSearchParams, searchCacheKey, selectedSearchSources, sourceLimitations, uniqueSources } from "./search-utils";
 
 function withFallback<T>(promise: Promise<T>, fallback: T) {
   return promise.catch(() => fallback);
@@ -77,61 +68,123 @@ async function cachedList<T>(
 
 export const getHome = cache(async (): Promise<HomePayload> => {
   return cachedValue("manga_cache", "home:v1", "mixed", 60 * 30, async () => {
-  const [popular, recent, oRecent] = await Promise.all([
-    withFallback(getPopularMangaDex(12), sampleManga),
-    withFallback(getRecentMangaDex(12), sampleManga.slice().reverse()),
-    withFallback(getRecentOTruyen(8), []),
-  ]);
+    const [popular, recent, oRecent] = await Promise.all([
+      withFallback(getPopularMangaDex(12), sampleManga),
+      withFallback(getRecentMangaDex(12), sampleManga.slice().reverse()),
+      withFallback(getRecentOTruyen(8), []),
+    ]);
 
-  const trending = dedupeManga([...popular, ...sampleManga]).slice(0, 12);
-  const recentMerged = dedupeManga([...recent, ...oRecent, ...sampleManga]).slice(0, 12);
-  const recommended = dedupeManga([
-    ...trending.filter((item) => item.genres.some((genre) => /fantasy|action|romance/i.test(genre))),
-    ...sampleManga,
-  ]).slice(0, 10);
+    const trending = dedupeManga([...popular, ...sampleManga]).slice(0, 12);
+    const recentMerged = dedupeManga([...recent, ...oRecent, ...sampleManga]).slice(0, 12);
+    const recommended = dedupeManga([
+      ...trending.filter((item) => item.genres.some((genre) => /fantasy|action|romance/i.test(genre))),
+      ...sampleManga,
+    ]).slice(0, 10);
 
-  return {
-    featured: trending[0] ?? sampleManga[0],
-    trending,
-    recent: recentMerged,
-    recommended,
-  };
+    return {
+      featured: trending[0] ?? sampleManga[0],
+      trending,
+      recent: recentMerged,
+      recommended,
+    };
   });
 });
 
-export const searchManga = cache(async (params: MangaSearchParams = {}) => {
-  const query = params.q?.trim();
-  const page = params.page ?? 1;
+async function runSearchSource(source: "mangadex" | "otruyen" | "firecrawl", target: string, loader: () => Promise<Manga[]>) {
+  const startedAt = Date.now();
+  try {
+    const results = await loader();
+    await logSourceFetch(source, target, true, Date.now() - startedAt).catch(() => undefined);
+    return { source, results, error: null as string | null };
+  } catch (error) {
+    await logSourceFetch(source, target, false, Date.now() - startedAt).catch(() => undefined);
+    return { source, results: [], error: error instanceof Error ? error.message : `Không gọi được nguồn ${source}` };
+  }
+}
 
-  if (!query) {
+export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}): Promise<MangaSearchResult> => {
+  const normalized = normalizeSearchParams(params);
+
+  if (!normalized.q) {
     const home = await getHome();
-    return home.trending;
+    const results = applySearchFilters(dedupeManga([...home.trending, ...home.recent, ...home.recommended]), normalized);
+    const selectedSources = selectedSearchSources(normalized.source);
+    return {
+      results,
+      meta: {
+        query: normalized.q,
+        source: normalized.source,
+        filters: normalized,
+        sourceUsed: uniqueSources(results),
+        fallbackUsed: false,
+        page: normalized.page,
+        hasMore: false,
+        errors: [],
+        sourceLimitations: sourceLimitations(normalized, selectedSources),
+      },
+    };
   }
 
-  return cachedValue(
-    "manga_cache",
-    `search:${query.toLowerCase()}:${params.status ?? "all"}:${page}`,
-    "mixed",
-    60 * 10,
-    async () => {
-  const [mangadex, otruyen] = await Promise.all([
-    withFallback(searchMangaDex(query, page), []),
-    withFallback(searchOTruyen(query), []),
-  ]);
+  const errors: string[] = [];
+  const cacheKey = searchCacheKey(normalized);
+  const cached = await readCacheWithStatus<MangaSearchResult>("manga_cache", cacheKey);
+  if (cached.error) errors.push(`Cache: ${cached.error}`);
+  if (cached.value) return cached.value;
 
-  let result = dedupeManga([...mangadex, ...otruyen]);
-  if (!result.length) {
-    result = await withFallback(searchFirecrawlManga(query), []);
-  }
-  if (params.status && params.status !== "all") {
-    result = result.filter((item) => item.status === params.status);
-  }
-  if (!result.length) {
-    result = sampleManga.filter((item) => item.title.toLowerCase().includes(query.toLowerCase()));
-  }
-  return result.length ? result : sampleManga;
-    },
+  const target = `search:${normalized.q}`;
+  const selectedSources = selectedSearchSources(normalized.source);
+  const sourceResults = await Promise.all(
+    selectedSources.map((source) => {
+      if (source === "mangadex") {
+        return runSearchSource("mangadex", target, () => searchMangaDex(normalized.q, normalized));
+      }
+
+      return runSearchSource("otruyen", target, () => searchOTruyen(normalized.q, normalized));
+    }),
   );
+
+  sourceResults.forEach((result) => {
+    if (result.error) errors.push(`${result.source}: ${result.error}`);
+  });
+
+  let fallbackUsed = false;
+  let results = applySearchFilters(dedupeManga(sourceResults.flatMap((result) => result.results)), normalized);
+  const sourceUsed = sourceResults.filter((result) => !result.error).map((result) => result.source);
+
+  if (!results.length && normalized.source !== "otruyen") {
+    const fallback = await runSearchSource("firecrawl", target, () => searchFirecrawlManga(normalized.q));
+    if (fallback.error) errors.push(`firecrawl: ${fallback.error}`);
+    if (fallback.results.length) {
+      fallbackUsed = true;
+      sourceUsed.push("firecrawl");
+      results = applySearchFilters(dedupeManga(fallback.results), normalized);
+    }
+  }
+
+  const payload: MangaSearchResult = {
+    results,
+    meta: {
+      query: normalized.q,
+      source: normalized.source,
+      filters: normalized,
+      sourceUsed,
+      fallbackUsed,
+      page: normalized.page,
+      hasMore: sourceResults.some((result) => result.results.length >= 24) || results.length >= 24,
+      errors,
+      sourceLimitations: sourceLimitations(normalized, selectedSources),
+    },
+  };
+
+  const cacheError = await writeCacheWithStatus("manga_cache", cacheKey, normalized.source, payload as unknown as Json, 60 * 10);
+  if (cacheError) payload.meta.errors.push(`Cache: ${cacheError}`);
+
+  return payload;
+});
+
+export const searchManga = cache(async (params: MangaSearchParams = {}) => {
+  const payload = await searchMangaWithMeta(params);
+  return payload.results;
 });
 
 export const getManga = cache(async (id: string) => {

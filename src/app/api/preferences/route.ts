@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const ReaderPrefsSchema = z.object({
-  theme: z.enum(["warm-light", "sepia", "graphite-dark", "pure-black"]).default("warm-light"),
+  theme: z.enum(["warm-light", "paper", "sepia", "graphite-dark", "pure-black"]).default("warm-light"),
   direction: z.enum(["vertical", "horizontal-ltr", "horizontal-rtl"]).default("vertical"),
   fit: z.enum(["width", "height", "original", "smart"]).default("width"),
   brightness: z.number().int().min(0).max(60).default(0),

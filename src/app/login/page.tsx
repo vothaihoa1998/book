@@ -8,15 +8,27 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl gap-10 px-4 py-10 sm:px-6 md:grid-cols-[1fr_420px] md:items-center md:py-16 lg:px-8">
-      <section>
-        <p className="font-code text-[11px] uppercase text-muted">Tài khoản</p>
-        <h1 className="mt-3 max-w-3xl font-display text-5xl font-semibold leading-none md:text-7xl">Đọc tiếp ở bất kỳ thiết bị nào.</h1>
-        <p className="mt-6 max-w-2xl font-display text-xl leading-8 text-muted md:text-2xl md:leading-9">
-          Auth nằm trên Supabase, reader vẫn hoạt động khi chưa đăng nhập. Khi có session, progress được ghi bằng RLS chỉ cho chính bạn.
-        </p>
+    <main className="grid min-h-[calc(100vh-4rem)] bg-[#0d0d0f] text-[#f2eee8] md:grid-cols-2">
+      <section className="relative hidden border-r border-white/10 px-10 py-12 md:flex md:flex-col md:justify-between lg:px-14">
+        <div className="font-display text-3xl font-semibold">InkRail</div>
+        <div className="max-w-xl">
+          <p className="font-code text-[11px] uppercase text-[#766cff]">Sổ tay người đọc</p>
+          <h1 className="mt-5 font-display text-5xl font-semibold leading-[1.05] lg:text-6xl">
+            Lưu truyện đang đọc, tiếp tục từ đúng chương đó trên mọi thiết bị.
+          </h1>
+          <p className="mt-6 text-sm leading-7 text-white/48">Không quảng cáo trong reader, không làm phiền khi đang đọc. Đăng nhập chỉ để đồng bộ lịch sử, bookmark và preference.</p>
+        </div>
+        <p className="font-code text-[11px] uppercase text-white/35">© 2026 InkRail</p>
       </section>
-      <AuthPanel />
+      <section className="flex items-center justify-center px-4 py-12 sm:px-6">
+        <div className="w-full max-w-[460px]">
+          <div className="mb-10 md:hidden">
+            <p className="font-display text-3xl font-semibold">InkRail</p>
+            <p className="mt-4 font-display text-4xl font-semibold leading-tight">Đăng nhập để đọc tiếp ở mọi thiết bị.</p>
+          </div>
+          <AuthPanel />
+        </div>
+      </section>
     </main>
   );
 }

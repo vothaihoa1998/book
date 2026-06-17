@@ -10,6 +10,11 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = safeNextPath(requestUrl.searchParams.get("next"));
+  const providerError = requestUrl.searchParams.get("error_description") || requestUrl.searchParams.get("error");
+
+  if (providerError) {
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(providerError)}`, requestUrl.origin));
+  }
 
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=missing-code", requestUrl.origin));

@@ -8,7 +8,7 @@ const tabs = [
   { href: "/", label: "Trang chủ", icon: Home },
   { href: "/discover", label: "Khám phá", icon: Compass },
   { href: "/library", label: "Thư viện", icon: Library },
-  { href: "/login", label: "Tôi", icon: UserRound },
+  { href: "/profile", label: "Tôi", icon: UserRound },
 ];
 
 export function MobileTabBar() {

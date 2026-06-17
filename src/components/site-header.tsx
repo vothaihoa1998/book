@@ -1,6 +1,11 @@
-import { BookOpen, Library, Rss, Search, UserRound } from "lucide-react";
-import Link from "next/link";
+"use client";
 
+import { BookOpen, Library, Rss, Search } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+import { AccountStatus } from "@/components/account-status";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -11,6 +16,9 @@ const navItems = [
 ];
 
 export function SiteHeader({ className }: { className?: string }) {
+  const pathname = usePathname();
+  if (pathname.startsWith("/read/")) return null;
+
   return (
     <header className={cn("sticky top-0 z-40 border-b border-border/80 bg-background/88 backdrop-blur-xl", className)}>
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-5 px-4 sm:px-6 lg:px-8">
@@ -55,13 +63,8 @@ export function SiteHeader({ className }: { className?: string }) {
           >
             <Library size={16} />
           </Link>
-          <Link
-            href="/login"
-            className="grid size-10 place-items-center rounded-[8px] bg-foreground ink-on-dark transition hover:opacity-90"
-            aria-label="Account"
-          >
-            <UserRound size={16} />
-          </Link>
+          <ThemeToggle />
+          <AccountStatus />
         </div>
       </div>
     </header>

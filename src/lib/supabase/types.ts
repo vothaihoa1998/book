@@ -51,6 +51,32 @@ type FetchLogRow = { id: string; source: string; target: string; ok: boolean; st
 type FetchLogInsert = { id?: string; source: string; target: string; ok: boolean; status?: number | null; duration_ms?: number | null; created_at?: string };
 type FetchLogUpdate = { ok?: boolean; status?: number | null; duration_ms?: number | null };
 
+type CommentRow = {
+  id: string;
+  user_id: string;
+  author_name: string | null;
+  manga_id: string;
+  chapter_id: string | null;
+  parent_id: string | null;
+  body: string;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+type CommentInsert = {
+  id?: string;
+  user_id: string;
+  author_name?: string | null;
+  manga_id: string;
+  chapter_id?: string | null;
+  parent_id?: string | null;
+  body: string;
+  deleted_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+type CommentUpdate = { body?: string; author_name?: string | null; deleted_at?: string | null; updated_at?: string };
+
 export type Database = {
   public: {
     Tables: {
@@ -62,6 +88,7 @@ export type Database = {
       manga_cache: Table<CacheRow, CacheInsert, CacheUpdate>;
       chapter_cache: Table<CacheRow, CacheInsert, CacheUpdate>;
       source_fetch_log: Table<FetchLogRow, FetchLogInsert, FetchLogUpdate>;
+      comments: Table<CommentRow, CommentInsert, CommentUpdate>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

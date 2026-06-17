@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import { ArrowRight, Bookmark, Info, ListOrdered, Play, Radio } from "lucide-react";
+import { ArrowRight, Info, ListOrdered, Play, Radio } from "lucide-react";
 import Link from "next/link";
+import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
+import { FollowButton } from "@/components/follow-button";
 import { MangaCover } from "@/components/manga-cover";
 import { getChapters, getManga } from "@/lib/sources";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
 
-export const revalidate = 1800;
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -39,6 +42,17 @@ export default async function MangaDetailPage({ params }: Props) {
   const { id } = await params;
   const manga = await getManga(id);
   const chapters = await getChapters(manga.id);
+  const supabase = await createServerSupabaseClient();
+  const [commentsResult, userResult] = supabase ? await Promise.all([
+    supabase
+      .from("comments")
+      .select("id, user_id, author_name, manga_id, chapter_id, parent_id, body, created_at, updated_at")
+      .eq("manga_id", manga.id)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(80),
+    supabase.auth.getUser(),
+  ]) : [{ data: [], error: null }, { data: { user: null }, error: null }];
   const firstChapter = chapters.at(-1) ?? chapters[0];
   const latestChapter = chapters[0];
 
@@ -101,13 +115,7 @@ export default async function MangaDetailPage({ params }: Props) {
                 Chương mới nhất <ArrowRight size={16} />
               </Link>
             )}
-            <Link
-              href="/library"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border border-border bg-surface px-5 text-sm font-semibold transition hover:border-foreground/25"
-            >
-              <Bookmark size={16} />
-              Lưu thư viện
-            </Link>
+            <FollowButton manga={manga} />
           </div>
           <div className="mt-10 grid gap-4 border-y border-border py-5 sm:grid-cols-3">
             <Meta icon={<Radio size={16} />} label="Tác giả" value={manga.author ?? "Đang cập nhật"} />
@@ -158,6 +166,12 @@ export default async function MangaDetailPage({ params }: Props) {
             </dl>
           </aside>
         </div>
+        <CommentsPanel
+          mangaId={manga.id}
+          initialComments={(commentsResult.data ?? []) as CommentItem[]}
+          initialUserId={userResult.data.user?.id ?? null}
+          initialError={commentsResult.error?.message ?? null}
+        />
       </section>
     </main>
   );

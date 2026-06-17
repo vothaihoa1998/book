@@ -24,6 +24,21 @@ export type Manga = {
   rating: number | null;
 };
 
+export type ReaderTheme = "warm-light" | "paper" | "sepia" | "graphite-dark" | "pure-black";
+
+export type ReaderDirection = "vertical" | "horizontal-ltr" | "horizontal-rtl";
+
+export type ReaderFit = "width" | "height" | "original" | "smart";
+
+export type ReaderPrefs = {
+  theme: ReaderTheme;
+  direction: ReaderDirection;
+  fit: ReaderFit;
+  brightness: number;
+  fontSize: number;
+  gap: number;
+};
+
 export type PageImage = {
   index: number;
   url: string;
@@ -46,9 +61,42 @@ export type Chapter = {
 export type MangaSearchParams = {
   q?: string;
   genres?: string[];
-  status?: string;
-  sort?: string;
+  source?: MangaSearchSource;
+  status?: MangaStatus | "all";
+  sort?: MangaSearchSort;
+  year?: string;
   page?: number;
+};
+
+export type MangaSearchSource = "all" | "mangadex" | "otruyen";
+
+export type MangaSearchSort = "relevance" | "latest" | "hot" | "popular" | "rating";
+
+export type MangaSearchFilters = {
+  q: string;
+  source: MangaSearchSource;
+  status: MangaStatus | "all";
+  sort: MangaSearchSort;
+  year: string;
+  page: number;
+  genres: string[];
+};
+
+export type MangaSearchMeta = {
+  query: string;
+  source: MangaSearchSource;
+  filters: MangaSearchFilters;
+  sourceUsed: MangaSource[];
+  fallbackUsed: boolean;
+  page: number;
+  hasMore: boolean;
+  errors: string[];
+  sourceLimitations: string[];
+};
+
+export type MangaSearchResult = {
+  results: Manga[];
+  meta: MangaSearchMeta;
 };
 
 export type HomePayload = {
