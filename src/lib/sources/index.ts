@@ -69,17 +69,17 @@ async function cachedList<T>(
 export const getHome = cache(async (): Promise<HomePayload> => {
   return cachedValue("manga_cache", "home:v1", "mixed", 60 * 30, async () => {
     const [popular, recent, oRecent] = await Promise.all([
-      withFallback(getPopularMangaDex(12), sampleManga),
-      withFallback(getRecentMangaDex(12), sampleManga.slice().reverse()),
-      withFallback(getRecentOTruyen(8), []),
+      withFallback(getPopularMangaDex(24), sampleManga),
+      withFallback(getRecentMangaDex(24), sampleManga.slice().reverse()),
+      withFallback(getRecentOTruyen(18), []),
     ]);
 
-    const trending = dedupeManga([...popular, ...sampleManga]).slice(0, 12);
-    const recentMerged = dedupeManga([...recent, ...oRecent, ...sampleManga]).slice(0, 12);
+    const trending = dedupeManga([...popular, ...sampleManga]).slice(0, 24);
+    const recentMerged = dedupeManga([...recent, ...oRecent, ...sampleManga]).slice(0, 30);
     const recommended = dedupeManga([
       ...trending.filter((item) => item.genres.some((genre) => /fantasy|action|romance/i.test(genre))),
       ...sampleManga,
-    ]).slice(0, 10);
+    ]).slice(0, 18);
 
     return {
       featured: trending[0] ?? sampleManga[0],
@@ -104,12 +104,29 @@ async function runSearchSource(source: "mangadex" | "otruyen" | "firecrawl", tar
 
 export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}): Promise<MangaSearchResult> => {
   const normalized = normalizeSearchParams(params);
+  const cacheKey = searchCacheKey(normalized);
+  const cached = await readCacheWithStatus<MangaSearchResult>("manga_cache", cacheKey);
+  const cacheErrors: string[] = [];
+  if (cached.error) cacheErrors.push(`Cache: ${cached.error}`);
+  if (cached.value) return cached.value;
 
   if (!normalized.q) {
-    const home = await getHome();
-    const results = applySearchFilters(dedupeManga([...home.trending, ...home.recent, ...home.recommended]), normalized);
     const selectedSources = selectedSearchSources(normalized.source);
-    return {
+    const sourceResults = await Promise.all(
+      selectedSources.map((source) => {
+        if (source === "mangadex") {
+          return runSearchSource("mangadex", "catalog", () => searchMangaDex("", { ...normalized, limit: 36 }));
+        }
+
+        return runSearchSource("otruyen", "catalog", () => getRecentOTruyen(36));
+      }),
+    );
+    const errors = [
+      ...cacheErrors,
+      ...sourceResults.flatMap((result) => result.error ? [`${result.source}: ${result.error}`] : []),
+    ];
+    const results = applySearchFilters(dedupeManga(sourceResults.flatMap((result) => result.results)), normalized);
+    const payload: MangaSearchResult = {
       results,
       meta: {
         query: normalized.q,
@@ -118,18 +135,19 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
         sourceUsed: uniqueSources(results),
         fallbackUsed: false,
         page: normalized.page,
-        hasMore: false,
-        errors: [],
+        hasMore: sourceResults.some((result) => result.results.length >= 36),
+        errors,
         sourceLimitations: sourceLimitations(normalized, selectedSources),
       },
     };
+
+    const cacheError = await writeCacheWithStatus("manga_cache", cacheKey, normalized.source, payload as unknown as Json, 60 * 10);
+    if (cacheError) payload.meta.errors.push(`Cache: ${cacheError}`);
+
+    return payload;
   }
 
-  const errors: string[] = [];
-  const cacheKey = searchCacheKey(normalized);
-  const cached = await readCacheWithStatus<MangaSearchResult>("manga_cache", cacheKey);
-  if (cached.error) errors.push(`Cache: ${cached.error}`);
-  if (cached.value) return cached.value;
+  const errors: string[] = [...cacheErrors];
 
   const target = `search:${normalized.q}`;
   const selectedSources = selectedSearchSources(normalized.source);

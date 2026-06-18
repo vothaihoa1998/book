@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AccountStatus } from "@/components/account-status";
+import { HeaderSearch } from "@/components/header-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -37,18 +38,16 @@ export function SiteHeader({ className }: { className?: string }) {
           ))}
         </nav>
 
-        <Link
-          href="/discover"
-          className="ml-auto hidden h-10 min-w-[280px] items-center justify-between rounded-[8px] border border-border bg-surface px-3 text-sm text-muted shadow-sm transition hover:border-foreground/20 md:flex"
-        >
-          <span className="flex items-center gap-2">
-            <Search size={16} />
-            Tìm truyện, tác giả, thể loại
-          </span>
-          <span className="font-code text-[11px] uppercase text-muted">/</span>
-        </Link>
+        <HeaderSearch className="ml-auto hidden w-[min(30vw,360px)] min-w-[260px] md:block" />
 
         <div className="ml-auto flex items-center gap-2 md:ml-0">
+          <Link
+            href="/discover"
+            className="grid size-10 place-items-center rounded-[8px] border border-border bg-surface text-muted transition hover:text-foreground md:hidden"
+            aria-label="Tìm truyện"
+          >
+            <Search size={16} />
+          </Link>
           <Link
             href="/rss.xml"
             className="hidden size-10 place-items-center rounded-[8px] border border-border bg-surface text-muted transition hover:text-foreground sm:grid"

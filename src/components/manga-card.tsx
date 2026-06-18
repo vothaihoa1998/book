@@ -16,11 +16,11 @@ export function MangaCard({ manga, compact = false }: { manga: Manga; compact?: 
     <Link href={`/manga/${encodeURIComponent(manga.id)}`} className="group block min-w-0">
       <MangaCover manga={manga} className="hairline transition duration-200 group-hover:-translate-y-0.5" />
       <div className={compact ? "mt-3" : "mt-4"}>
-        <h3 className="line-clamp-2 font-display text-xl font-semibold leading-tight text-foreground">{manga.title}</h3>
-        <p className="mt-1 line-clamp-1 font-code text-[11px] uppercase text-muted">
-          {manga.source} / {formatDate(manga.updatedAt)}
+        <h3 className="line-clamp-2 font-display text-lg font-semibold leading-tight text-foreground md:text-xl">{manga.title}</h3>
+        <p className="mt-1 line-clamp-1 text-xs text-muted">
+          Ch. {manga.lastChapter ?? "?"} · {formatDate(manga.updatedAt)}
         </p>
-        <p className="mt-2 inline-flex rounded-[8px] border border-border bg-surface px-2 py-1 font-code text-[10px] uppercase text-muted">
+        <p className="mt-2 inline-flex rounded-full bg-chip px-2.5 py-1 text-[11px] font-medium text-chip-text">
           {statusLabel[manga.status]}
         </p>
       </div>

@@ -15,6 +15,18 @@ export const metadata: Metadata = {
   description: "Bookmark, lịch sử đọc và truyện đang theo dõi của bạn trên InkRail.",
 };
 
+type LibraryTab = "history" | "bookmarks" | "follows";
+
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function readTab(searchParams: Record<string, string | string[] | undefined>): LibraryTab {
+  const value = searchParams.tab;
+  const tab = Array.isArray(value) ? value[0] : value;
+  return tab === "bookmarks" || tab === "follows" ? tab : "history";
+}
+
 function storedManga(mangaId: string, value: Json | null): Manga {
   const parsed = parseScopedId(mangaId);
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Partial<Manga> : {};
@@ -36,7 +48,8 @@ function storedManga(mangaId: string, value: Json | null): Manga {
   };
 }
 
-export default async function LibraryPage() {
+export default async function LibraryPage({ searchParams }: Props) {
+  const activeTab = readTab(await searchParams);
   const user = await getVerifiedUser();
   const supabase = await createServerSupabaseClient();
 
@@ -70,10 +83,11 @@ export default async function LibraryPage() {
   const follows = (followsResult.data ?? []).map((item) => ({ ...item, mangaData: storedManga(item.manga_id, item.manga) }));
   const errors = [bookmarksResult.error, historyResult.error, followsResult.error].filter(Boolean);
   const total = bookmarks.length + latestHistory.length + follows.length;
+  const activeCount = activeTab === "history" ? latestHistory.length : activeTab === "bookmarks" ? bookmarks.length : follows.length;
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-end">
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-end">
         <div>
           <p className="font-code text-[11px] uppercase text-muted">Thư viện</p>
           <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Kệ đọc của bạn</h1>
@@ -87,6 +101,12 @@ export default async function LibraryPage() {
           <Stat label="Theo dõi" value={follows.length} />
         </aside>
       </div>
+
+      <nav className="scrollbar-none mt-8 flex gap-2 overflow-x-auto" aria-label="Chọn kệ đọc">
+        <TabLink href="/library" active={activeTab === "history"} label="Đang đọc" count={latestHistory.length} />
+        <TabLink href="/library?tab=bookmarks" active={activeTab === "bookmarks"} label="Bookmark" count={bookmarks.length} />
+        <TabLink href="/library?tab=follows" active={activeTab === "follows"} label="Theo dõi" count={follows.length} />
+      </nav>
 
       {errors.length > 0 && (
         <div className="mt-8 flex items-start gap-3 border border-border bg-surface p-4 text-sm leading-6 text-muted">
@@ -106,8 +126,16 @@ export default async function LibraryPage() {
         </div>
       )}
 
-      <div className="mt-10 space-y-12">
-        <section>
+      {total > 0 && activeCount === 0 && errors.length === 0 && (
+        <div className="mt-10 border-y border-border py-14 text-center">
+          <Rows3 className="mx-auto text-muted" size={26} />
+          <p className="mt-4 font-display text-3xl font-semibold">Kệ này đang trống</p>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted">Chuyển tab khác hoặc khám phá thêm truyện để lấp đầy mục này.</p>
+        </div>
+      )}
+
+      <div className="mt-8 space-y-12">
+        {activeTab === "history" && latestHistory.length > 0 && <section>
           <SectionTitle icon={<Clock3 size={18} />} title="Đang đọc" count={latestHistory.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {latestHistory.map((item, index) => (
@@ -122,25 +150,25 @@ export default async function LibraryPage() {
               />
             ))}
           </div>
-        </section>
+        </section>}
 
-        <section>
+        {activeTab === "bookmarks" && bookmarks.length > 0 && <section>
           <SectionTitle icon={<BookMarked size={18} />} title="Bookmark" count={bookmarks.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {bookmarks.map((item) => (
               <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Mở truyện" meta={`Đã lưu · ${formatDate(item.created_at)}`} />
             ))}
           </div>
-        </section>
+        </section>}
 
-        <section>
+        {activeTab === "follows" && follows.length > 0 && <section>
           <SectionTitle icon={<Heart size={18} />} title="Theo dõi" count={follows.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {follows.map((item) => (
               <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Xem cập nhật" meta={`Theo dõi · ${formatDate(item.created_at)}`} />
             ))}
           </div>
-        </section>
+        </section>}
       </div>
     </main>
   );
@@ -152,6 +180,20 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="font-display text-2xl font-semibold">{value}</p>
       <p className="mt-1 font-code text-[10px] uppercase text-muted">{label}</p>
     </div>
+  );
+}
+
+function TabLink({ href, active, label, count }: { href: string; active: boolean; label: string; count: number }) {
+  return (
+    <Link
+      href={href}
+      className={active
+        ? "inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold ink-on-dark"
+        : "inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-chip px-4 text-sm font-semibold text-chip-text transition hover:text-foreground"
+      }
+    >
+      {label} <span className="text-xs opacity-75">{count}</span>
+    </Link>
   );
 }
 
@@ -183,7 +225,7 @@ function ShelfCard({ manga, href, action, meta, progress, icon }: { manga: Manga
             <div className="h-full rounded-full bg-accent-2" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
           </div>
         )}
-        <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-[8px] bg-foreground px-3 text-sm font-semibold ink-on-dark">
+        <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold ink-on-dark">
           {icon} {action}
         </span>
       </div>

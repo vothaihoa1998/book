@@ -266,8 +266,8 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       )}
 
       {showSettings && (
-        <div className="fixed inset-0 z-50 bg-black/55 p-3 backdrop-blur-sm md:p-4" onClick={() => setShowSettings(false)}>
-          <div className="ml-auto flex h-full max-w-sm flex-col overflow-auto rounded-[8px] border border-border bg-background p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-0 backdrop-blur-sm md:items-stretch md:justify-end md:p-4" onClick={() => setShowSettings(false)}>
+          <div className="flex h-[min(82vh,720px)] w-full flex-col overflow-auto rounded-t-[18px] border border-border bg-background p-5 shadow-2xl md:h-full md:max-w-sm md:rounded-[8px]" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-code text-[11px] uppercase text-muted">Reader</p>
@@ -349,7 +349,7 @@ function Segmented({ value, options, onChange }: { value: string; options: Array
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            "inline-flex h-10 items-center gap-2 rounded-[8px] border border-border bg-surface px-3 text-sm font-semibold text-muted transition hover:border-foreground/30",
+            "inline-flex h-10 items-center gap-2 rounded-full bg-chip px-3 text-sm font-semibold text-chip-text transition hover:text-foreground",
             value === option.value && "border-foreground bg-foreground text-background",
           )}
         >

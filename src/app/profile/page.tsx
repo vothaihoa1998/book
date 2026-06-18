@@ -68,14 +68,14 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
-      <div className="grid gap-8 lg:grid-cols-[360px_1fr]">
+      <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
         <aside className="h-fit rounded-[8px] border border-border bg-surface p-5">
           <div className="flex items-start gap-4">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="Avatar" className="size-20 rounded-[8px] border border-border object-cover" referrerPolicy="no-referrer" />
+              <img src={avatarUrl} alt="Avatar" className="size-24 rounded-full border border-border object-cover" referrerPolicy="no-referrer" />
             ) : (
-              <div className="grid size-20 place-items-center rounded-[8px] bg-foreground ink-on-dark"><UserRound size={28} /></div>
+              <div className="grid size-24 place-items-center rounded-full bg-foreground ink-on-dark"><UserRound size={30} /></div>
             )}
             <div className="min-w-0">
               <p className="font-code text-[11px] uppercase text-muted">Tôi</p>
@@ -92,6 +92,9 @@ export default async function ProfilePage({ searchParams }: Props) {
         <section className="min-w-0">
           <p className="font-code text-[11px] uppercase text-muted">Hồ sơ đọc</p>
           <h2 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Không gian cá nhân</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted md:text-base md:leading-7">
+            Quản lý tên hiển thị, thống kê kệ đọc và tuỳ chọn reader mặc định cho những phiên đọc dài hơn.
+          </p>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
             <Stat icon={<BookMarked size={17} />} label="Bookmark" value={bookmarks.count ?? 0} />
@@ -124,10 +127,10 @@ export default async function ProfilePage({ searchParams }: Props) {
                   defaultValue={profile.data?.display_name ?? ""}
                   placeholder={getAuthName(user)}
                   maxLength={80}
-                  className="h-12 w-full rounded-[8px] border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground/40"
+                  className="h-12 w-full rounded-full border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground/40"
                 />
               </label>
-              <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-foreground px-4 text-sm font-semibold ink-on-dark">
+              <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold ink-on-dark">
                 <Save size={16} /> Lưu hồ sơ
               </button>
             </form>
@@ -140,7 +143,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 <Select name="direction" label="Kiểu đọc" value={prefs.data?.direction ?? "vertical"} options={["vertical", "horizontal-ltr", "horizontal-rtl"]} />
                 <Select name="fit" label="Fit ảnh" value={prefs.data?.fit ?? "width"} options={["width", "height", "original", "smart"]} />
               </div>
-              <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-[8px] bg-foreground px-4 text-sm font-semibold ink-on-dark">
+              <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold ink-on-dark">
                 <Save size={16} /> Lưu reader
               </button>
             </form>
@@ -173,7 +176,7 @@ function Select({ name, label, value, options }: { name: string; label: string; 
   return (
     <label className="block">
       <span className="mb-2 block font-code text-[11px] uppercase text-muted">{label}</span>
-      <select name={name} defaultValue={value} className="h-11 w-full rounded-[8px] border border-border bg-background px-3 text-sm outline-none transition focus:border-foreground/40">
+      <select name={name} defaultValue={value} className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground/40">
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
       </select>
     </label>
