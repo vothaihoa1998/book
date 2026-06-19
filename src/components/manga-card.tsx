@@ -18,10 +18,10 @@ export function MangaCard({ manga, compact = false, eager = false }: { manga: Ma
     <Link href={`/manga/${encodeURIComponent(manga.id)}`} className="group flex h-full min-w-0 flex-col focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
       <MangaCover manga={manga} eager={eager} className="hairline transition duration-200 group-hover:-translate-y-0.5" />
       <div className={compact ? "mt-3 flex flex-1 flex-col" : "mt-4 flex flex-1 flex-col"}>
-        <h3 className="line-clamp-2 min-h-[2.65rem] font-ui text-[15px] font-bold leading-snug text-foreground md:text-base">{manga.title}</h3>
-        <div className="mt-2 flex min-h-7 flex-nowrap items-center gap-1.5 overflow-hidden">
-          <span className="shrink-0 whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold leading-none text-muted">Ch. {chapterLabel}</span>
-          <Badge className="min-w-0 shrink whitespace-nowrap px-2.5 py-1 text-xs font-semibold leading-none">
+        <h3 className="line-clamp-2 min-h-[2.42rem] font-ui text-sm font-medium leading-[1.375] text-foreground">{manga.title}</h3>
+        <div className="mt-2 flex min-h-6 flex-nowrap items-center gap-1.5 overflow-hidden">
+          <span className="meta-mono shrink-0 whitespace-nowrap rounded-[var(--radius-control)] bg-secondary px-2 py-1">Ch. {chapterLabel}</span>
+          <Badge className="min-w-0 shrink whitespace-nowrap">
             {statusLabel[manga.status]}
           </Badge>
         </div>

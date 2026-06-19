@@ -32,11 +32,11 @@ export default async function HomePage() {
         </Link>
 
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold text-muted">Đang nổi bật / {featured.source}</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold leading-[1.05] text-foreground sm:mt-3 sm:text-4xl md:mt-4 md:text-6xl lg:text-7xl">
+          <p className="eyebrow">Đang nổi bật / {featured.source}</p>
+          <h1 className="mt-2 editorial-title text-3xl text-foreground sm:mt-3 sm:text-5xl md:mt-4 md:text-7xl lg:text-8xl">
             {featured.title}
           </h1>
-          <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-muted sm:line-clamp-3 sm:font-display sm:text-lg sm:leading-7 md:text-xl md:leading-8">
+          <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:line-clamp-3 sm:font-display sm:text-lg sm:leading-7 md:text-xl md:leading-8">
             {truncate(featured.description, 190)}
           </p>
           <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
@@ -48,7 +48,6 @@ export default async function HomePage() {
             <AppLinkButton
               href={`/manga/${encodeURIComponent(featured.id)}`}
               size="md"
-              pill
             >
               <Play size={16} fill="currentColor" />
               Bắt đầu đọc
@@ -57,7 +56,6 @@ export default async function HomePage() {
               href="/discover"
               variant="soft"
               size="md"
-              pill
               className="hidden sm:inline-flex"
             >
               Khám phá thêm
@@ -66,16 +64,16 @@ export default async function HomePage() {
 
           <div className="mt-8 hidden gap-3 border-y border-border py-4 sm:grid sm:grid-cols-3">
             <div>
-              <p className="text-xs font-semibold text-muted">Chương mới</p>
-              <p className="mt-1 text-lg font-semibold">{featured.lastChapter ?? "?"}</p>
+              <p className="meta-mono">Chương mới</p>
+              <p className="mt-1 text-lg font-medium">{featured.lastChapter ?? "?"}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted">Cập nhật</p>
-              <p className="mt-1 text-lg font-semibold">{formatDate(featured.updatedAt)}</p>
+              <p className="meta-mono">Cập nhật</p>
+              <p className="mt-1 text-lg font-medium">{formatDate(featured.updatedAt)}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted">Điểm đọc</p>
-              <p className="mt-1 text-lg font-semibold">{featured.rating ? featured.rating.toFixed(1) : "Editorial"}</p>
+              <p className="meta-mono">Điểm đọc</p>
+              <p className="mt-1 text-lg font-medium">{featured.rating ? featured.rating.toFixed(1) : "Editorial"}</p>
             </div>
           </div>
         </div>

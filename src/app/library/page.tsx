@@ -57,11 +57,11 @@ export default async function LibraryPage({ searchParams }: Props) {
   if (!user || !supabase) {
     return (
       <main className="mx-auto max-w-5xl px-4 py-14 sm:px-6 lg:px-8">
-        <p className="text-sm font-semibold text-muted">Thư viện</p>
-        <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Kệ đọc cá nhân</h1>
-        <div className="mt-8 border border-border bg-surface p-6">
+        <p className="eyebrow">Thư viện</p>
+        <h1 className="mt-3 editorial-title text-5xl md:text-7xl">Kệ đọc cá nhân</h1>
+        <div className="mt-8 rounded-[var(--radius-card)] border border-border bg-card p-6">
           <LogIn size={22} />
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted">
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground">
             Đăng nhập để đồng bộ bookmark, đang đọc và theo dõi. Khi chưa đăng nhập, reader vẫn lưu tiến độ trên thiết bị hiện tại.
           </p>
           <AppLinkButton href="/login" className="mt-5">
@@ -90,13 +90,13 @@ export default async function LibraryPage({ searchParams }: Props) {
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-end">
         <div>
-          <p className="text-sm font-semibold text-muted">Thư viện</p>
-          <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Kệ đọc của bạn</h1>
-          <p className="mt-5 max-w-2xl text-sm leading-6 text-muted">
+          <p className="eyebrow">Thư viện</p>
+          <h1 className="mt-3 editorial-title text-5xl md:text-7xl">Kệ đọc của bạn</h1>
+          <p className="mt-5 max-w-2xl text-sm leading-6 text-muted-foreground">
             Lịch sử chỉ hiện tập mới nhất của mỗi bộ, giúp bạn quay lại đọc nhanh mà không bị nhiễu bởi nhiều chapter cùng truyện.
           </p>
         </div>
-        <aside className="grid grid-cols-3 gap-2 rounded-[var(--radius-card)] border border-border bg-surface p-3 text-center">
+        <aside className="grid grid-cols-3 gap-2 rounded-[var(--radius-card)] border border-border bg-card p-3 text-center">
           <Stat label="Đang đọc" value={latestHistory.length} />
           <Stat label="Bookmark" value={bookmarks.length} />
           <Stat label="Theo dõi" value={follows.length} />
@@ -175,8 +175,8 @@ export default async function LibraryPage({ searchParams }: Props) {
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-[var(--radius-card)] bg-background px-2 py-3">
-      <p className="font-display text-2xl font-semibold">{value}</p>
-      <p className="mt-1 text-xs font-medium text-muted">{label}</p>
+      <p className="font-display text-2xl font-medium">{value}</p>
+      <p className="meta-mono mt-1">{label}</p>
     </div>
   );
 }
@@ -186,8 +186,8 @@ function TabLink({ href, active, label, count }: { href: string; active: boolean
     <Link
       href={href}
       className={active
-        ? "inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold ink-on-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-        : "inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-chip px-4 text-sm font-semibold text-chip-text transition hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+        ? "inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-primary px-4 text-sm font-medium text-primary-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+        : "inline-flex h-11 shrink-0 items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-4 text-sm font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       }
     >
       {label} <span className="text-xs opacity-75">{count}</span>
@@ -198,32 +198,32 @@ function TabLink({ href, active, label, count }: { href: string; active: boolean
 function SectionTitle({ icon, title, count }: { icon: React.ReactNode; title: string; count: number }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-      <h2 className="flex items-center gap-2 font-display text-3xl font-semibold">{icon} {title}</h2>
-      <span className="text-xs font-semibold text-muted">{count}</span>
+      <h2 className="flex items-center gap-2 section-title">{icon} {title}</h2>
+      <span className="meta-mono">{count}</span>
     </div>
   );
 }
 
 function ShelfCard({ manga, href, action, meta, progress, icon }: { manga: Manga; href: string; action: string; meta: string; progress?: number; icon?: React.ReactNode }) {
   return (
-    <Link href={href} className="group grid grid-cols-[82px_1fr] gap-4 rounded-[var(--radius-card)] border border-border bg-surface p-3 transition hover:border-foreground/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
+    <Link href={href} className="group grid grid-cols-[82px_1fr] gap-4 rounded-[var(--radius-card)] border border-border bg-card p-3 transition hover:border-input focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
       <div className="relative aspect-[2/3] overflow-hidden rounded-[4px] bg-surface-strong">
         {manga.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={manga.cover} alt={manga.title} className="h-full w-full object-cover transition group-hover:scale-[1.03]" referrerPolicy="no-referrer" />
         ) : (
-          <div className="grid h-full place-items-center text-muted"><UserRound size={22} /></div>
+          <div className="grid h-full place-items-center text-muted-foreground"><UserRound size={22} /></div>
         )}
       </div>
       <div className="min-w-0 py-1">
-        <p className="line-clamp-2 font-display text-xl font-semibold leading-tight">{manga.title}</p>
-        <p className="mt-2 line-clamp-1 text-xs font-medium text-muted">{meta}</p>
+        <p className="line-clamp-2 text-sm font-medium leading-[1.375]">{manga.title}</p>
+        <p className="meta-mono mt-2 line-clamp-1">{meta}</p>
         {typeof progress === "number" && (
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background">
             <div className="h-full rounded-full bg-accent-2" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
           </div>
         )}
-        <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-full bg-foreground px-3 text-sm font-semibold ink-on-dark">
+        <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground">
           {icon} {action}
         </span>
       </div>

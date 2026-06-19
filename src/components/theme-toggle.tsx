@@ -33,7 +33,7 @@ export function ThemeToggle() {
         applyTheme(next);
       }}
       variant="secondary"
-      className="text-muted hover:text-foreground"
+      className="text-muted-foreground hover:text-foreground"
       aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
     >

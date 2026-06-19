@@ -85,12 +85,12 @@ export default async function MangaDetailPage({ params }: Props) {
           <MangaCover manga={manga} priority className="hairline" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-muted">{manga.source} / {manga.status}</p>
-          <h1 className="mt-4 font-display text-5xl font-semibold leading-none md:text-7xl">{manga.title}</h1>
+          <p className="eyebrow">{manga.source} / {manga.status}</p>
+          <h1 className="mt-4 editorial-title text-5xl md:text-7xl">{manga.title}</h1>
           {manga.altTitles.length > 0 && (
-            <p className="mt-3 text-sm leading-6 text-muted">{manga.altTitles.slice(0, 3).join(" / ")}</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{manga.altTitles.slice(0, 3).join(" / ")}</p>
           )}
-          <p className="mt-6 max-w-3xl font-display text-xl leading-8 text-muted md:text-2xl md:leading-9">{manga.description}</p>
+          <p className="mt-6 max-w-3xl font-display text-xl leading-8 text-muted-foreground md:text-2xl md:leading-9">{manga.description}</p>
           <div className="mt-6 flex flex-wrap gap-2">
             {manga.genres.slice(0, 8).map((genre) => (
               <Badge key={genre}>{genre}</Badge>
@@ -130,38 +130,38 @@ export default async function MangaDetailPage({ params }: Props) {
           <div>
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-muted">Chapters</p>
-                <h2 className="mt-2 font-display text-4xl font-semibold">Danh sách chương</h2>
+                <p className="eyebrow">Chapters</p>
+                <h2 className="mt-2 section-title">Danh sách chương</h2>
               </div>
             </div>
-            <div className="divide-y divide-border border-y border-border bg-surface/55">
+            <div className="divide-y divide-border border-y border-border bg-card/55">
               {chapters.map((chapter) => (
                 <Link
                   key={chapter.id}
                   href={`/read/${encodeURIComponent(chapter.id)}`}
                   className="grid gap-3 px-4 py-4 transition hover:bg-foreground/[0.03] sm:grid-cols-[120px_1fr_auto] sm:items-center"
                 >
-                  <span className="text-xs font-semibold text-muted">Ch. {chapter.number}</span>
-                  <span className="font-display text-xl font-semibold">{chapter.title || `Chương ${chapter.number}`}</span>
-                  <span className="text-xs font-semibold text-muted">{formatDate(chapter.updatedAt)}</span>
+                  <span className="meta-mono">Ch. {chapter.number}</span>
+                  <span className="text-sm font-medium md:text-base">{chapter.title || `Chương ${chapter.number}`}</span>
+                  <span className="meta-mono">{formatDate(chapter.updatedAt)}</span>
                 </Link>
               ))}
             </div>
           </div>
-          <aside className="h-fit rounded-[var(--radius-card)] border border-border bg-surface p-5">
-            <p className="text-sm font-semibold text-muted">Thông tin</p>
+          <aside className="h-fit rounded-[var(--radius-card)] border border-border bg-card p-5">
+            <p className="eyebrow">Thông tin</p>
             <dl className="mt-5 space-y-4 text-sm">
               <div className="flex justify-between gap-4 border-b border-border pb-3">
-                <dt className="text-muted">Nguồn</dt>
-                <dd className="font-semibold">{manga.source}</dd>
+                <dt className="text-muted-foreground">Nguồn</dt>
+                <dd className="font-medium">{manga.source}</dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-border pb-3">
-                <dt className="text-muted">Trạng thái</dt>
-                <dd className="font-semibold">{manga.status}</dd>
+                <dt className="text-muted-foreground">Trạng thái</dt>
+                <dd className="font-medium">{manga.status}</dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-border pb-3">
-                <dt className="text-muted">Chương cuối</dt>
-                <dd className="font-semibold">{manga.lastChapter ?? "?"}</dd>
+                <dt className="text-muted-foreground">Chương cuối</dt>
+                <dd className="font-medium">{manga.lastChapter ?? "?"}</dd>
               </div>
             </dl>
           </aside>
@@ -180,10 +180,10 @@ export default async function MangaDetailPage({ params }: Props) {
 function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div>
-      <p className="flex items-center gap-2 text-sm font-semibold text-muted">
+      <p className="meta-mono flex items-center gap-2">
         {icon} {label}
       </p>
-      <p className="mt-2 text-base font-semibold">{value}</p>
+      <p className="mt-2 text-base font-medium">{value}</p>
     </div>
   );
 }

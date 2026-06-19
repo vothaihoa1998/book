@@ -40,11 +40,11 @@ export default async function ProfilePage({ searchParams }: Props) {
   if (!user || !supabase) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
-        <p className="text-sm font-semibold text-muted">Tôi</p>
-        <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Hồ sơ đọc</h1>
-        <section className="mt-8 rounded-[var(--radius-card)] border border-border bg-surface p-6">
+        <p className="eyebrow">Tôi</p>
+        <h1 className="mt-3 editorial-title text-5xl md:text-7xl">Hồ sơ đọc</h1>
+        <section className="mt-8 rounded-[var(--radius-card)] border border-border bg-card p-6">
           <LogIn size={22} />
-          <p className="mt-4 text-sm leading-6 text-muted">Đăng nhập để xem hồ sơ, thống kê thư viện và đồng bộ reader preferences.</p>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">Đăng nhập để xem hồ sơ, thống kê thư viện và đồng bộ reader preferences.</p>
           <AppLinkButton href="/login" className="mt-5">
             Đăng nhập
           </AppLinkButton>
@@ -69,18 +69,18 @@ export default async function ProfilePage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
-        <aside className="h-fit rounded-[var(--radius-card)] border border-border bg-surface p-5">
+        <aside className="h-fit rounded-[var(--radius-card)] border border-border bg-card p-5">
           <div className="flex items-start gap-4">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarUrl} alt="Avatar" className="size-24 rounded-full border border-border object-cover" referrerPolicy="no-referrer" />
             ) : (
-              <div className="grid size-24 place-items-center rounded-full bg-foreground ink-on-dark"><UserRound size={30} /></div>
+              <div className="grid size-24 place-items-center rounded-[var(--radius-card)] bg-primary text-primary-foreground"><UserRound size={30} /></div>
             )}
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-muted">Tôi</p>
-              <h1 className="mt-2 break-words font-display text-4xl font-semibold leading-none">{displayName}</h1>
-              {user.email && <p className="mt-2 break-all text-sm text-muted">{user.email}</p>}
+              <p className="eyebrow">Tôi</p>
+              <h1 className="mt-2 break-words section-title">{displayName}</h1>
+              {user.email && <p className="mt-2 break-all text-sm text-muted-foreground">{user.email}</p>}
             </div>
           </div>
           <dl className="mt-6 space-y-3 text-sm">
@@ -90,9 +90,9 @@ export default async function ProfilePage({ searchParams }: Props) {
         </aside>
 
         <section className="min-w-0">
-          <p className="text-sm font-semibold text-muted">Hồ sơ đọc</p>
-          <h2 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Không gian cá nhân</h2>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted md:text-base md:leading-7">
+          <p className="eyebrow">Hồ sơ đọc</p>
+          <h2 className="mt-3 editorial-title text-5xl md:text-7xl">Không gian cá nhân</h2>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base md:leading-7">
             Quản lý tên hiển thị, thống kê kệ đọc và tuỳ chọn reader mặc định cho những phiên đọc dài hơn.
           </p>
 
@@ -117,9 +117,9 @@ export default async function ProfilePage({ searchParams }: Props) {
           )}
 
           <div className="mt-8 grid gap-5 xl:grid-cols-2">
-            <form action={updateProfile} className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
-              <h3 className="font-display text-3xl font-semibold">Tên hiển thị</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">Tên này dùng cho hồ sơ và bình luận mới.</p>
+            <form action={updateProfile} className="rounded-[var(--radius-card)] border border-border bg-card p-5">
+              <h3 className="section-title">Tên hiển thị</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Tên này dùng cho hồ sơ và bình luận mới.</p>
               <TextField
                 className="mt-5"
                 label="Display name"
@@ -128,20 +128,20 @@ export default async function ProfilePage({ searchParams }: Props) {
                 placeholder={getAuthName(user)}
                 maxLength={80}
               />
-              <AppButton className="mt-4" pill>
+              <AppButton className="mt-4">
                 <Save size={16} /> Lưu hồ sơ
               </AppButton>
             </form>
 
-            <form action={updateProfilePrefs} className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
-              <h3 className="font-display text-3xl font-semibold">Reader mặc định</h3>
-              <p className="mt-2 text-sm leading-6 text-muted">Áp dụng cho các phiên đọc sau khi đồng bộ Supabase.</p>
+            <form action={updateProfilePrefs} className="rounded-[var(--radius-card)] border border-border bg-card p-5">
+              <h3 className="section-title">Reader mặc định</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Áp dụng cho các phiên đọc sau khi đồng bộ Supabase.</p>
               <div className="mt-5 grid gap-3">
                 <Select name="theme" label="Theme" value={prefs.data?.theme ?? "warm-light"} options={["warm-light", "paper", "sepia", "graphite-dark", "pure-black"]} />
                 <Select name="direction" label="Kiểu đọc" value={prefs.data?.direction ?? "vertical"} options={["vertical", "horizontal-ltr", "horizontal-rtl"]} />
                 <Select name="fit" label="Fit ảnh" value={prefs.data?.fit ?? "width"} options={["width", "height", "original", "smart"]} />
               </div>
-              <AppButton className="mt-4" pill>
+              <AppButton className="mt-4">
                 <Save size={16} /> Lưu reader
               </AppButton>
             </form>
@@ -155,17 +155,17 @@ export default async function ProfilePage({ searchParams }: Props) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4 border-b border-border pb-3">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-semibold capitalize">{value}</dd>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium capitalize">{value}</dd>
     </div>
   );
 }
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-4">
-      <p className="flex items-center gap-2 text-xs font-semibold text-muted">{icon} {label}</p>
-      <p className="mt-3 font-display text-4xl font-semibold">{value}</p>
+    <div className="rounded-[var(--radius-card)] border border-border bg-card p-4">
+      <p className="meta-mono flex items-center gap-2">{icon} {label}</p>
+      <p className="mt-3 font-display text-4xl font-medium">{value}</p>
     </div>
   );
 }

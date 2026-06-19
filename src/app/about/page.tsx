@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
-      <p className="text-sm font-semibold text-muted">About</p>
-      <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Nguồn dữ liệu và quyền nội dung</h1>
-      <div className="mt-10 space-y-8 font-display text-xl leading-9 text-muted">
+      <p className="eyebrow">About</p>
+      <h1 className="mt-3 editorial-title text-5xl md:text-7xl">Nguồn dữ liệu và quyền nội dung</h1>
+      <div className="mt-10 space-y-8 font-display text-xl leading-9 text-muted-foreground">
         <p>
           InkRail là client tổng hợp metadata và đường dẫn đọc từ các nguồn công khai như MangaDex và OTruyen. Nội dung được chuẩn hoá để người đọc có trải nghiệm nhất quán hơn trên web.
         </p>
@@ -23,8 +23,8 @@ export default function AboutPage() {
         </p>
       </div>
       <AlertState className="mt-10">
-        <h2 className="font-display text-3xl font-semibold">Nguồn ưu tiên</h2>
-        <ul className="mt-4 space-y-3 text-sm leading-6 text-muted">
+        <h2 className="section-title">Nguồn ưu tiên</h2>
+        <ul className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
           <li>MangaDex API: metadata, chapter feed, cover art và at-home image server.</li>
           <li>OTruyen API: danh sách tiếng Việt, tìm kiếm và chapter image CDN.</li>
           <li>Firecrawl fallback: chỉ nên bật khi cần tìm truyện không có ở hai nguồn chính, kèm cache aggressive.</li>

@@ -67,8 +67,8 @@ export function CommentsPanel({ mangaId, initialComments, initialUserId, initial
     <section className="mt-12 border-t border-border pt-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-muted">Cộng đồng</p>
-          <h2 className="mt-2 flex items-center gap-2 font-display text-4xl font-semibold"><MessageCircle size={22} /> Bình luận</h2>
+          <p className="eyebrow">Cộng đồng</p>
+          <h2 className="mt-2 flex items-center gap-2 section-title"><MessageCircle size={22} /> Bình luận</h2>
         </div>
         <SegmentedControl>
           <SegmentButton active={sort === "newest"} onClick={() => setSort("newest")}>Mới nhất</SegmentButton>
@@ -76,7 +76,7 @@ export function CommentsPanel({ mangaId, initialComments, initialUserId, initial
         </SegmentedControl>
       </div>
 
-      <div className="mt-5 rounded-[var(--radius-card)] border border-border bg-surface p-4">
+      <div className="mt-5 rounded-[var(--radius-card)] border border-border bg-card p-4">
         {userId ? (
           <form onSubmit={submit} className="grid gap-3">
             <TextareaField
@@ -88,7 +88,7 @@ export function CommentsPanel({ mangaId, initialComments, initialUserId, initial
               textareaClassName="min-h-28"
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-muted">{body.length}/1000</span>
+              <span className="meta-mono">{body.length}/1000</span>
               <AppButton disabled={loading || !body.trim()} size="sm">
                 <Send size={15} /> {loading ? "Đang gửi" : "Gửi"}
               </AppButton>
@@ -96,7 +96,7 @@ export function CommentsPanel({ mangaId, initialComments, initialUserId, initial
           </form>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="flex items-center gap-2 text-sm text-muted"><LogIn size={16} /> Đăng nhập để tham gia bình luận.</p>
+            <p className="flex items-center gap-2 text-sm text-muted-foreground"><LogIn size={16} /> Đăng nhập để tham gia bình luận.</p>
             <AppLinkButton href="/login" size="sm">Đăng nhập</AppLinkButton>
           </div>
         )}
@@ -108,21 +108,21 @@ export function CommentsPanel({ mangaId, initialComments, initialUserId, initial
           <article key={comment.id} className="py-5">
             <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 gap-3">
-                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-chip text-sm font-semibold text-chip-text">
+                <div className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-control)] bg-secondary text-sm font-medium text-muted-foreground">
                   {(comment.author_name || "B").charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold">{comment.author_name || "Bạn đọc"}</p>
-                  <p className="mt-1 text-xs font-medium text-muted">{new Date(comment.created_at).toLocaleString("vi-VN")}</p>
+                  <p className="font-medium">{comment.author_name || "Bạn đọc"}</p>
+                  <p className="meta-mono mt-1">{new Date(comment.created_at).toLocaleString("vi-VN")}</p>
                 </div>
               </div>
               {userId === comment.user_id && (
-                <IconButton type="button" onClick={() => remove(comment.id)} variant="secondary" className="text-muted hover:text-danger" aria-label="Xoá bình luận">
+                <IconButton type="button" onClick={() => remove(comment.id)} variant="secondary" className="text-muted-foreground hover:text-danger" aria-label="Xoá bình luận">
                   <Trash2 size={15} />
                 </IconButton>
               )}
             </div>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-muted">{comment.body}</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{comment.body}</p>
           </article>
         )) : (
           <EmptyState title="Chưa có bình luận" className="border-0 py-8">

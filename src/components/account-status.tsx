@@ -62,11 +62,11 @@ export function AccountStatus() {
   return (
     <Link
       href="/library"
-      className="group flex h-11 items-center gap-2 rounded-[var(--radius-control)] bg-foreground px-3 text-sm font-semibold ink-on-dark transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+      className="group flex h-9 items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       aria-label={`Đã đăng nhập: ${getUserLabel(user)}`}
       title={getUserLabel(user)}
     >
-      <span className="grid size-6 place-items-center rounded-full bg-background text-[11px] text-foreground">
+      <span className="grid size-6 place-items-center rounded-[var(--radius-control)] bg-background font-code text-[10px] text-foreground">
         {getInitial(user)}
       </span>
       <Check size={14} className="hidden sm:block" />

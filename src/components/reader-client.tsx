@@ -184,20 +184,20 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       {showUi && (
         <div className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/90 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center gap-3">
-            <IconLinkButton href={`/manga/${encodeURIComponent(manga.id)}`} aria-label="Quay lại truyện">
+            <IconLinkButton href={`/manga/${encodeURIComponent(manga.id)}`} className="size-11" aria-label="Quay lại truyện">
               <ArrowLeft size={16} />
             </IconLinkButton>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-display text-lg font-semibold">{manga.title}</p>
-              <p className="text-xs font-medium text-muted">Ch. {chapter.number} · {chapter.pages.length} trang</p>
+              <p className="truncate text-sm font-medium">{manga.title}</p>
+              <p className="meta-mono">Ch. {chapter.number} · {chapter.pages.length} trang</p>
             </div>
-            <IconButton onClick={warmCache} className="hidden sm:inline-flex" aria-label="Tải chương offline">
+            <IconButton onClick={warmCache} className="hidden size-11 sm:inline-flex" aria-label="Tải chương offline">
               <Download size={16} />
             </IconButton>
-            <IconButton onClick={() => document.documentElement.requestFullscreen?.()} className="hidden sm:inline-flex" aria-label="Toàn màn hình">
+            <IconButton onClick={() => document.documentElement.requestFullscreen?.()} className="hidden size-11 sm:inline-flex" aria-label="Toàn màn hình">
               <Maximize2 size={16} />
             </IconButton>
-            <IconButton onClick={() => setShowSettings(true)} variant="primary" aria-label="Cài đặt reader">
+            <IconButton onClick={() => setShowSettings(true)} variant="primary" className="size-11" aria-label="Cài đặt reader">
               <Settings size={16} />
             </IconButton>
           </div>
@@ -251,24 +251,24 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
           </div>
           <div className="flex items-center justify-between gap-3">
             {previousChapter ? (
-              <AppLinkButton href={`/read/${encodeURIComponent(previousChapter.id)}`} variant="secondary" size="sm">
+              <AppLinkButton href={`/read/${encodeURIComponent(previousChapter.id)}`} variant="secondary" size="md">
                 <ArrowLeft size={15} /> Trước
               </AppLinkButton>
             ) : (
               <span />
             )}
-            <AppButton onClick={saveBookmark} variant="secondary" size="sm">
+            <AppButton onClick={saveBookmark} variant="secondary" size="md">
               <Bookmark size={15} /> Lưu
             </AppButton>
             {nextChapter ? (
-              <AppLinkButton href={`/read/${encodeURIComponent(nextChapter.id)}`} size="sm">
+              <AppLinkButton href={`/read/${encodeURIComponent(nextChapter.id)}`} size="md">
                 Sau <ArrowRight size={15} />
               </AppLinkButton>
             ) : (
               <span />
             )}
           </div>
-          <p className="mt-2 text-center text-xs font-medium text-muted">{statusText}</p>
+          <p className="meta-mono mt-2 text-center">{statusText}</p>
         </div>
       )}
 
@@ -277,8 +277,8 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
           <BottomSheet onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-muted">Reader</p>
-                <h2 className="mt-1 font-display text-3xl font-semibold">Không gian đọc</h2>
+                <p className="eyebrow">Reader</p>
+                <h2 className="mt-1 section-title">Không gian đọc</h2>
               </div>
               <IconButton onClick={() => setShowSettings(false)} aria-label="Đóng cài đặt">
                 <X size={16} />

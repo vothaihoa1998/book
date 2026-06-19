@@ -27,8 +27,8 @@ export function MobileTabBar() {
               href={tab.href}
               className={
                 active
-                  ? "flex h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-chip text-foreground"
-                  : "flex h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-muted transition hover:text-foreground"
+                  ? "flex h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-secondary text-foreground"
+                  : "flex h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-muted-foreground transition hover:text-foreground"
               }
             >
               <Icon size={17} strokeWidth={1.8} />

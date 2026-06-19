@@ -55,7 +55,7 @@ function parseDiscoverState(raw: Record<string, string | string[] | undefined>):
 function ActivePill({ label, href }: { label: string; href: string }) {
   return (
     <Link href={href} className="focus-visible:outline-focus-ring rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
-      <FilterChip className="min-h-9 px-3 hover:text-foreground">
+      <FilterChip className="min-h-8 px-3 text-xs hover:text-foreground">
         {label} <X size={14} />
       </FilterChip>
     </Link>
@@ -110,15 +110,15 @@ export default async function DiscoverPage({ searchParams }: Props) {
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-12 lg:px-8">
       <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold text-muted">Khám phá</p>
-          <h1 className="mt-2 font-ui text-3xl font-bold leading-tight md:text-5xl">
+          <p className="eyebrow">Khám phá</p>
+          <h1 className="mt-2 font-ui text-3xl font-semibold leading-tight md:text-5xl">
             {hasQuery ? `Kết quả cho ${state.q}` : "Tất cả truyện"}
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted md:text-base md:leading-7">
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground md:text-base md:leading-7">
             Duyệt catalog theo một dòng chảy rõ ràng. Bộ lọc được ẩn để màn hình tập trung vào truyện trước, thao tác sau.
           </p>
         </div>
-        <FilterChip className="min-h-10 font-semibold">
+        <FilterChip className="min-h-8 px-3 text-xs">
           Trang {state.page}
         </FilterChip>
       </div>
@@ -140,7 +140,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
           {state.genres.map((genre) => (
             <ActivePill key={genre} label={genreLabel(genre)} href={discoverHref(state, { genres: state.genres.filter((item) => item !== genre), page: 1 })} />
           ))}
-          <Link href="/discover" className="inline-flex h-9 items-center rounded-full px-3 text-sm font-semibold text-muted transition hover:text-foreground">
+          <Link href="/discover" className="inline-flex h-9 items-center rounded-[var(--radius-control)] px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground">
             Xoá tất cả
           </Link>
         </section>
@@ -172,7 +172,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
               <ChevronLeft size={16} /> Trước
             </AppLinkButton>
           ) : <span />}
-          <span className="text-xs font-semibold text-muted">Trang {state.page}</span>
+          <span className="meta-mono">Trang {state.page}</span>
           {meta.hasMore ? (
             <AppLinkButton href={discoverHref(state, { page: state.page + 1 })}>
               Sau <ChevronRight size={16} />

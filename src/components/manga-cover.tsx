@@ -29,14 +29,14 @@ export function MangaCover({
           className="object-cover transition duration-300 group-hover:scale-[1.025]"
         />
       ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted">
+        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
           <BookOpen size={36} strokeWidth={1.4} />
-          <span className="font-display text-2xl font-semibold text-foreground">{manga.title}</span>
+          <span className="font-display text-2xl font-medium text-foreground">{manga.title}</span>
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 border border-foreground/10" />
       {showChapterBadge && manga.lastChapter && (
-        <div className="absolute bottom-2 left-2 right-2 rounded-[var(--radius-card)] bg-background/88 px-2.5 py-1 text-xs font-semibold text-foreground backdrop-blur">
+        <div className="meta-mono absolute bottom-2 left-2 right-2 rounded-[var(--radius-control)] bg-background/88 px-2.5 py-1 text-foreground backdrop-blur">
           Ch. {manga.lastChapter}
         </div>
       )}
