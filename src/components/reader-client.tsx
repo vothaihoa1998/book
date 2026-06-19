@@ -3,9 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, Columns2, Download, Maximize2, Moon, PanelTop, Settings, Smartphone, Sun, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, Download } from "lucide-react";
 import Link from "next/link";
-import { AppButton, BottomSheet, FieldLabel, IconButton, SegmentButton, SegmentedControl } from "@/components/ui/primitives";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +16,14 @@ const defaultPrefs: ReaderPrefs = {
   fontSize: 18,
   gap: 8,
 };
+
+const readerThemes: Array<{ value: ReaderPrefs["theme"]; label: string; className: string }> = [
+  { value: "warm-light", label: "Sáng dịu", className: "bg-[#fbf7ef]" },
+  { value: "paper", label: "Giấy", className: "bg-[#f7f1e7]" },
+  { value: "sepia", label: "Sepia", className: "bg-[#d9c3a1]" },
+  { value: "graphite-dark", label: "Graphite", className: "bg-[#343332]" },
+  { value: "pure-black", label: "OLED", className: "bg-black" },
+];
 
 function readStoredPrefs() {
   if (typeof window === "undefined") return defaultPrefs;
@@ -52,8 +59,6 @@ function readStoredProgress(chapterId: string, totalPages: number) {
 export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapter: Chapter; chapters: Chapter[] }) {
   const totalPages = Math.max(1, chapter.pages.length);
   const [showUi, setShowUi] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
   const [prefs, setPrefs] = useState<ReaderPrefs>(defaultPrefs);
   const [prefsReady, setPrefsReady] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -78,7 +83,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
     bookmarkState === "saved" ? "Đã lưu bookmark" :
     bookmarkState === "anonymous" ? "Đăng nhập để đồng bộ bookmark" :
     bookmarkState === "error" ? "Không lưu được bookmark" :
-    `${currentPage}/${totalPages} · H ẩn/hiện · ? phím tắt`;
+    `${currentPage}/${totalPages} · H ẩn/hiện`;
 
   const setReaderMode = (direction: ReaderPrefs["direction"]) => {
     setPrefs((current) => ({ ...current, direction }));
@@ -87,6 +92,11 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
 
   const setReaderFit = (fit: ReaderPrefs["fit"]) => {
     setPrefs((current) => ({ ...current, fit }));
+    setShowUi(true);
+  };
+
+  const setReaderTheme = (theme: ReaderPrefs["theme"]) => {
+    setPrefs((current) => ({ ...current, theme }));
     setShowUi(true);
   };
 
@@ -141,8 +151,8 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
 
       fetch("/api/preferences")
         .then((response) => (response.ok ? response.json() : null))
-        .then((payload: { prefs?: Partial<ReaderPrefs> } | null) => {
-          if (active && payload?.prefs) setPrefs((current) => ({ ...current, ...payload.prefs }));
+        .then((payload: { prefs?: Partial<ReaderPrefs>; mode?: string } | null) => {
+          if (active && payload?.mode === "synced" && payload.prefs) setPrefs((current) => ({ ...current, ...payload.prefs }));
         })
         .catch(() => undefined);
     });
@@ -196,16 +206,9 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setShowHelp(false);
-        setShowSettings(false);
-        setShowUi(true);
-      }
-      if (event.key === "?") {
-        setShowHelp((value) => !value);
         setShowUi(true);
       }
       if (event.key.toLowerCase() === "h") setShowUi((value) => !value);
-      if (event.key.toLowerCase() === "s") setShowSettings((value) => !value);
       if (event.key.toLowerCase() === "f") document.documentElement.requestFullscreen?.();
       if (event.key.toLowerCase() === "b") setShowUi((value) => !value);
       if (event.key === "ArrowRight" && nextChapter) location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
@@ -262,39 +265,51 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
-        <header className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-xl md:px-4">
-          <div className="scrollbar-none mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto">
+        <header className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">
+          <div className="scrollbar-none mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto">
             <Link
               href={`/manga/${encodeURIComponent(manga.id)}`}
-              className="inline-flex h-10 max-w-[42vw] shrink-0 items-center gap-2 rounded-[var(--radius-control)] px-2 text-xs font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:max-w-sm"
+              className="inline-flex h-9 max-w-[44vw] shrink-0 items-center gap-2 rounded-[var(--radius-control)] px-2 font-code text-[10px] font-medium uppercase text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:max-w-sm"
               aria-label="Quay lại truyện"
             >
-              <ArrowLeft size={15} />
+              <ArrowLeft size={14} />
               <span className="truncate">{manga.title}</span>
             </Link>
 
-            <div className="shrink-0 px-1 text-sm font-medium">Chương {chapter.number}</div>
+            <div className="shrink-0 px-1 text-sm font-medium md:absolute md:left-1/2 md:-translate-x-1/2">Chương {chapter.number}</div>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              <div className="flex rounded-[var(--radius-control)] border border-border bg-secondary p-1" aria-label="Kiểu đọc">
+              <div className="reader-control-group" aria-label="Kiểu đọc">
                 <QuickButton active={prefs.direction === "vertical"} onClick={() => setReaderMode("vertical")} label="Đọc dọc">↕</QuickButton>
                 <QuickButton active={prefs.direction === "horizontal-ltr"} onClick={() => setReaderMode("horizontal-ltr")} label="Đọc ngang trái sang phải">→</QuickButton>
                 <QuickButton active={prefs.direction === "horizontal-rtl"} onClick={() => setReaderMode("horizontal-rtl")} label="Đọc ngang phải sang trái">←</QuickButton>
               </div>
 
-              <div className="flex rounded-[var(--radius-control)] border border-border bg-secondary p-1" aria-label="Fit ảnh">
+              <div className="reader-control-group" aria-label="Fit ảnh">
                 <QuickButton active={prefs.fit === "width"} onClick={() => setReaderFit("width")} label="Fit chiều rộng">W</QuickButton>
                 <QuickButton active={prefs.fit === "height"} onClick={() => setReaderFit("height")} label="Fit chiều cao">H</QuickButton>
+                <QuickButton active={prefs.fit === "smart"} onClick={() => setReaderFit("smart")} label="Fit thông minh">II</QuickButton>
                 <QuickButton active={prefs.fit === "original"} onClick={() => setReaderFit("original")} label="Kích thước gốc">1:1</QuickButton>
               </div>
 
-              <QuickButton active={showSettings} onClick={() => setShowSettings(true)} label="Cài đặt reader">
-                <Settings size={15} />
-              </QuickButton>
+              <div className="reader-theme-row" aria-label="Màu đọc">
+                {readerThemes.map((theme) => (
+                  <ThemeSwatch
+                    key={theme.value}
+                    active={prefs.theme === theme.value}
+                    label={theme.label}
+                    className={theme.className}
+                    onClick={() => setReaderTheme(theme.value)}
+                  />
+                ))}
+              </div>
 
-              <QuickButton active={showHelp} onClick={() => setShowHelp((value) => !value)} label="Phím tắt reader">
-                ?
-              </QuickButton>
+              <ReaderIconButton onClick={saveBookmark} label="Lưu bookmark" active={bookmarkState === "saved"}>
+                <Bookmark size={15} />
+              </ReaderIconButton>
+              <ReaderIconButton onClick={warmCache} label="Tải offline" active={downloadState === "saved"}>
+                <Download size={15} />
+              </ReaderIconButton>
             </div>
           </div>
         </header>
@@ -380,133 +395,8 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
         </nav>
       )}
 
-      {showHelp && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-3 backdrop-blur-sm md:items-center md:justify-center" onClick={() => setShowHelp(false)}>
-          <section className="w-full rounded-[var(--radius-sheet)] border border-border bg-popover p-5 text-foreground shadow-2xl md:max-w-md" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="eyebrow">Reader</p>
-                <h2 className="section-title mt-1">Phím tắt</h2>
-              </div>
-              <IconButton onClick={() => setShowHelp(false)} aria-label="Đóng phím tắt">
-                <X size={16} />
-              </IconButton>
-            </div>
-            <dl className="mt-5 grid gap-3 text-sm">
-              <Shortcut label="H" value="Ẩn hoặc hiện giao diện đọc" />
-              <Shortcut label="?" value="Mở bảng phím tắt" />
-              <Shortcut label="S" value="Mở cài đặt nâng cao" />
-              <Shortcut label="F" value="Toàn màn hình" />
-              <Shortcut label="← / →" value="Chuyển chương khi có chương trước/sau" />
-            </dl>
-          </section>
-        </div>
-      )}
-
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-0 backdrop-blur-sm md:items-stretch md:justify-end md:p-4" onClick={() => setShowSettings(false)}>
-          <BottomSheet onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="eyebrow">Reader</p>
-                <h2 className="mt-1 section-title">Không gian đọc</h2>
-              </div>
-              <IconButton onClick={() => setShowSettings(false)} aria-label="Đóng cài đặt">
-                <X size={16} />
-              </IconButton>
-            </div>
-            <Setting label="Giao diện">
-              <Segmented
-                value={prefs.theme}
-                options={[
-                  { value: "warm-light", label: "Sáng dịu", icon: <Sun size={14} /> },
-                  { value: "paper", label: "Giấy", icon: <Sun size={14} /> },
-                  { value: "sepia", label: "Sepia", icon: <Sun size={14} /> },
-                  { value: "graphite-dark", label: "Graphite", icon: <Moon size={14} /> },
-                  { value: "pure-black", label: "OLED", icon: <Moon size={14} /> },
-                ]}
-                onChange={(theme) => setPrefs({ ...prefs, theme: theme as ReaderPrefs["theme"] })}
-              />
-            </Setting>
-            <Setting label="Đồng bộ">
-              <div className="grid grid-cols-2 gap-2">
-                <AppButton type="button" variant="secondary" onClick={saveBookmark}>
-                  <Bookmark size={15} /> Lưu
-                </AppButton>
-                <AppButton type="button" variant="secondary" onClick={warmCache}>
-                  <Download size={15} /> Offline
-                </AppButton>
-              </div>
-              <p className="meta-mono mt-3">{downloadState !== "idle" || bookmarkState !== "idle" ? statusText : `${currentPage}/${totalPages} đã đọc`}</p>
-            </Setting>
-            <Setting label="Cửa sổ">
-              <AppButton type="button" variant="secondary" onClick={() => document.documentElement.requestFullscreen?.()}>
-                <Maximize2 size={15} /> Toàn màn hình
-              </AppButton>
-            </Setting>
-            <Setting label="Kiểu đọc">
-              <Segmented
-                value={prefs.direction}
-                options={[
-                  { value: "vertical", label: "Dọc", icon: <Smartphone size={14} /> },
-                  { value: "horizontal-ltr", label: "LTR", icon: <Columns2 size={14} /> },
-                  { value: "horizontal-rtl", label: "RTL", icon: <Columns2 size={14} /> },
-                ]}
-                onChange={(direction) => setPrefs({ ...prefs, direction: direction as ReaderPrefs["direction"] })}
-              />
-            </Setting>
-            <Setting label="Khung ảnh">
-              <Segmented
-                value={prefs.fit}
-                options={[
-                  { value: "width", label: "Rộng", icon: <PanelTop size={14} /> },
-                  { value: "height", label: "Cao", icon: <PanelTop size={14} /> },
-                  { value: "smart", label: "Smart", icon: <PanelTop size={14} /> },
-                  { value: "original", label: "Gốc", icon: <PanelTop size={14} /> },
-                ]}
-                onChange={(fit) => setPrefs({ ...prefs, fit: fit as ReaderPrefs["fit"] })}
-              />
-            </Setting>
-            <Setting label={`Độ tối ${prefs.brightness}%`}>
-              <input type="range" min="0" max="60" value={prefs.brightness} onChange={(event) => setPrefs({ ...prefs, brightness: Number(event.target.value) })} className="w-full accent-accent" />
-            </Setting>
-            <Setting label={`Cỡ UI ${prefs.fontSize}px`}>
-              <input type="range" min="14" max="24" value={prefs.fontSize} onChange={(event) => setPrefs({ ...prefs, fontSize: Number(event.target.value) })} className="w-full accent-accent" />
-            </Setting>
-            <Setting label={`Khoảng cách trang ${prefs.gap}px`}>
-              <input type="range" min="0" max="32" value={prefs.gap} onChange={(event) => setPrefs({ ...prefs, gap: Number(event.target.value) })} className="w-full accent-accent" />
-            </Setting>
-          </BottomSheet>
-        </div>
-      )}
-
       <div className="pointer-events-none fixed inset-0 z-20" style={{ background: `rgba(0,0,0,${prefs.brightness / 100})` }} />
     </div>
-  );
-}
-
-function Setting({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="mt-6 block">
-      <FieldLabel>{label}</FieldLabel>
-      {children}
-    </label>
-  );
-}
-
-function Segmented({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string; icon?: ReactNode }>; onChange: (value: string) => void }) {
-  return (
-    <SegmentedControl>
-      {options.map((option) => (
-        <SegmentButton
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          active={value === option.value}
-        >
-          {option.icon} {option.label}
-        </SegmentButton>
-      ))}
-    </SegmentedControl>
   );
 }
 
@@ -518,7 +408,7 @@ function QuickButton({ active, onClick, label, children }: { active?: boolean; o
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "inline-flex h-8 min-w-8 items-center justify-center rounded-[calc(var(--radius-control)-2px)] px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-[calc(var(--radius-control)+1px)] px-2.5 text-sm font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
         active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
       )}
     >
@@ -527,11 +417,35 @@ function QuickButton({ active, onClick, label, children }: { active?: boolean; o
   );
 }
 
-function Shortcut({ label, value }: { label: string; value: string }) {
+function ReaderIconButton({ active, onClick, label, children }: { active?: boolean; onClick: () => void; label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] bg-secondary px-3 py-2">
-      <dt className="meta-mono inline-flex min-w-12 justify-center rounded bg-background px-2 py-1 text-foreground">{label}</dt>
-      <dd className="text-right text-sm text-muted-foreground">{value}</dd>
-    </div>
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        active && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ThemeSwatch({ active, label, className, onClick }: { active?: boolean; label: string; className: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "size-7 shrink-0 rounded-full border border-border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        className,
+        active && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+      )}
+    />
   );
 }

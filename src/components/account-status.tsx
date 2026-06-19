@@ -61,7 +61,7 @@ export function AccountStatus() {
 
   return (
     <Link
-      href="/library"
+      href="/profile"
       className="group flex h-9 items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       aria-label={`Đã đăng nhập: ${getUserLabel(user)}`}
       title={getUserLabel(user)}
