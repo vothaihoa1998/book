@@ -82,13 +82,16 @@ export default async function MangaDetailPage({ params }: Props) {
   const firstChapter = chapters.at(-1) ?? chapters[0];
   const latestChapter = chapters[0];
 
-  // "Continue reading" target: pick the chapter with the most recent in-progress entry
+  // "Continue reading" target: pick the chapter with the most recent
+  // in-progress entry, not just the first one in the chapter list (chapters
+  // may be returned in arbitrary order from the source).
   let continueTarget: { id: string; chapter: typeof latestChapter; progress: number } | null = null;
   for (const ch of chapters) {
     const p = progressByChapter.get(ch.id);
-    if (p && (p.scrollPercent > 1 && p.scrollPercent < 95)) {
+    if (!p) continue;
+    if (p.scrollPercent <= 1 || p.scrollPercent >= 95) continue;
+    if (!continueTarget || new Date(p.updatedAt) > new Date(progressByChapter.get(continueTarget.id)!.updatedAt)) {
       continueTarget = { id: ch.id, chapter: ch, progress: p.scrollPercent };
-      break;
     }
   }
 

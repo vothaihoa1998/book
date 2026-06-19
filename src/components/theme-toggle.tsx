@@ -12,12 +12,20 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("dark");
+  // Default to "light" to match layout.tsx's pre-paint default; this avoids a
+  // dark flash on first visit when the user has never toggled. The inline
+  // script in layout already painted the right data-theme before React mounts,
+  // so on first render we deliberately don't reapply — we just sync state to
+  // the attribute that's already on <html>.
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof document === "undefined") return "light";
+    return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  });
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const stored = window.localStorage.getItem("inkrail-theme");
-      const next = stored === "light" ? "light" : "dark";
+      const next = stored === "light" || stored === "dark" ? stored : "light";
       setTheme(next);
       document.documentElement.dataset.theme = next;
     });

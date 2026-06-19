@@ -78,6 +78,7 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   const lastSync = useRef(0);
   const prefsMounted = useRef(false);
   const pageRefs = useRef<Array<HTMLImageElement | null>>([]);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const orderedChapters = chapters.slice().reverse();
   const currentIndex = orderedChapters.findIndex((item) => item.id === chapter.id);
@@ -187,12 +188,14 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
 
         const target = pageRefs.current[progress.page - 1];
         if (target) {
-          target.scrollIntoView({ block: "start", behavior: "instant" });
+          // `behavior: "instant"` isn't in the standard TS DOM lib; cast is safe
+          // and degrades to default in older browsers.
+          target.scrollIntoView({ block: "start" });
           return;
         }
 
         const max = document.documentElement.scrollHeight - window.innerHeight;
-        window.scrollTo({ top: (progress.scrollPercent / 100) * max, behavior: "instant" });
+        window.scrollTo({ top: (progress.scrollPercent / 100) * max });
       });
     });
   }, [chapter.id, totalPages]);
@@ -219,31 +222,71 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // Don't hijack typing in inputs (e.g. comments later).
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+
       if (event.key === "Escape") {
-        setShowUi(true);
+        // Priority: close the controls drawer first, otherwise surface the UI
+        // if it's hidden, otherwise no-op.
+        if (showControls) {
+          setShowControls(false);
+          return;
+        }
+        if (!showUi) {
+          setShowUi(true);
+        }
+        return;
       }
-      if (event.key.toLowerCase() === "h") setShowUi((value) => !value);
-      if (event.key.toLowerCase() === "f") document.documentElement.requestFullscreen?.();
-      if (event.key.toLowerCase() === "b") setShowUi((value) => !value);
-      if (event.key === "ArrowRight" && nextChapter) location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
-      if (event.key === "ArrowLeft" && previousChapter) location.href = `/read/${encodeURIComponent(previousChapter.id)}`;
-      if (event.key.toLowerCase() === "j" && nextChapter) location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
-      if (event.key.toLowerCase() === "k" && previousChapter) location.href = `/read/${encodeURIComponent(previousChapter.id)}`;
+      if (event.key === "ArrowRight" && nextChapter) {
+        location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
+        return;
+      }
+      if (event.key === "ArrowLeft" && previousChapter) {
+        location.href = `/read/${encodeURIComponent(previousChapter.id)}`;
+        return;
+      }
+      if (event.key === "h" || event.key === "H") {
+        setShowUi((value) => !value);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextChapter, previousChapter]);
+  }, [nextChapter, previousChapter, showControls, showUi]);
 
   useEffect(() => {
-    const syncProgress = () => syncReaderProgress(findCurrentPage());
-    window.addEventListener("scroll", syncProgress, { passive: true });
-    window.addEventListener("resize", syncProgress);
-    syncProgress();
+    // rAF-throttle: findCurrentPage iterates every <img> ref and reads
+    // getBoundingClientRect. Without this, scroll fires it on every pixel.
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        syncReaderProgress(findCurrentPage());
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    onScroll();
     return () => {
-      window.removeEventListener("scroll", syncProgress);
-      window.removeEventListener("resize", syncProgress);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
     };
   }, [findCurrentPage, syncReaderProgress]);
+
+  // Close the controls drawer when clicking/tapping outside the header.
+  useEffect(() => {
+    if (!showControls) return;
+    const onPointer = (event: PointerEvent) => {
+      const header = headerRef.current;
+      if (!header) return;
+      if (event.target instanceof Node && header.contains(event.target)) return;
+      setShowControls(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [showControls]);
 
   async function warmCache() {
     if (!("caches" in window)) return;
@@ -279,7 +322,7 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
-        <header className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">
+        <header ref={headerRef} className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">
           <div className="mx-auto flex max-w-7xl items-center gap-2 md:gap-3">
             <Link
               href={`/manga/${encodeURIComponent(manga.id)}`}
@@ -359,8 +402,10 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
         <div
           className={cn(
             prefs.direction === "vertical" && "flex flex-col items-center",
-            prefs.direction !== "vertical" && "grid grid-cols-1 gap-4 md:grid-cols-2",
+            prefs.direction === "horizontal-ltr" && "grid grid-cols-1 gap-4 md:grid-cols-2",
+            prefs.direction === "horizontal-rtl" && "grid grid-cols-1 gap-4 md:grid-cols-2",
           )}
+          dir={prefs.direction === "horizontal-rtl" ? "rtl" : "ltr"}
           style={{ gap: `${prefs.gap}px` }}
         >
           {pageUrls.map((url, index) => (

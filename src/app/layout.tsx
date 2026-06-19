@@ -94,8 +94,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </Script>
       </head>
       <body className="min-h-screen pb-20 font-ui md:pb-0">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-[var(--radius-control)] focus:bg-foreground focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-background focus:shadow-[var(--shadow-lift)]"
+        >
+          Bỏ qua tới nội dung chính
+        </a>
         <SiteHeader />
-        <PageTransition>{children}</PageTransition>
+        <PageTransition>
+          <div id="main-content">{children}</div>
+        </PageTransition>
         <MobileTabBar />
         <PwaRegister />
       </body>

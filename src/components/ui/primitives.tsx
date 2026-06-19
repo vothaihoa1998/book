@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { type ComponentPropsWithoutRef, type ReactNode, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "soft" | "danger";
@@ -65,14 +65,14 @@ export function FieldLabel({ className, ...props }: ComponentPropsWithoutRef<"sp
 
 const inputClass = "w-full rounded-[var(--radius-control)] border border-input bg-background text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-ring focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-export function TextField({ label, className, inputClassName, ...props }: ComponentPropsWithoutRef<"input"> & { label?: string; inputClassName?: string }) {
+export const TextField = forwardRef<HTMLInputElement, ComponentPropsWithoutRef<"input"> & { label?: string; inputClassName?: string }>(function TextField({ label, className, inputClassName, ...props }, ref) {
   return (
     <label className={cn("block", className)}>
       {label && <FieldLabel>{label}</FieldLabel>}
-      <input className={cn(inputClass, "h-[var(--control-h-lg)] px-4", inputClassName)} {...props} />
+      <input ref={ref} className={cn(inputClass, "h-[var(--control-h-lg)] px-4", inputClassName)} {...props} />
     </label>
   );
-}
+});
 
 export function SelectField({ label, className, selectClassName, children, ...props }: ComponentPropsWithoutRef<"select"> & { label?: string; selectClassName?: string }) {
   return (
