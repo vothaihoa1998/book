@@ -33,7 +33,7 @@ export default async function HomePage() {
 
         <div className="max-w-3xl">
           <p className="eyebrow">Đang nổi bật / {featured.source}</p>
-          <h1 className="mt-2 editorial-title text-3xl text-foreground sm:mt-3 sm:text-5xl md:mt-4 md:text-7xl lg:text-8xl">
+          <h1 className="mt-2 editorial-title text-3xl text-foreground sm:mt-3 sm:text-5xl md:mt-4 md:text-7xl lg:text-6xl">
             {featured.title}
           </h1>
           <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:line-clamp-3 sm:font-display sm:text-lg sm:leading-7 md:text-xl md:leading-8">
@@ -44,8 +44,9 @@ export default async function HomePage() {
               <Badge key={genre}>{genre}</Badge>
             ))}
           </div>
-          <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row">
+          <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row ">
             <AppLinkButton
+              className="rounded-3xl text-white!"
               href={`/manga/${encodeURIComponent(featured.id)}`}
               size="md"
             >

@@ -2,10 +2,10 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Bookmark, Columns2, Download, Maximize2, Moon, PanelTop, Settings, Smartphone, Sun, X } from "lucide-react";
 import Link from "next/link";
-import { AppButton, AppLinkButton, BottomSheet, FieldLabel, IconButton, IconLinkButton, SegmentButton, SegmentedControl } from "@/components/ui/primitives";
+import { AppButton, BottomSheet, FieldLabel, IconButton, SegmentButton, SegmentedControl } from "@/components/ui/primitives";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -30,15 +30,39 @@ function readStoredPrefs() {
   }
 }
 
+function clampPage(page: number, totalPages: number) {
+  return Math.min(totalPages, Math.max(1, Math.round(page)));
+}
+
+function readStoredProgress(chapterId: string, totalPages: number) {
+  if (typeof window === "undefined") return { page: 1, scrollPercent: 0 };
+  const stored = window.localStorage.getItem(`inkrail-progress:${chapterId}`);
+  if (!stored) return { page: 1, scrollPercent: 0 };
+
+  try {
+    const parsed = JSON.parse(stored) as { pageIndex?: number; scrollPercent?: number };
+    const page = typeof parsed.pageIndex === "number" ? clampPage(parsed.pageIndex + 1, totalPages) : 1;
+    const scrollPercent = typeof parsed.scrollPercent === "number" ? Math.min(100, Math.max(0, parsed.scrollPercent)) : 0;
+    return { page, scrollPercent };
+  } catch {
+    return { page: 1, scrollPercent: 0 };
+  }
+}
+
 export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapter: Chapter; chapters: Chapter[] }) {
+  const totalPages = Math.max(1, chapter.pages.length);
   const [showUi, setShowUi] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [prefs, setPrefs] = useState<ReaderPrefs>(readStoredPrefs);
+  const [showHelp, setShowHelp] = useState(false);
+  const [prefs, setPrefs] = useState<ReaderPrefs>(defaultPrefs);
+  const [prefsReady, setPrefsReady] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [downloadState, setDownloadState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [bookmarkState, setBookmarkState] = useState<"idle" | "saving" | "saved" | "error" | "anonymous">("idle");
   const lastSync = useRef(0);
   const prefsMounted = useRef(false);
+  const pageRefs = useRef<Array<HTMLImageElement | null>>([]);
 
   const orderedChapters = chapters.slice().reverse();
   const currentIndex = orderedChapters.findIndex((item) => item.id === chapter.id);
@@ -54,44 +78,103 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
     bookmarkState === "saved" ? "Đã lưu bookmark" :
     bookmarkState === "anonymous" ? "Đăng nhập để đồng bộ bookmark" :
     bookmarkState === "error" ? "Không lưu được bookmark" :
-    "Chạm giữa màn hình để ẩn hoặc hiện giao diện";
+    `${currentPage}/${totalPages} · H ẩn/hiện · ? phím tắt`;
 
-  useEffect(() => {
-    if (!showUi || showSettings) return;
-    const timer = window.setTimeout(() => setShowUi(false), 3200);
-    return () => window.clearTimeout(timer);
-  }, [showUi, showSettings]);
+  const setReaderMode = (direction: ReaderPrefs["direction"]) => {
+    setPrefs((current) => ({ ...current, direction }));
+    setShowUi(true);
+  };
 
-  useEffect(() => {
-    const progress = localStorage.getItem(`inkrail-progress:${chapter.id}`);
-    if (progress) {
-      const parsed = JSON.parse(progress) as { scrollPercent?: number };
-      if (typeof parsed.scrollPercent === "number") {
-        const scrollPercent = parsed.scrollPercent;
-        requestAnimationFrame(() => {
-          setScrollProgress(Math.min(100, Math.max(0, scrollPercent)));
-          const max = document.documentElement.scrollHeight - window.innerHeight;
-          window.scrollTo({ top: (scrollPercent / 100) * max, behavior: "instant" });
-        });
+  const setReaderFit = (fit: ReaderPrefs["fit"]) => {
+    setPrefs((current) => ({ ...current, fit }));
+    setShowUi(true);
+  };
+
+  const findCurrentPage = useCallback(() => {
+    const center = window.innerHeight / 2;
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    pageRefs.current.forEach((node, index) => {
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      const distance = rect.top <= center && rect.bottom >= center
+        ? 0
+        : Math.min(Math.abs(rect.top - center), Math.abs(rect.bottom - center));
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
       }
-    }
-  }, [chapter.id]);
+    });
+
+    return clampPage(bestIndex + 1, totalPages);
+  }, [totalPages]);
+
+  const syncReaderProgress = useCallback((page: number) => {
+    const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const scrollPercent = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
+    const pageIndex = clampPage(page, totalPages) - 1;
+    const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent };
+
+    setScrollProgress(scrollPercent);
+    setCurrentPage(pageIndex + 1);
+    localStorage.setItem(`inkrail-progress:${chapter.id}`, JSON.stringify(payload));
+
+    const now = Date.now();
+    if (now - lastSync.current < 3000) return;
+    lastSync.current = now;
+    fetch("/api/progress", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [chapter.id, manga.id, totalPages]);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/preferences")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { prefs?: Partial<ReaderPrefs> } | null) => {
-        if (active && payload?.prefs) setPrefs((current) => ({ ...current, ...payload.prefs }));
-      })
-      .catch(() => undefined);
+    const frame = window.requestAnimationFrame(() => {
+      if (!active) return;
+      setPrefs(readStoredPrefs());
+      setPrefsReady(true);
+
+      fetch("/api/preferences")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: { prefs?: Partial<ReaderPrefs> } | null) => {
+          if (active && payload?.prefs) setPrefs((current) => ({ ...current, ...payload.prefs }));
+        })
+        .catch(() => undefined);
+    });
 
     return () => {
       active = false;
+      window.cancelAnimationFrame(frame);
     };
   }, []);
 
   useEffect(() => {
+    const progress = readStoredProgress(chapter.id, totalPages);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setCurrentPage(progress.page);
+        setScrollProgress(progress.scrollPercent);
+
+        const target = pageRefs.current[progress.page - 1];
+        if (target) {
+          target.scrollIntoView({ block: "start", behavior: "instant" });
+          return;
+        }
+
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        window.scrollTo({ top: (progress.scrollPercent / 100) * max, behavior: "instant" });
+      });
+    });
+  }, [chapter.id, totalPages]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
     localStorage.setItem("inkrail-reader-prefs", JSON.stringify(prefs));
     if (!prefsMounted.current) {
       prefsMounted.current = true;
@@ -108,11 +191,20 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [prefs]);
+  }, [prefs, prefsReady]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowUi(true);
+      if (event.key === "Escape") {
+        setShowHelp(false);
+        setShowSettings(false);
+        setShowUi(true);
+      }
+      if (event.key === "?") {
+        setShowHelp((value) => !value);
+        setShowUi(true);
+      }
+      if (event.key.toLowerCase() === "h") setShowUi((value) => !value);
       if (event.key.toLowerCase() === "s") setShowSettings((value) => !value);
       if (event.key.toLowerCase() === "f") document.documentElement.requestFullscreen?.();
       if (event.key.toLowerCase() === "b") setShowUi((value) => !value);
@@ -126,27 +218,15 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   }, [nextChapter, previousChapter]);
 
   useEffect(() => {
-    const syncProgress = () => {
-      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const scrollPercent = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
-      const pageIndex = Math.min(chapter.pages.length - 1, Math.floor((scrollPercent / 100) * chapter.pages.length));
-      const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent };
-      setScrollProgress(scrollPercent);
-      localStorage.setItem(`inkrail-progress:${chapter.id}`, JSON.stringify(payload));
-
-      const now = Date.now();
-      if (now - lastSync.current < 3000) return;
-      lastSync.current = now;
-      fetch("/api/progress", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => undefined);
-    };
+    const syncProgress = () => syncReaderProgress(findCurrentPage());
     window.addEventListener("scroll", syncProgress, { passive: true });
-    return () => window.removeEventListener("scroll", syncProgress);
-  }, [chapter, manga.id]);
+    window.addEventListener("resize", syncProgress);
+    syncProgress();
+    return () => {
+      window.removeEventListener("scroll", syncProgress);
+      window.removeEventListener("resize", syncProgress);
+    };
+  }, [findCurrentPage, syncReaderProgress]);
 
   async function warmCache() {
     if (!("caches" in window)) return;
@@ -182,26 +262,42 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
-        <div className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/90 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center gap-3">
-            <IconLinkButton href={`/manga/${encodeURIComponent(manga.id)}`} className="size-11" aria-label="Quay lại truyện">
-              <ArrowLeft size={16} />
-            </IconLinkButton>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{manga.title}</p>
-              <p className="meta-mono">Ch. {chapter.number} · {chapter.pages.length} trang</p>
+        <header className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur-xl md:px-4">
+          <div className="scrollbar-none mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto">
+            <Link
+              href={`/manga/${encodeURIComponent(manga.id)}`}
+              className="inline-flex h-10 max-w-[42vw] shrink-0 items-center gap-2 rounded-[var(--radius-control)] px-2 text-xs font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:max-w-sm"
+              aria-label="Quay lại truyện"
+            >
+              <ArrowLeft size={15} />
+              <span className="truncate">{manga.title}</span>
+            </Link>
+
+            <div className="shrink-0 px-1 text-sm font-medium">Chương {chapter.number}</div>
+
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <div className="flex rounded-[var(--radius-control)] border border-border bg-secondary p-1" aria-label="Kiểu đọc">
+                <QuickButton active={prefs.direction === "vertical"} onClick={() => setReaderMode("vertical")} label="Đọc dọc">↕</QuickButton>
+                <QuickButton active={prefs.direction === "horizontal-ltr"} onClick={() => setReaderMode("horizontal-ltr")} label="Đọc ngang trái sang phải">→</QuickButton>
+                <QuickButton active={prefs.direction === "horizontal-rtl"} onClick={() => setReaderMode("horizontal-rtl")} label="Đọc ngang phải sang trái">←</QuickButton>
+              </div>
+
+              <div className="flex rounded-[var(--radius-control)] border border-border bg-secondary p-1" aria-label="Fit ảnh">
+                <QuickButton active={prefs.fit === "width"} onClick={() => setReaderFit("width")} label="Fit chiều rộng">W</QuickButton>
+                <QuickButton active={prefs.fit === "height"} onClick={() => setReaderFit("height")} label="Fit chiều cao">H</QuickButton>
+                <QuickButton active={prefs.fit === "original"} onClick={() => setReaderFit("original")} label="Kích thước gốc">1:1</QuickButton>
+              </div>
+
+              <QuickButton active={showSettings} onClick={() => setShowSettings(true)} label="Cài đặt reader">
+                <Settings size={15} />
+              </QuickButton>
+
+              <QuickButton active={showHelp} onClick={() => setShowHelp((value) => !value)} label="Phím tắt reader">
+                ?
+              </QuickButton>
             </div>
-            <IconButton onClick={warmCache} className="hidden size-11 sm:inline-flex" aria-label="Tải chương offline">
-              <Download size={16} />
-            </IconButton>
-            <IconButton onClick={() => document.documentElement.requestFullscreen?.()} className="hidden size-11 sm:inline-flex" aria-label="Toàn màn hình">
-              <Maximize2 size={16} />
-            </IconButton>
-            <IconButton onClick={() => setShowSettings(true)} variant="primary" className="size-11" aria-label="Cài đặt reader">
-              <Settings size={16} />
-            </IconButton>
           </div>
-        </div>
+        </header>
       )}
 
       <button aria-label="Ẩn hoặc hiện giao diện đọc" onClick={() => setShowUi((value) => !value)} className="fixed inset-x-1/3 top-1/3 z-10 h-1/3 cursor-default" />
@@ -214,7 +310,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
 
       <main
         className={cn(
-          "mx-auto px-0 pb-28 pt-24 md:pt-28",
+          "mx-auto px-0 pb-28 pt-16 md:pt-20",
           prefs.direction === "vertical" ? "max-w-[920px]" : "max-w-7xl",
         )}
       >
@@ -228,6 +324,9 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
           {pageUrls.map((url, index) => (
             <img
               key={url}
+              ref={(node) => {
+                pageRefs.current[index] = node;
+              }}
               src={url}
               alt={`${manga.title} trang ${index + 1}`}
               loading={index < 2 ? "eager" : "lazy"}
@@ -245,30 +344,62 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       </main>
 
       {showUi && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-xl md:left-auto md:right-5 md:bottom-5 md:w-[380px] md:rounded-[var(--radius-card)] md:border md:pb-3 md:shadow-xl">
-          <div className="mb-3 h-1 overflow-hidden rounded-full bg-surface-strong">
-            <div className="h-full rounded-full bg-accent-2" style={{ width: `${scrollProgress}%` }} />
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl" aria-label="Điều hướng chương">
+          <div className="mb-2 h-0.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${scrollProgress}%` }} />
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2">
             {previousChapter ? (
-              <AppLinkButton href={`/read/${encodeURIComponent(previousChapter.id)}`} variant="secondary" size="md">
-                <ArrowLeft size={15} /> Trước
-              </AppLinkButton>
+              <Link
+                href={`/read/${encodeURIComponent(previousChapter.id)}`}
+                className="inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-foreground transition hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+              >
+                <ArrowLeft size={15} /> <span><span className="hidden sm:inline">Chương </span>trước</span>
+              </Link>
             ) : (
-              <span />
+              <span className="inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-muted-foreground opacity-45">
+                <ArrowLeft size={15} /> <span><span className="hidden sm:inline">Chương </span>trước</span>
+              </span>
             )}
-            <AppButton onClick={saveBookmark} variant="secondary" size="md">
-              <Bookmark size={15} /> Lưu
-            </AppButton>
+            <p className="meta-mono text-center leading-5">
+              {statusText}
+            </p>
             {nextChapter ? (
-              <AppLinkButton href={`/read/${encodeURIComponent(nextChapter.id)}`} size="md">
-                Sau <ArrowRight size={15} />
-              </AppLinkButton>
+              <Link
+                href={`/read/${encodeURIComponent(nextChapter.id)}`}
+                className="ml-auto inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+              >
+                <span><span className="hidden sm:inline">Chương </span>sau</span> <ArrowRight size={15} />
+              </Link>
             ) : (
-              <span />
+              <span className="ml-auto inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-muted-foreground opacity-45">
+                Hết chương <ArrowRight size={15} />
+              </span>
             )}
           </div>
-          <p className="meta-mono mt-2 text-center">{statusText}</p>
+        </nav>
+      )}
+
+      {showHelp && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-3 backdrop-blur-sm md:items-center md:justify-center" onClick={() => setShowHelp(false)}>
+          <section className="w-full rounded-[var(--radius-sheet)] border border-border bg-popover p-5 text-foreground shadow-2xl md:max-w-md" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="eyebrow">Reader</p>
+                <h2 className="section-title mt-1">Phím tắt</h2>
+              </div>
+              <IconButton onClick={() => setShowHelp(false)} aria-label="Đóng phím tắt">
+                <X size={16} />
+              </IconButton>
+            </div>
+            <dl className="mt-5 grid gap-3 text-sm">
+              <Shortcut label="H" value="Ẩn hoặc hiện giao diện đọc" />
+              <Shortcut label="?" value="Mở bảng phím tắt" />
+              <Shortcut label="S" value="Mở cài đặt nâng cao" />
+              <Shortcut label="F" value="Toàn màn hình" />
+              <Shortcut label="← / →" value="Chuyển chương khi có chương trước/sau" />
+            </dl>
+          </section>
         </div>
       )}
 
@@ -296,6 +427,22 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
                 ]}
                 onChange={(theme) => setPrefs({ ...prefs, theme: theme as ReaderPrefs["theme"] })}
               />
+            </Setting>
+            <Setting label="Đồng bộ">
+              <div className="grid grid-cols-2 gap-2">
+                <AppButton type="button" variant="secondary" onClick={saveBookmark}>
+                  <Bookmark size={15} /> Lưu
+                </AppButton>
+                <AppButton type="button" variant="secondary" onClick={warmCache}>
+                  <Download size={15} /> Offline
+                </AppButton>
+              </div>
+              <p className="meta-mono mt-3">{downloadState !== "idle" || bookmarkState !== "idle" ? statusText : `${currentPage}/${totalPages} đã đọc`}</p>
+            </Setting>
+            <Setting label="Cửa sổ">
+              <AppButton type="button" variant="secondary" onClick={() => document.documentElement.requestFullscreen?.()}>
+                <Maximize2 size={15} /> Toàn màn hình
+              </AppButton>
             </Setting>
             <Setting label="Kiểu đọc">
               <Segmented
@@ -338,7 +485,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   );
 }
 
-function Setting({ label, children }: { label: string; children: React.ReactNode }) {
+function Setting({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="mt-6 block">
       <FieldLabel>{label}</FieldLabel>
@@ -347,7 +494,7 @@ function Setting({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function Segmented({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string; icon?: React.ReactNode }>; onChange: (value: string) => void }) {
+function Segmented({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string; icon?: ReactNode }>; onChange: (value: string) => void }) {
   return (
     <SegmentedControl>
       {options.map((option) => (
@@ -360,5 +507,31 @@ function Segmented({ value, options, onChange }: { value: string; options: Array
         </SegmentButton>
       ))}
     </SegmentedControl>
+  );
+}
+
+function QuickButton({ active, onClick, label, children }: { active?: boolean; onClick: () => void; label: string; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-8 min-w-8 items-center justify-center rounded-[calc(var(--radius-control)-2px)] px-2 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Shortcut({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] bg-secondary px-3 py-2">
+      <dt className="meta-mono inline-flex min-w-12 justify-center rounded bg-background px-2 py-1 text-foreground">{label}</dt>
+      <dd className="text-right text-sm text-muted-foreground">{value}</dd>
+    </div>
   );
 }

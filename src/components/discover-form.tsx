@@ -10,9 +10,9 @@ const statuses = [
 ];
 
 const sorts = [
-  { value: "hot", label: "Hot", icon: Flame },
-  { value: "latest", label: "Mới cập nhật", icon: Sparkles },
-  { value: "popular", label: "Phổ biến", icon: Sparkles },
+  { value: "latest", label: "Mới nhất", icon: Sparkles },
+  { value: "hot", label: "Xu hướng", icon: Flame },
+  { value: "rating", label: "Đánh giá", icon: Sparkles },
 ];
 
 function years() {
@@ -30,7 +30,7 @@ function years() {
 export function DiscoverForm({
   q = "",
   status = "all",
-  sort = "hot",
+  sort = "latest",
   year = "all",
   genres = [],
 }: {
@@ -41,10 +41,10 @@ export function DiscoverForm({
   genres?: string[];
 }) {
   const selectedGenres = new Set(genres.map((genre) => genre.toLowerCase()));
-  const activeFilterCount = genres.length + (status !== "all" ? 1 : 0) + (year !== "all" ? 1 : 0) + (sort !== "hot" ? 1 : 0);
+  const activeFilterCount = genres.length + (status !== "all" ? 1 : 0) + (year !== "all" ? 1 : 0) + (sort !== "latest" ? 1 : 0);
 
   return (
-    <form className="relative z-[70] rounded-[var(--radius-card)] border border-border bg-card/72 p-3 md:p-4">
+    <form className="relative z-[70] mt-8 rounded-[var(--radius-card)] border border-border bg-card/72 p-3 md:p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={17} />
