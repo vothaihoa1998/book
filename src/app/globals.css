@@ -10,7 +10,7 @@
 html[data-theme="light"] {
   /* Surfaces */
   --background: #f4ecdc;            /* warm cream paper */
-  --foreground: #2b1d12;            /* dark chocolate */
+  --foreground: #101011;            /* dark chocolate */
   --card: #fdf8ec;                  /* lifted paper */
   --popover: #ffffff;               /* popover paper */
   --secondary: #ece2cd;             /* aged paper */
@@ -40,7 +40,7 @@ html[data-theme="light"] {
   --warning: #c2780f;
 
   /* Legacy aliases (kept for backward compat) */
-  --graphite: #2b1d12;
+  --graphite: #101011;
   --graphite-text: #fdf8ec;
 }
 
@@ -327,12 +327,12 @@ html[data-theme="dark"] .grain::after {
 
 .reader-theme-paper {
   --background: #faf3e2;
-  --foreground: #2b1d12;
+  --foreground: #101011;
 }
 
 .reader-theme-warm-light {
   --background: #f7f1e7;
-  --foreground: #2b1d12;
+  --foreground: #101011;
 }
 
 .reader-theme-graphite-dark {

@@ -83,29 +83,49 @@ alter table public.manga_cache enable row level security;
 alter table public.chapter_cache enable row level security;
 alter table public.source_fetch_log enable row level security;
 
+drop policy if exists "profiles select own" on public.profiles;
+drop policy if exists "profiles insert own" on public.profiles;
+drop policy if exists "profiles update own" on public.profiles;
 create policy "profiles select own" on public.profiles for select to authenticated using (auth.uid() = id);
 create policy "profiles insert own" on public.profiles for insert to authenticated with check (auth.uid() = id);
 create policy "profiles update own" on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
 
+drop policy if exists "bookmarks select own" on public.bookmarks;
+drop policy if exists "bookmarks insert own" on public.bookmarks;
+drop policy if exists "bookmarks update own" on public.bookmarks;
+drop policy if exists "bookmarks delete own" on public.bookmarks;
 create policy "bookmarks select own" on public.bookmarks for select to authenticated using (auth.uid() = user_id);
 create policy "bookmarks insert own" on public.bookmarks for insert to authenticated with check (auth.uid() = user_id);
 create policy "bookmarks update own" on public.bookmarks for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "bookmarks delete own" on public.bookmarks for delete to authenticated using (auth.uid() = user_id);
 
+drop policy if exists "follows select own" on public.follows;
+drop policy if exists "follows insert own" on public.follows;
+drop policy if exists "follows update own" on public.follows;
+drop policy if exists "follows delete own" on public.follows;
 create policy "follows select own" on public.follows for select to authenticated using (auth.uid() = user_id);
 create policy "follows insert own" on public.follows for insert to authenticated with check (auth.uid() = user_id);
 create policy "follows update own" on public.follows for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "follows delete own" on public.follows for delete to authenticated using (auth.uid() = user_id);
 
+drop policy if exists "history select own" on public.reading_history;
+drop policy if exists "history insert own" on public.reading_history;
+drop policy if exists "history update own" on public.reading_history;
+drop policy if exists "history delete own" on public.reading_history;
 create policy "history select own" on public.reading_history for select to authenticated using (auth.uid() = user_id);
 create policy "history insert own" on public.reading_history for insert to authenticated with check (auth.uid() = user_id);
 create policy "history update own" on public.reading_history for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "history delete own" on public.reading_history for delete to authenticated using (auth.uid() = user_id);
 
+drop policy if exists "prefs select own" on public.reading_prefs;
+drop policy if exists "prefs insert own" on public.reading_prefs;
+drop policy if exists "prefs update own" on public.reading_prefs;
 create policy "prefs select own" on public.reading_prefs for select to authenticated using (auth.uid() = user_id);
 create policy "prefs insert own" on public.reading_prefs for insert to authenticated with check (auth.uid() = user_id);
 create policy "prefs update own" on public.reading_prefs for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
+drop policy if exists "manga cache public read" on public.manga_cache;
+drop policy if exists "chapter cache public read" on public.chapter_cache;
 create policy "manga cache public read" on public.manga_cache for select to anon, authenticated using (expires_at > now());
 create policy "chapter cache public read" on public.chapter_cache for select to anon, authenticated using (expires_at > now());
 
@@ -118,6 +138,10 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('avatars', 'avatars', true, 2097152, array['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 on conflict (id) do update set public = true, file_size_limit = 2097152, allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists "avatars public read" on storage.objects;
+drop policy if exists "avatars insert own folder" on storage.objects;
+drop policy if exists "avatars update own folder" on storage.objects;
+drop policy if exists "avatars delete own folder" on storage.objects;
 create policy "avatars public read" on storage.objects for select to anon, authenticated using (bucket_id = 'avatars');
 create policy "avatars insert own folder" on storage.objects for insert to authenticated with check (
   bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text
