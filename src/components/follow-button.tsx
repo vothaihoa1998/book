@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bell, Check, Loader2 } from "lucide-react";
+import { AppButton } from "@/components/ui/primitives";
 import { type Manga } from "@/lib/types";
 
 type FollowState = "idle" | "saving" | "saved" | "anonymous" | "error";
@@ -39,14 +40,15 @@ export function FollowButton({ manga }: { manga: Manga }) {
   }
 
   return (
-    <button
+    <AppButton
       type="button"
       onClick={follow}
       disabled={state === "saving"}
-      className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border border-border bg-surface px-5 text-sm font-semibold transition hover:border-foreground/25 disabled:opacity-60"
+      variant="secondary"
+      size="lg"
     >
       {state === "saving" ? <Loader2 size={16} className="animate-spin" /> : state === "saved" ? <Check size={16} /> : <Bell size={16} />}
       {labels[state]}
-    </button>
+    </AppButton>
   );
 }

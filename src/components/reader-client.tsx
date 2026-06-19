@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Bookmark, Columns2, Download, Maximize2, Moon, PanelTop, Settings, Smartphone, Sun, X } from "lucide-react";
 import Link from "next/link";
+import { AppButton, AppLinkButton, BottomSheet, FieldLabel, IconButton, IconLinkButton, SegmentButton, SegmentedControl } from "@/components/ui/primitives";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   const [showUi, setShowUi] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [prefs, setPrefs] = useState<ReaderPrefs>(readStoredPrefs);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [downloadState, setDownloadState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [bookmarkState, setBookmarkState] = useState<"idle" | "saving" | "saved" | "error" | "anonymous">("idle");
   const lastSync = useRef(0);
@@ -67,6 +69,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       if (typeof parsed.scrollPercent === "number") {
         const scrollPercent = parsed.scrollPercent;
         requestAnimationFrame(() => {
+          setScrollProgress(Math.min(100, Math.max(0, scrollPercent)));
           const max = document.documentElement.scrollHeight - window.innerHeight;
           window.scrollTo({ top: (scrollPercent / 100) * max, behavior: "instant" });
         });
@@ -128,6 +131,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       const scrollPercent = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
       const pageIndex = Math.min(chapter.pages.length - 1, Math.floor((scrollPercent / 100) * chapter.pages.length));
       const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent };
+      setScrollProgress(scrollPercent);
       localStorage.setItem(`inkrail-progress:${chapter.id}`, JSON.stringify(payload));
 
       const now = Date.now();
@@ -178,24 +182,24 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
-        <div className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/90 px-4 py-3 backdrop-blur-xl">
+        <div className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/90 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center gap-3">
-            <Link href={`/manga/${encodeURIComponent(manga.id)}`} className="inline-flex size-10 items-center justify-center rounded-[8px] border border-border bg-surface">
+            <IconLinkButton href={`/manga/${encodeURIComponent(manga.id)}`} aria-label="Quay lại truyện">
               <ArrowLeft size={16} />
-            </Link>
+            </IconLinkButton>
             <div className="min-w-0 flex-1">
               <p className="truncate font-display text-lg font-semibold">{manga.title}</p>
-              <p className="font-code text-[11px] uppercase text-muted">Ch. {chapter.number} / {chapter.pages.length} trang</p>
+              <p className="text-xs font-medium text-muted">Ch. {chapter.number} · {chapter.pages.length} trang</p>
             </div>
-            <button onClick={warmCache} className="hidden size-10 place-items-center rounded-[8px] border border-border bg-surface sm:grid" aria-label="Tải chương offline">
+            <IconButton onClick={warmCache} className="hidden sm:inline-flex" aria-label="Tải chương offline">
               <Download size={16} />
-            </button>
-            <button onClick={() => document.documentElement.requestFullscreen?.()} className="hidden size-10 place-items-center rounded-[8px] border border-border bg-surface sm:grid" aria-label="Toàn màn hình">
+            </IconButton>
+            <IconButton onClick={() => document.documentElement.requestFullscreen?.()} className="hidden sm:inline-flex" aria-label="Toàn màn hình">
               <Maximize2 size={16} />
-            </button>
-            <button onClick={() => setShowSettings(true)} className="grid size-10 place-items-center rounded-[8px] bg-foreground ink-on-dark" aria-label="Cài đặt reader">
+            </IconButton>
+            <IconButton onClick={() => setShowSettings(true)} variant="primary" aria-label="Cài đặt reader">
               <Settings size={16} />
-            </button>
+            </IconButton>
           </div>
         </div>
       )}
@@ -241,51 +245,54 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       </main>
 
       {showUi && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-4 py-3 backdrop-blur-xl md:left-auto md:right-5 md:bottom-5 md:w-[360px] md:border md:shadow-xl">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-xl md:left-auto md:right-5 md:bottom-5 md:w-[380px] md:rounded-[var(--radius-card)] md:border md:pb-3 md:shadow-xl">
+          <div className="mb-3 h-1 overflow-hidden rounded-full bg-surface-strong">
+            <div className="h-full rounded-full bg-accent-2" style={{ width: `${scrollProgress}%` }} />
+          </div>
           <div className="flex items-center justify-between gap-3">
             {previousChapter ? (
-              <Link href={`/read/${encodeURIComponent(previousChapter.id)}`} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-border bg-surface px-3 text-sm font-semibold">
+              <AppLinkButton href={`/read/${encodeURIComponent(previousChapter.id)}`} variant="secondary" size="sm">
                 <ArrowLeft size={15} /> Trước
-              </Link>
+              </AppLinkButton>
             ) : (
               <span />
             )}
-            <button onClick={saveBookmark} className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-border bg-surface px-3 text-sm font-semibold">
+            <AppButton onClick={saveBookmark} variant="secondary" size="sm">
               <Bookmark size={15} /> Lưu
-            </button>
+            </AppButton>
             {nextChapter ? (
-              <Link href={`/read/${encodeURIComponent(nextChapter.id)}`} className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-foreground px-3 text-sm font-semibold ink-on-dark">
+              <AppLinkButton href={`/read/${encodeURIComponent(nextChapter.id)}`} size="sm">
                 Sau <ArrowRight size={15} />
-              </Link>
+              </AppLinkButton>
             ) : (
               <span />
             )}
           </div>
-          <p className="mt-2 text-center font-code text-[10px] uppercase text-muted">{statusText}</p>
+          <p className="mt-2 text-center text-xs font-medium text-muted">{statusText}</p>
         </div>
       )}
 
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-0 backdrop-blur-sm md:items-stretch md:justify-end md:p-4" onClick={() => setShowSettings(false)}>
-          <div className="flex h-[min(82vh,720px)] w-full flex-col overflow-auto rounded-t-[18px] border border-border bg-background p-5 shadow-2xl md:h-full md:max-w-sm md:rounded-[8px]" onClick={(event) => event.stopPropagation()}>
+          <BottomSheet onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-code text-[11px] uppercase text-muted">Reader</p>
+                <p className="text-sm font-semibold text-muted">Reader</p>
                 <h2 className="mt-1 font-display text-3xl font-semibold">Không gian đọc</h2>
               </div>
-              <button onClick={() => setShowSettings(false)} className="grid size-9 place-items-center rounded-[8px] border border-border bg-surface">
+              <IconButton onClick={() => setShowSettings(false)} aria-label="Đóng cài đặt">
                 <X size={16} />
-              </button>
+              </IconButton>
             </div>
-            <Setting label="Theme">
+            <Setting label="Giao diện">
               <Segmented
                 value={prefs.theme}
                 options={[
-                  { value: "warm-light", label: "Warm", icon: <Sun size={14} /> },
-                  { value: "paper", label: "Paper", icon: <Sun size={14} /> },
+                  { value: "warm-light", label: "Sáng dịu", icon: <Sun size={14} /> },
+                  { value: "paper", label: "Giấy", icon: <Sun size={14} /> },
                   { value: "sepia", label: "Sepia", icon: <Sun size={14} /> },
-                  { value: "graphite-dark", label: "Dark", icon: <Moon size={14} /> },
-                  { value: "pure-black", label: "Black", icon: <Moon size={14} /> },
+                  { value: "graphite-dark", label: "Graphite", icon: <Moon size={14} /> },
+                  { value: "pure-black", label: "OLED", icon: <Moon size={14} /> },
                 ]}
                 onChange={(theme) => setPrefs({ ...prefs, theme: theme as ReaderPrefs["theme"] })}
               />
@@ -301,7 +308,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
                 onChange={(direction) => setPrefs({ ...prefs, direction: direction as ReaderPrefs["direction"] })}
               />
             </Setting>
-            <Setting label="Fit">
+            <Setting label="Khung ảnh">
               <Segmented
                 value={prefs.fit}
                 options={[
@@ -313,16 +320,16 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
                 onChange={(fit) => setPrefs({ ...prefs, fit: fit as ReaderPrefs["fit"] })}
               />
             </Setting>
-            <Setting label={`Brightness ${prefs.brightness}%`}>
-              <input type="range" min="0" max="60" value={prefs.brightness} onChange={(event) => setPrefs({ ...prefs, brightness: Number(event.target.value) })} className="w-full" />
+            <Setting label={`Độ tối ${prefs.brightness}%`}>
+              <input type="range" min="0" max="60" value={prefs.brightness} onChange={(event) => setPrefs({ ...prefs, brightness: Number(event.target.value) })} className="w-full accent-accent" />
             </Setting>
-            <Setting label={`UI size ${prefs.fontSize}px`}>
-              <input type="range" min="14" max="24" value={prefs.fontSize} onChange={(event) => setPrefs({ ...prefs, fontSize: Number(event.target.value) })} className="w-full" />
+            <Setting label={`Cỡ UI ${prefs.fontSize}px`}>
+              <input type="range" min="14" max="24" value={prefs.fontSize} onChange={(event) => setPrefs({ ...prefs, fontSize: Number(event.target.value) })} className="w-full accent-accent" />
             </Setting>
-            <Setting label={`Gap ${prefs.gap}px`}>
-              <input type="range" min="0" max="32" value={prefs.gap} onChange={(event) => setPrefs({ ...prefs, gap: Number(event.target.value) })} className="w-full" />
+            <Setting label={`Khoảng cách trang ${prefs.gap}px`}>
+              <input type="range" min="0" max="32" value={prefs.gap} onChange={(event) => setPrefs({ ...prefs, gap: Number(event.target.value) })} className="w-full accent-accent" />
             </Setting>
-          </div>
+          </BottomSheet>
         </div>
       )}
 
@@ -334,7 +341,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
 function Setting({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="mt-6 block">
-      <span className="mb-2 block font-code text-[11px] uppercase text-muted">{label}</span>
+      <FieldLabel>{label}</FieldLabel>
       {children}
     </label>
   );
@@ -342,20 +349,16 @@ function Setting({ label, children }: { label: string; children: React.ReactNode
 
 function Segmented({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string; icon?: React.ReactNode }>; onChange: (value: string) => void }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <SegmentedControl>
       {options.map((option) => (
-        <button
+        <SegmentButton
           key={option.value}
-          type="button"
           onClick={() => onChange(option.value)}
-          className={cn(
-            "inline-flex h-10 items-center gap-2 rounded-full bg-chip px-3 text-sm font-semibold text-chip-text transition hover:text-foreground",
-            value === option.value && "border-foreground bg-foreground text-background",
-          )}
+          active={value === option.value}
         >
           {option.icon} {option.label}
-        </button>
+        </SegmentButton>
       ))}
-    </div>
+    </SegmentedControl>
   );
 }

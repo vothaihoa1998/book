@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DiscoverForm } from "@/components/discover-form";
 import { MangaCard } from "@/components/manga-card";
+import { AlertState, AppLinkButton, EmptyState, FilterChip } from "@/components/ui/primitives";
 import { searchMangaWithMeta } from "@/lib/sources";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
 import { normalizeGenres, normalizeSearchParams, type NormalizedSearchParams } from "@/lib/sources/search-utils";
@@ -53,8 +54,10 @@ function parseDiscoverState(raw: Record<string, string | string[] | undefined>):
 
 function ActivePill({ label, href }: { label: string; href: string }) {
   return (
-    <Link href={href} className="inline-flex h-9 items-center gap-2 rounded-full bg-chip px-3 text-sm font-medium text-chip-text transition hover:text-foreground">
-      {label} <X size={14} />
+    <Link href={href} className="focus-visible:outline-focus-ring rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+      <FilterChip className="min-h-9 px-3 hover:text-foreground">
+        {label} <X size={14} />
+      </FilterChip>
     </Link>
   );
 }
@@ -107,17 +110,17 @@ export default async function DiscoverPage({ searchParams }: Props) {
     <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-12 lg:px-8">
       <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
-          <p className="font-code text-[11px] uppercase text-muted">Khám phá</p>
-          <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">
+          <p className="text-sm font-semibold text-muted">Khám phá</p>
+          <h1 className="mt-2 font-ui text-3xl font-bold leading-tight md:text-5xl">
             {hasQuery ? `Kết quả cho ${state.q}` : "Tất cả truyện"}
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted md:text-base md:leading-7">
             Duyệt catalog theo một dòng chảy rõ ràng. Bộ lọc được ẩn để màn hình tập trung vào truyện trước, thao tác sau.
           </p>
         </div>
-        <div className="rounded-full bg-chip px-4 py-2 text-sm font-semibold text-chip-text">
+        <FilterChip className="min-h-10 font-semibold">
           Trang {state.page}
-        </div>
+        </FilterChip>
       </div>
 
       <DiscoverForm
@@ -144,23 +147,20 @@ export default async function DiscoverPage({ searchParams }: Props) {
       )}
 
       {meta.errors.length > 0 && (
-        <div className="mt-5 flex gap-3 rounded-[8px] border border-border bg-surface p-4 text-sm leading-6 text-muted">
+        <AlertState className="mt-5 flex gap-3">
           <AlertCircle className="mt-0.5 shrink-0" size={17} />
           <p>Một vài nguồn/cache phản hồi chưa ổn: {meta.errors.slice(0, 3).join("; ")}</p>
-        </div>
+        </AlertState>
       )}
 
       {results.length === 0 ? (
-        <div className="mt-10 border-y border-border py-14 text-center">
-          <p className="font-display text-3xl font-semibold">Không tìm thấy truyện phù hợp</p>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted">
-            Thử bỏ bớt thể loại, đổi năm, hoặc dùng tên tiếng Anh/tiếng Việt khác. Kết quả rỗng không còn bị che bằng dữ liệu mẫu.
-          </p>
-        </div>
+        <EmptyState title="Không tìm thấy truyện phù hợp" className="mt-10">
+          Thử bỏ bớt thể loại, đổi năm, hoặc dùng tên tiếng Anh/tiếng Việt khác. Kết quả rỗng không còn bị che bằng dữ liệu mẫu.
+        </EmptyState>
       ) : (
         <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {results.map((manga) => (
-            <MangaCard key={manga.id} manga={manga} />
+          {results.map((manga, index) => (
+            <MangaCard key={manga.id} manga={manga} eager={index < 6} />
           ))}
         </div>
       )}
@@ -168,15 +168,15 @@ export default async function DiscoverPage({ searchParams }: Props) {
       {(state.page > 1 || meta.hasMore) && (
         <nav className="mt-10 flex items-center justify-between gap-3 border-t border-border pt-5">
           {state.page > 1 ? (
-            <Link href={discoverHref(state, { page: state.page - 1 })} className="inline-flex h-11 items-center gap-2 rounded-[8px] border border-border bg-surface px-4 text-sm font-semibold">
+            <AppLinkButton href={discoverHref(state, { page: state.page - 1 })} variant="secondary">
               <ChevronLeft size={16} /> Trước
-            </Link>
+            </AppLinkButton>
           ) : <span />}
-          <span className="font-code text-[11px] uppercase text-muted">Trang {state.page}</span>
+          <span className="text-xs font-semibold text-muted">Trang {state.page}</span>
           {meta.hasMore ? (
-            <Link href={discoverHref(state, { page: state.page + 1 })} className="inline-flex h-11 items-center gap-2 rounded-[8px] bg-foreground px-4 text-sm font-semibold ink-on-dark">
+            <AppLinkButton href={discoverHref(state, { page: state.page + 1 })}>
               Sau <ChevronRight size={16} />
-            </Link>
+            </AppLinkButton>
           ) : <span />}
         </nav>
       )}

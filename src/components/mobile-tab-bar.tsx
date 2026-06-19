@@ -16,7 +16,7 @@ export function MobileTabBar() {
   if (pathname.startsWith("/read/")) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/92 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur-xl md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/92 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl md:hidden">
       <div className="grid grid-cols-4 gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -27,8 +27,8 @@ export function MobileTabBar() {
               href={tab.href}
               className={
                 active
-                  ? "flex h-12 flex-col items-center justify-center gap-1 rounded-[8px] bg-foreground ink-on-dark"
-                  : "flex h-12 flex-col items-center justify-center gap-1 rounded-[8px] text-muted"
+                  ? "flex h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] bg-chip text-foreground"
+                  : "flex h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] text-muted transition hover:text-foreground"
               }
             >
               <Icon size={17} strokeWidth={1.8} />

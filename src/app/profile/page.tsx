@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { AlertTriangle, BookMarked, CheckCircle2, Heart, LogIn, Save, Settings2, UserRound } from "lucide-react";
+import { AlertState, AppButton, AppLinkButton, SelectField, TextField } from "@/components/ui/primitives";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { updateProfile, updateProfilePrefs } from "./actions";
 
@@ -40,14 +40,14 @@ export default async function ProfilePage({ searchParams }: Props) {
   if (!user || !supabase) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
-        <p className="font-code text-[11px] uppercase text-muted">Tôi</p>
+        <p className="text-sm font-semibold text-muted">Tôi</p>
         <h1 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Hồ sơ đọc</h1>
-        <section className="mt-8 border border-border bg-surface p-6">
+        <section className="mt-8 rounded-[var(--radius-card)] border border-border bg-surface p-6">
           <LogIn size={22} />
           <p className="mt-4 text-sm leading-6 text-muted">Đăng nhập để xem hồ sơ, thống kê thư viện và đồng bộ reader preferences.</p>
-          <Link href="/login" className="mt-5 inline-flex h-11 items-center justify-center rounded-[8px] bg-foreground px-4 text-sm font-semibold ink-on-dark">
+          <AppLinkButton href="/login" className="mt-5">
             Đăng nhập
-          </Link>
+          </AppLinkButton>
         </section>
       </main>
     );
@@ -69,7 +69,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-14 lg:px-8">
       <div className="grid gap-8 lg:grid-cols-[340px_1fr]">
-        <aside className="h-fit rounded-[8px] border border-border bg-surface p-5">
+        <aside className="h-fit rounded-[var(--radius-card)] border border-border bg-surface p-5">
           <div className="flex items-start gap-4">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -78,7 +78,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               <div className="grid size-24 place-items-center rounded-full bg-foreground ink-on-dark"><UserRound size={30} /></div>
             )}
             <div className="min-w-0">
-              <p className="font-code text-[11px] uppercase text-muted">Tôi</p>
+              <p className="text-sm font-semibold text-muted">Tôi</p>
               <h1 className="mt-2 break-words font-display text-4xl font-semibold leading-none">{displayName}</h1>
               {user.email && <p className="mt-2 break-all text-sm text-muted">{user.email}</p>}
             </div>
@@ -90,7 +90,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         </aside>
 
         <section className="min-w-0">
-          <p className="font-code text-[11px] uppercase text-muted">Hồ sơ đọc</p>
+          <p className="text-sm font-semibold text-muted">Hồ sơ đọc</p>
           <h2 className="mt-3 font-display text-5xl font-semibold leading-none md:text-7xl">Không gian cá nhân</h2>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-muted md:text-base md:leading-7">
             Quản lý tên hiển thị, thống kê kệ đọc và tuỳ chọn reader mặc định cho những phiên đọc dài hơn.
@@ -103,39 +103,37 @@ export default async function ProfilePage({ searchParams }: Props) {
           </div>
 
           {status && (
-            <div className="mt-6 flex items-start gap-2 rounded-[8px] border border-border bg-surface p-3 text-sm text-muted">
+            <AlertState className="mt-6 flex items-start gap-2">
               {status === "updated" || status === "prefs-updated" ? <CheckCircle2 size={16} className="mt-0.5 text-emerald-500" /> : <AlertTriangle size={16} className="mt-0.5 text-foreground" />}
               {status === "updated" ? "Hồ sơ đã được cập nhật." : status === "prefs-updated" ? "Tuỳ chọn reader đã được lưu." : `Không cập nhật được: ${status}`}
-            </div>
+            </AlertState>
           )}
 
           {(profileError || prefsError) && (
-            <div className="mt-6 flex items-start gap-2 rounded-[8px] border border-border bg-surface p-3 text-sm text-muted">
+            <AlertState className="mt-6 flex items-start gap-2">
               <AlertTriangle size={16} className="mt-0.5 text-foreground" />
               {profileError || prefsError}
-            </div>
+            </AlertState>
           )}
 
           <div className="mt-8 grid gap-5 xl:grid-cols-2">
-            <form action={updateProfile} className="rounded-[8px] border border-border bg-surface p-5">
+            <form action={updateProfile} className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
               <h3 className="font-display text-3xl font-semibold">Tên hiển thị</h3>
               <p className="mt-2 text-sm leading-6 text-muted">Tên này dùng cho hồ sơ và bình luận mới.</p>
-              <label className="mt-5 block">
-                <span className="mb-2 block font-code text-[11px] uppercase text-muted">Display name</span>
-                <input
-                  name="displayName"
-                  defaultValue={profile.data?.display_name ?? ""}
-                  placeholder={getAuthName(user)}
-                  maxLength={80}
-                  className="h-12 w-full rounded-full border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground/40"
-                />
-              </label>
-              <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold ink-on-dark">
+              <TextField
+                className="mt-5"
+                label="Display name"
+                name="displayName"
+                defaultValue={profile.data?.display_name ?? ""}
+                placeholder={getAuthName(user)}
+                maxLength={80}
+              />
+              <AppButton className="mt-4" pill>
                 <Save size={16} /> Lưu hồ sơ
-              </button>
+              </AppButton>
             </form>
 
-            <form action={updateProfilePrefs} className="rounded-[8px] border border-border bg-surface p-5">
+            <form action={updateProfilePrefs} className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
               <h3 className="font-display text-3xl font-semibold">Reader mặc định</h3>
               <p className="mt-2 text-sm leading-6 text-muted">Áp dụng cho các phiên đọc sau khi đồng bộ Supabase.</p>
               <div className="mt-5 grid gap-3">
@@ -143,9 +141,9 @@ export default async function ProfilePage({ searchParams }: Props) {
                 <Select name="direction" label="Kiểu đọc" value={prefs.data?.direction ?? "vertical"} options={["vertical", "horizontal-ltr", "horizontal-rtl"]} />
                 <Select name="fit" label="Fit ảnh" value={prefs.data?.fit ?? "width"} options={["width", "height", "original", "smart"]} />
               </div>
-              <button className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-4 text-sm font-semibold ink-on-dark">
+              <AppButton className="mt-4" pill>
                 <Save size={16} /> Lưu reader
-              </button>
+              </AppButton>
             </form>
           </div>
         </section>
@@ -165,8 +163,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="rounded-[8px] border border-border bg-surface p-4">
-      <p className="flex items-center gap-2 font-code text-[11px] uppercase text-muted">{icon} {label}</p>
+    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-4">
+      <p className="flex items-center gap-2 text-xs font-semibold text-muted">{icon} {label}</p>
       <p className="mt-3 font-display text-4xl font-semibold">{value}</p>
     </div>
   );
@@ -174,11 +172,8 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
 
 function Select({ name, label, value, options }: { name: string; label: string; value: string; options: string[] }) {
   return (
-    <label className="block">
-      <span className="mb-2 block font-code text-[11px] uppercase text-muted">{label}</span>
-      <select name={name} defaultValue={value} className="h-11 w-full rounded-full border border-border bg-background px-4 text-sm outline-none transition focus:border-foreground/40">
+    <SelectField name={name} label={label} defaultValue={value}>
         {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
-    </label>
+    </SelectField>
   );
 }

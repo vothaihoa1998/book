@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
 import { FollowButton } from "@/components/follow-button";
 import { MangaCover } from "@/components/manga-cover";
+import { AppLinkButton, Badge } from "@/components/ui/primitives";
 import { getChapters, getManga } from "@/lib/sources";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
@@ -84,7 +85,7 @@ export default async function MangaDetailPage({ params }: Props) {
           <MangaCover manga={manga} priority className="hairline" />
         </div>
         <div className="min-w-0">
-          <p className="font-code text-[11px] uppercase text-muted">{manga.source} / {manga.status}</p>
+          <p className="text-sm font-semibold text-muted">{manga.source} / {manga.status}</p>
           <h1 className="mt-4 font-display text-5xl font-semibold leading-none md:text-7xl">{manga.title}</h1>
           {manga.altTitles.length > 0 && (
             <p className="mt-3 text-sm leading-6 text-muted">{manga.altTitles.slice(0, 3).join(" / ")}</p>
@@ -92,28 +93,27 @@ export default async function MangaDetailPage({ params }: Props) {
           <p className="mt-6 max-w-3xl font-display text-xl leading-8 text-muted md:text-2xl md:leading-9">{manga.description}</p>
           <div className="mt-6 flex flex-wrap gap-2">
             {manga.genres.slice(0, 8).map((genre) => (
-              <span key={genre} className="border border-border bg-surface px-3 py-1 font-code text-[11px] uppercase text-muted">
-                {genre}
-              </span>
+              <Badge key={genre}>{genre}</Badge>
             ))}
           </div>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             {firstChapter && (
-              <Link
+              <AppLinkButton
                 href={`/read/${encodeURIComponent(firstChapter.id)}`}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] bg-foreground px-5 text-sm font-semibold ink-on-dark transition hover:opacity-90"
+                size="lg"
               >
                 <Play size={16} fill="currentColor" />
                 Đọc từ đầu
-              </Link>
+              </AppLinkButton>
             )}
             {latestChapter && (
-              <Link
+              <AppLinkButton
                 href={`/read/${encodeURIComponent(latestChapter.id)}`}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border border-border bg-surface px-5 text-sm font-semibold transition hover:border-foreground/25"
+                variant="secondary"
+                size="lg"
               >
                 Chương mới nhất <ArrowRight size={16} />
-              </Link>
+              </AppLinkButton>
             )}
             <FollowButton manga={manga} />
           </div>
@@ -130,7 +130,7 @@ export default async function MangaDetailPage({ params }: Props) {
           <div>
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <p className="font-code text-[11px] uppercase text-muted">Chapters</p>
+                <p className="text-sm font-semibold text-muted">Chapters</p>
                 <h2 className="mt-2 font-display text-4xl font-semibold">Danh sách chương</h2>
               </div>
             </div>
@@ -141,15 +141,15 @@ export default async function MangaDetailPage({ params }: Props) {
                   href={`/read/${encodeURIComponent(chapter.id)}`}
                   className="grid gap-3 px-4 py-4 transition hover:bg-foreground/[0.03] sm:grid-cols-[120px_1fr_auto] sm:items-center"
                 >
-                  <span className="font-code text-[11px] uppercase text-muted">Ch. {chapter.number}</span>
+                  <span className="text-xs font-semibold text-muted">Ch. {chapter.number}</span>
                   <span className="font-display text-xl font-semibold">{chapter.title || `Chương ${chapter.number}`}</span>
-                  <span className="font-code text-[11px] uppercase text-muted">{formatDate(chapter.updatedAt)}</span>
+                  <span className="text-xs font-semibold text-muted">{formatDate(chapter.updatedAt)}</span>
                 </Link>
               ))}
             </div>
           </div>
-          <aside className="h-fit border border-border bg-surface p-5">
-            <p className="font-code text-[11px] uppercase text-muted">Thông tin</p>
+          <aside className="h-fit rounded-[var(--radius-card)] border border-border bg-surface p-5">
+            <p className="text-sm font-semibold text-muted">Thông tin</p>
             <dl className="mt-5 space-y-4 text-sm">
               <div className="flex justify-between gap-4 border-b border-border pb-3">
                 <dt className="text-muted">Nguồn</dt>
@@ -180,7 +180,7 @@ export default async function MangaDetailPage({ params }: Props) {
 function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div>
-      <p className="flex items-center gap-2 font-code text-[11px] uppercase text-muted">
+      <p className="flex items-center gap-2 text-sm font-semibold text-muted">
         {icon} {label}
       </p>
       <p className="mt-2 text-base font-semibold">{value}</p>

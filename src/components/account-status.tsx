@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Check, UserRound } from "lucide-react";
 import Link from "next/link";
+import { IconLinkButton } from "@/components/ui/primitives";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 
 function getUserLabel(user: User) {
@@ -48,24 +49,24 @@ export function AccountStatus() {
 
   if (!ready || !user) {
     return (
-      <Link
+      <IconLinkButton
         href="/login"
-        className="grid size-10 place-items-center rounded-[8px] bg-foreground ink-on-dark transition hover:opacity-90"
+        variant="primary"
         aria-label="Account"
       >
         <UserRound size={16} />
-      </Link>
+      </IconLinkButton>
     );
   }
 
   return (
     <Link
       href="/library"
-      className="group flex h-10 items-center gap-2 rounded-[8px] bg-foreground px-2.5 text-sm font-semibold ink-on-dark transition hover:opacity-90"
+      className="group flex h-11 items-center gap-2 rounded-[var(--radius-control)] bg-foreground px-3 text-sm font-semibold ink-on-dark transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
       aria-label={`Đã đăng nhập: ${getUserLabel(user)}`}
       title={getUserLabel(user)}
     >
-      <span className="grid size-6 place-items-center rounded-[6px] bg-background text-[11px] text-foreground">
+      <span className="grid size-6 place-items-center rounded-full bg-background text-[11px] text-foreground">
         {getInitial(user)}
       </span>
       <Check size={14} className="hidden sm:block" />

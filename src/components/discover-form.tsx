@@ -1,4 +1,5 @@
 import { Flame, Search, SlidersHorizontal, Sparkles } from "lucide-react";
+import { AppButton, FilterChip as UiFilterChip, TextField } from "@/components/ui/primitives";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
 import { cn } from "@/lib/utils";
 
@@ -43,28 +44,28 @@ export function DiscoverForm({
   const activeFilterCount = genres.length + (status !== "all" ? 1 : 0) + (year !== "all" ? 1 : 0) + (sort !== "hot" ? 1 : 0);
 
   return (
-    <form className="rounded-[8px] border border-border bg-surface/72 p-3 backdrop-blur md:p-4">
+    <form className="relative z-[70] rounded-[var(--radius-card)] border border-border bg-surface/72 p-3 md:p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <label className="relative block flex-1">
+        <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" size={17} />
-          <input
+          <TextField
             name="q"
             defaultValue={q}
             placeholder="Tìm tên truyện hoặc tác giả"
-            className="h-12 w-full rounded-full border border-border bg-background pl-10 pr-4 text-sm outline-none transition placeholder:text-muted focus:border-foreground/40"
+            inputClassName="rounded-full pl-10"
           />
-        </label>
+        </div>
 
         <div className="flex gap-2">
           <details className="group relative">
-            <summary className="inline-flex h-12 cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-chip px-4 text-sm font-semibold text-chip-text transition hover:text-foreground">
+            <summary className="inline-flex h-[var(--control-h-lg)] cursor-pointer list-none items-center justify-center gap-2 rounded-full bg-chip px-4 text-sm font-semibold text-chip-text transition hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
               <SlidersHorizontal size={16} /> Bộ lọc
               {activeFilterCount > 0 && <span className="rounded-full bg-background px-2 py-0.5 text-[11px] text-foreground">{activeFilterCount}</span>}
             </summary>
-            <div className="fixed inset-x-3 bottom-3 z-30 max-h-[78vh] overflow-auto rounded-[18px] border border-border bg-background p-4 shadow-2xl md:absolute md:inset-x-auto md:bottom-auto md:right-0 md:top-14 md:max-h-[min(70vh,640px)] md:w-[min(720px,calc(100vw-2rem))] md:rounded-[8px] md:p-5">
+            <div className="filter-sheet fixed inset-x-3 bottom-3 z-[120] max-h-[78vh] overflow-auto rounded-[var(--radius-sheet)] border border-border bg-background p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl md:bottom-auto md:left-auto md:right-6 md:top-24 md:max-h-[min(72vh,640px)] md:w-[min(720px,calc(100vw-3rem))] md:rounded-[var(--radius-card)] md:p-5 xl:right-[calc((100vw-80rem)/2+1.5rem)]">
               <div className="space-y-5">
                 <fieldset>
-                  <legend className="mb-3 font-code text-[11px] uppercase text-muted">Thể loại</legend>
+                  <legend className="mb-3 text-sm font-semibold text-muted">Thể loại</legend>
                   <div className="flex flex-wrap gap-2">
                     {DISCOVER_GENRES.map((genre) => (
                       <FilterChip
@@ -80,21 +81,21 @@ export function DiscoverForm({
                 </fieldset>
 
                 <fieldset>
-                  <legend className="mb-3 font-code text-[11px] uppercase text-muted">Trạng thái</legend>
+                  <legend className="mb-3 text-sm font-semibold text-muted">Trạng thái</legend>
                   <div className="flex flex-wrap gap-2">
                     {statuses.map((item) => <FilterChip key={item.value} type="radio" name="status" value={item.value} label={item.label} checked={status === item.value} />)}
                   </div>
                 </fieldset>
 
                 <fieldset>
-                  <legend className="mb-3 font-code text-[11px] uppercase text-muted">Năm cập nhật</legend>
+                  <legend className="mb-3 text-sm font-semibold text-muted">Năm cập nhật</legend>
                   <div className="flex flex-wrap gap-2">
                     {years().map((item) => <FilterChip key={item.value} type="radio" name="year" value={item.value} label={item.label} checked={year === item.value} />)}
                   </div>
                 </fieldset>
 
                 <fieldset>
-                  <legend className="mb-3 font-code text-[11px] uppercase text-muted">Sắp xếp</legend>
+                  <legend className="mb-3 text-sm font-semibold text-muted">Sắp xếp</legend>
                   <div className="flex flex-wrap gap-2">
                     {sorts.map((item) => {
                       const Icon = item.icon;
@@ -104,17 +105,17 @@ export function DiscoverForm({
                 </fieldset>
 
                 <div className="flex justify-end border-t border-border pt-4">
-                  <button className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold ink-on-dark">
+                  <AppButton pill>
                     <SlidersHorizontal size={16} /> Áp dụng
-                  </button>
+                  </AppButton>
                 </div>
               </div>
             </div>
           </details>
 
-          <button className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold ink-on-dark">
+          <AppButton pill size="lg">
             <Search size={16} /> Tìm
-          </button>
+          </AppButton>
         </div>
       </div>
     </form>
@@ -125,12 +126,12 @@ function FilterChip({ type, name, value, label, checked, icon }: { type: "checkb
   return (
     <label className="cursor-pointer">
       <input type={type} name={name} value={value} defaultChecked={checked} className="peer sr-only" />
-      <span className={cn(
-        "inline-flex h-11 items-center gap-2 rounded-full bg-chip px-4 text-sm font-medium text-chip-text transition hover:text-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground/40 peer-checked:bg-foreground peer-checked:text-background",
+      <UiFilterChip active={checked} className={cn(
+        "hover:text-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus-ring peer-checked:bg-foreground peer-checked:text-background",
         checked && "bg-foreground text-background",
       )}>
         {icon} {label}
-      </span>
+      </UiFilterChip>
     </label>
   );
 }

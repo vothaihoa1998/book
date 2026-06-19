@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { CheckCircle2, LogOut, Mail } from "lucide-react";
-import Link from "next/link";
+import { AlertState, AppButton, AppLinkButton, TextField } from "@/components/ui/primitives";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 
 function decodeAuthMessage(value: string | null) {
@@ -127,72 +127,70 @@ export function AuthPanel() {
 
   if (authReady && user) {
     return (
-      <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-5 shadow-2xl shadow-black/20">
+      <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-2xl shadow-black/20">
         <div className="flex items-start gap-3">
           {typeof user.user_metadata?.avatar_url === "string" ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={user.user_metadata.avatar_url} alt="Avatar" className="size-12 rounded-[8px] object-cover" referrerPolicy="no-referrer" />
+            <img src={user.user_metadata.avatar_url} alt="Avatar" className="size-12 rounded-full object-cover" referrerPolicy="no-referrer" />
           ) : (
-            <span className="grid size-12 place-items-center rounded-[8px] bg-emerald-600 text-white"><CheckCircle2 size={18} /></span>
+            <span className="grid size-12 place-items-center rounded-full bg-accent-2 text-background"><CheckCircle2 size={18} /></span>
           )}
           <div>
-            <h2 className="font-display text-3xl font-semibold text-white">Đã đăng nhập</h2>
-            <p className="mt-2 break-all text-sm leading-6 text-white/50">{getUserLabel(user)}</p>
+            <h2 className="font-display text-3xl font-semibold">Đã đăng nhập</h2>
+            <p className="mt-2 break-all text-sm leading-6 text-muted">{getUserLabel(user)}</p>
           </div>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <Link href="/library" className="inline-flex h-12 items-center justify-center rounded-[8px] bg-[#5a4df3] px-4 text-sm font-semibold text-white transition hover:bg-[#6558ff]">
+          <AppLinkButton href="/library" size="lg">
             Vào thư viện
-          </Link>
-          <button
+          </AppLinkButton>
+          <AppButton
             type="button"
             onClick={signOut}
             disabled={loading}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-[8px] border border-white/10 bg-white/[0.035] px-4 text-sm font-semibold text-white transition hover:border-white/25 disabled:opacity-50"
+            variant="secondary"
+            size="lg"
           >
             <LogOut size={16} />
             Đăng xuất
-          </button>
+          </AppButton>
         </div>
-        {message && <p className="mt-4 rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-white/55">{message}</p>}
+        {message && <AlertState className="mt-4">{message}</AlertState>}
       </div>
     );
   }
 
   return (
-    <div className="rounded-[8px] border border-white/10 bg-white/[0.035] p-5 shadow-2xl shadow-black/20">
+    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-2xl shadow-black/20">
       <div>
-        <h2 className="font-display text-4xl font-semibold text-white">Đăng nhập</h2>
-        <p className="mt-3 text-sm leading-6 text-white/48">Tiếp tục nơi bạn đã dừng lại.</p>
+        <h2 className="font-display text-4xl font-semibold">Đăng nhập</h2>
+        <p className="mt-3 text-sm leading-6 text-muted">Tiếp tục nơi bạn đã dừng lại.</p>
       </div>
-      <button onClick={signInWithGoogle} className="mt-8 inline-flex h-12 w-full items-center justify-center gap-3 rounded-[8px] border border-white/10 bg-white/[0.035] px-4 text-sm font-semibold text-white transition hover:border-white/25 hover:bg-white/[0.06]">
+      <AppButton onClick={signInWithGoogle} variant="secondary" size="lg" className="mt-8 w-full">
         <GoogleIcon />
         Tiếp tục với Google
-      </button>
+      </AppButton>
       <div className="my-7 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        <span className="h-px bg-white/10" />
-        <span className="font-code text-[10px] uppercase text-white/35">Hoặc email</span>
-        <span className="h-px bg-white/10" />
+        <span className="h-px bg-border" />
+        <span className="text-xs font-medium text-muted">Hoặc email</span>
+        <span className="h-px bg-border" />
       </div>
-      <form onSubmit={signInWithEmail} className="mt-6 space-y-3">
-        <label className="block">
-          <span className="mb-2 block font-code text-[11px] uppercase text-white/38">Email</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            className="h-12 w-full rounded-[8px] border border-white/10 bg-[#1d1d22] px-3 text-sm text-white outline-none transition placeholder:text-white/24 focus:border-[#6558ff]"
-          />
-        </label>
-        <button disabled={loading} className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[8px] bg-[#5a4df3] px-4 text-sm font-semibold text-white transition hover:bg-[#6558ff] disabled:opacity-50">
+      <form onSubmit={signInWithEmail} className="mt-6 flex flex-col gap-3">
+        <TextField
+          label="Email"
+          type="email"
+          required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="you@example.com"
+        />
+        <AppButton disabled={loading} size="lg" className="w-full">
           <Mail size={16} />
           {loading ? "Đang gửi" : "Gửi magic link"}
-        </button>
+        </AppButton>
       </form>
-      {message && <p className="mt-4 rounded-[8px] border border-white/10 bg-black/20 p-3 text-sm leading-6 text-white/55">{message}</p>}
-      <p className="mt-6 text-center text-sm text-white/38">Chưa có tài khoản? Google sẽ tự tạo tài khoản Supabase cho bạn.</p>
+      {message && <AlertState className="mt-4">{message}</AlertState>}
+      <p className="mt-6 text-center text-sm text-muted">Chưa có tài khoản? Google sẽ tự tạo tài khoản Supabase cho bạn.</p>
     </div>
   );
 }

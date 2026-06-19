@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { LogIn, MessageCircle, Send, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { AlertState, AppButton, AppLinkButton, EmptyState, IconButton, SegmentButton, SegmentedControl, TextareaField } from "@/components/ui/primitives";
 
 export type CommentItem = {
   id: string;
@@ -67,60 +67,67 @@ export function CommentsPanel({ mangaId, initialComments, initialUserId, initial
     <section className="mt-12 border-t border-border pt-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-code text-[11px] uppercase text-muted">Cộng đồng</p>
+          <p className="text-sm font-semibold text-muted">Cộng đồng</p>
           <h2 className="mt-2 flex items-center gap-2 font-display text-4xl font-semibold"><MessageCircle size={22} /> Bình luận</h2>
         </div>
-        <div className="grid h-10 grid-cols-2 rounded-[8px] border border-border bg-surface p-1 text-sm font-semibold">
-          <button type="button" onClick={() => setSort("newest")} className={sort === "newest" ? "rounded-[6px] bg-foreground px-3 ink-on-dark" : "rounded-[6px] px-3 text-muted"}>Mới nhất</button>
-          <button type="button" onClick={() => setSort("oldest")} className={sort === "oldest" ? "rounded-[6px] bg-foreground px-3 ink-on-dark" : "rounded-[6px] px-3 text-muted"}>Cũ nhất</button>
-        </div>
+        <SegmentedControl>
+          <SegmentButton active={sort === "newest"} onClick={() => setSort("newest")}>Mới nhất</SegmentButton>
+          <SegmentButton active={sort === "oldest"} onClick={() => setSort("oldest")}>Cũ nhất</SegmentButton>
+        </SegmentedControl>
       </div>
 
-      <div className="mt-5 rounded-[8px] border border-border bg-surface p-4">
+      <div className="mt-5 rounded-[var(--radius-card)] border border-border bg-surface p-4">
         {userId ? (
           <form onSubmit={submit} className="grid gap-3">
-            <textarea
+            <TextareaField
               value={body}
               onChange={(event) => setBody(event.target.value)}
               maxLength={1000}
               rows={3}
               placeholder="Viết cảm nhận ngắn về bộ truyện..."
-              className="min-h-24 resize-y rounded-[8px] border border-border bg-background p-3 text-sm leading-6 outline-none transition placeholder:text-muted focus:border-foreground/40"
+              textareaClassName="min-h-28"
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="font-code text-[10px] uppercase text-muted">{body.length}/1000</span>
-              <button disabled={loading || !body.trim()} className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-foreground px-4 text-sm font-semibold ink-on-dark disabled:opacity-50">
+              <span className="text-xs font-medium text-muted">{body.length}/1000</span>
+              <AppButton disabled={loading || !body.trim()} size="sm">
                 <Send size={15} /> {loading ? "Đang gửi" : "Gửi"}
-              </button>
+              </AppButton>
             </div>
           </form>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-center gap-2 text-sm text-muted"><LogIn size={16} /> Đăng nhập để tham gia bình luận.</p>
-            <Link href="/login" className="inline-flex h-10 items-center justify-center rounded-[8px] bg-foreground px-4 text-sm font-semibold ink-on-dark">Đăng nhập</Link>
+            <AppLinkButton href="/login" size="sm">Đăng nhập</AppLinkButton>
           </div>
         )}
-        {message && <p className="mt-3 rounded-[8px] border border-border bg-background p-3 text-sm leading-6 text-muted">{message}</p>}
+        {message && <AlertState className="mt-3">{message}</AlertState>}
       </div>
 
       <div className="mt-5 divide-y divide-border border-y border-border">
         {ordered.length ? ordered.map((comment) => (
           <article key={comment.id} className="py-5">
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="font-semibold">{comment.author_name || "Bạn đọc"}</p>
-                <p className="mt-1 font-code text-[10px] uppercase text-muted">{new Date(comment.created_at).toLocaleString("vi-VN")}</p>
+              <div className="flex min-w-0 gap-3">
+                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-chip text-sm font-semibold text-chip-text">
+                  {(comment.author_name || "B").charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold">{comment.author_name || "Bạn đọc"}</p>
+                  <p className="mt-1 text-xs font-medium text-muted">{new Date(comment.created_at).toLocaleString("vi-VN")}</p>
+                </div>
               </div>
               {userId === comment.user_id && (
-                <button type="button" onClick={() => remove(comment.id)} className="grid size-9 place-items-center rounded-[8px] border border-border bg-surface text-muted transition hover:text-foreground" aria-label="Xoá bình luận">
+                <IconButton type="button" onClick={() => remove(comment.id)} variant="secondary" className="text-muted hover:text-danger" aria-label="Xoá bình luận">
                   <Trash2 size={15} />
-                </button>
+                </IconButton>
               )}
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-muted">{comment.body}</p>
           </article>
         )) : (
-          <p className="py-8 text-center text-sm text-muted">Chưa có bình luận. Hãy là người mở cuộc trò chuyện.</p>
+          <EmptyState title="Chưa có bình luận" className="border-0 py-8">
+            Hãy là người mở cuộc trò chuyện.
+          </EmptyState>
         )}
       </div>
     </section>

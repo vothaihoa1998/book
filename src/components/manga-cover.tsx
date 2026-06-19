@@ -3,7 +3,19 @@ import { BookOpen } from "lucide-react";
 import { type Manga } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-export function MangaCover({ manga, priority = false, className }: { manga: Manga; priority?: boolean; className?: string }) {
+export function MangaCover({
+  manga,
+  priority = false,
+  eager = false,
+  className,
+  showChapterBadge = false,
+}: {
+  manga: Manga;
+  priority?: boolean;
+  eager?: boolean;
+  className?: string;
+  showChapterBadge?: boolean;
+}) {
   return (
     <div className={cn("grain relative aspect-[2/3] overflow-hidden rounded-[2px] bg-surface-strong", className)}>
       {manga.cover ? (
@@ -11,8 +23,8 @@ export function MangaCover({ manga, priority = false, className }: { manga: Mang
           src={manga.cover}
           alt={`Bìa truyện ${manga.title}`}
           fill
-          priority={priority}
-          loading={priority ? "eager" : "lazy"}
+          preload={priority}
+          loading={priority ? undefined : eager ? "eager" : "lazy"}
           sizes={priority ? "(min-width: 1024px) 420px, 72vw" : "(min-width: 1024px) 220px, 45vw"}
           className="object-cover transition duration-300 group-hover:scale-[1.025]"
         />
@@ -23,8 +35,8 @@ export function MangaCover({ manga, priority = false, className }: { manga: Mang
         </div>
       )}
       <div className="pointer-events-none absolute inset-0 border border-foreground/10" />
-      {manga.lastChapter && (
-        <div className="absolute bottom-2 left-2 right-2 border border-white/20 bg-foreground/82 px-2 py-1 font-code text-[10px] uppercase ink-on-dark backdrop-blur">
+      {showChapterBadge && manga.lastChapter && (
+        <div className="absolute bottom-2 left-2 right-2 rounded-[var(--radius-card)] bg-background/88 px-2.5 py-1 text-xs font-semibold text-foreground backdrop-blur">
           Ch. {manga.lastChapter}
         </div>
       )}

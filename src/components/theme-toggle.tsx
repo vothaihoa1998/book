@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { IconButton } from "@/components/ui/primitives";
 
 type Theme = "dark" | "light";
 
@@ -24,18 +25,19 @@ export function ThemeToggle() {
   }, []);
 
   return (
-    <button
+    <IconButton
       type="button"
       onClick={() => {
         const next = theme === "dark" ? "light" : "dark";
         setTheme(next);
         applyTheme(next);
       }}
-      className="grid size-10 place-items-center rounded-[8px] border border-border bg-surface text-muted transition hover:text-foreground"
+      variant="secondary"
+      className="text-muted hover:text-foreground"
       aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
       title={theme === "dark" ? "Light mode" : "Dark mode"}
     >
       {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-    </button>
+    </IconButton>
   );
 }

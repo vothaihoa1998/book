@@ -2,6 +2,7 @@ import { Play } from "lucide-react";
 import Link from "next/link";
 import { MangaCover } from "@/components/manga-cover";
 import { MangaRail } from "@/components/manga-rail";
+import { AppLinkButton, Badge } from "@/components/ui/primitives";
 import { latestHistoryByManga } from "@/lib/library";
 import { getHome, getManga } from "@/lib/sources";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
@@ -25,53 +26,55 @@ export default async function HomePage() {
 
   return (
     <main>
-      <section className="mx-auto grid min-h-[calc(72vh-4rem)] max-w-7xl gap-8 px-4 py-7 sm:px-6 md:grid-cols-[minmax(220px,320px)_1fr] md:items-center md:py-10 lg:px-8">
-        <Link href={`/manga/${encodeURIComponent(featured.id)}`} className="group mx-auto w-full max-w-[360px] md:max-w-none">
+      <section className="mx-auto grid max-w-7xl grid-cols-[118px_minmax(0,1fr)] items-start gap-4 px-4 py-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:px-6 md:grid-cols-[minmax(220px,320px)_1fr] md:items-center md:gap-8 md:py-10 lg:px-8">
+        <Link href={`/manga/${encodeURIComponent(featured.id)}`} className="group w-full max-w-[118px] sm:max-w-[160px] md:max-w-none">
           <MangaCover manga={featured} priority className="hairline" />
         </Link>
 
         <div className="max-w-3xl">
-          <p className="font-code text-[11px] uppercase text-muted">Đang nổi bật / {featured.source}</p>
-          <h1 className="mt-4 font-display text-5xl font-semibold leading-[0.96] text-foreground sm:text-6xl lg:text-7xl">
+          <p className="text-sm font-semibold text-muted">Đang nổi bật / {featured.source}</p>
+          <h1 className="mt-2 font-display text-2xl font-semibold leading-[1.05] text-foreground sm:mt-3 sm:text-4xl md:mt-4 md:text-6xl lg:text-7xl">
             {featured.title}
           </h1>
-          <p className="mt-5 max-w-2xl font-display text-lg leading-7 text-muted md:text-xl md:leading-8">
+          <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-muted sm:line-clamp-3 sm:font-display sm:text-lg sm:leading-7 md:text-xl md:leading-8">
             {truncate(featured.description, 190)}
           </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            {featured.genres.slice(0, 4).map((genre) => (
-              <span key={genre} className="rounded-full bg-chip px-3 py-1.5 text-sm font-medium text-chip-text">
-                {genre}
-              </span>
+          <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
+            {featured.genres.slice(0, 3).map((genre) => (
+              <Badge key={genre}>{genre}</Badge>
             ))}
           </div>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-            <Link
+          <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row">
+            <AppLinkButton
               href={`/manga/${encodeURIComponent(featured.id)}`}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold ink-on-dark transition hover:opacity-90"
+              size="md"
+              pill
             >
               <Play size={16} fill="currentColor" />
               Bắt đầu đọc
-            </Link>
-            <Link
+            </AppLinkButton>
+            <AppLinkButton
               href="/discover"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-chip px-5 text-sm font-semibold text-chip-text transition hover:text-foreground"
+              variant="soft"
+              size="md"
+              pill
+              className="hidden sm:inline-flex"
             >
               Khám phá thêm
-            </Link>
+            </AppLinkButton>
           </div>
 
-          <div className="mt-8 grid gap-3 border-y border-border py-4 sm:grid-cols-3">
+          <div className="mt-8 hidden gap-3 border-y border-border py-4 sm:grid sm:grid-cols-3">
             <div>
-              <p className="font-code text-[11px] uppercase text-muted">Chương mới</p>
+              <p className="text-xs font-semibold text-muted">Chương mới</p>
               <p className="mt-1 text-lg font-semibold">{featured.lastChapter ?? "?"}</p>
             </div>
             <div>
-              <p className="font-code text-[11px] uppercase text-muted">Cập nhật</p>
+              <p className="text-xs font-semibold text-muted">Cập nhật</p>
               <p className="mt-1 text-lg font-semibold">{formatDate(featured.updatedAt)}</p>
             </div>
             <div>
-              <p className="font-code text-[11px] uppercase text-muted">Điểm đọc</p>
+              <p className="text-xs font-semibold text-muted">Điểm đọc</p>
               <p className="mt-1 text-lg font-semibold">{featured.rating ? featured.rating.toFixed(1) : "Editorial"}</p>
             </div>
           </div>
