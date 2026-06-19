@@ -73,14 +73,19 @@ export default async function ProfilePage({ searchParams }: Props) {
           <div className="flex items-start gap-4">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt="Avatar" className="size-24 rounded-full border border-border object-cover" referrerPolicy="no-referrer" />
+              <img src={avatarUrl} alt="Avatar" className="size-20 rounded-full border border-border object-cover shadow-[var(--shadow-soft)] sm:size-24" referrerPolicy="no-referrer" />
             ) : (
-              <div className="grid size-24 place-items-center rounded-[var(--radius-card)] bg-primary text-primary-foreground"><UserRound size={30} /></div>
+              <div
+                aria-hidden
+                className="grid size-20 place-items-center rounded-full bg-gradient-to-br from-primary via-accent to-accent-2 text-2xl font-display font-medium text-primary-foreground shadow-[var(--shadow-soft)] sm:size-24"
+              >
+                {displayName.slice(0, 1).toUpperCase() || <UserRound size={26} />}
+              </div>
             )}
             <div className="min-w-0">
               <p className="eyebrow">Tôi</p>
-              <h1 className="mt-2 break-words section-title">{displayName}</h1>
-              {user.email && <p className="mt-2 break-all text-sm text-muted-foreground">{user.email}</p>}
+              <h1 className="mt-2 break-words text-2xl font-display font-medium leading-tight text-foreground md:text-3xl">{displayName}</h1>
+              {user.email && <p className="mt-1 break-all text-sm text-muted-foreground">{user.email}</p>}
             </div>
           </div>
           <dl className="mt-6 space-y-3 text-sm">

@@ -1,65 +1,98 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0e0e10;
-  --foreground: #edeae3;
-  --card: #131316;
-  --popover: #16161a;
-  --secondary: #1d1d22;
-  --muted: #1a1a1f;
-  --muted-foreground: #8a8a93;
-  --border: oklch(100% 0 0 / 0.08);
-  --input: oklch(100% 0 0 / 0.12);
-  --primary: #d6a21e;
-  --primary-foreground: #17120a;
-  --ring: #d6a21e;
+/* ============================================================
+   COZY LIBRARY — warm color system
+   Light by default (cream paper), warm dark mode as alternate.
+   Primary: terracotta  •  Text: chocolate  •  Base: warm cream
+   ============================================================ */
+
+:root,
+html[data-theme="light"] {
+  /* Surfaces */
+  --background: #f4ecdc;            /* warm cream paper */
+  --foreground: #2b1d12;            /* dark chocolate */
+  --card: #fdf8ec;                  /* lifted paper */
+  --popover: #ffffff;               /* popover paper */
+  --secondary: #ece2cd;             /* aged paper */
+  --muted: #ece2cd;                 /* muted paper */
+  --muted-foreground: #6b5a45;      /* sepia text */
   --surface: var(--card);
   --surface-strong: var(--secondary);
-  --chip: var(--muted);
-  --chip-text: var(--muted-foreground);
   --surface-elevated: var(--popover);
-  --surface-reader: #111113;
-  --focus-ring: color-mix(in srgb, var(--ring) 58%, transparent);
-  --danger: #f04438;
-  --warning: #f59e0b;
-  --accent: #d6a21e;
-  --accent-2: #10b981;
-  --graphite: #0e0e10;
-  --graphite-text: #edeae3;
-  --radius: 0.5rem;
-  --radius-control: 0.375rem;
-  --radius-card: 0.5rem;
-  --radius-sheet: 0.75rem;
+  --surface-reader: #f7f1e7;        /* paper reading bg */
+
+  /* Lines */
+  --border: rgba(43, 29, 18, 0.10);
+  --input: rgba(43, 29, 18, 0.14);
+  --chip: var(--secondary);
+  --chip-text: var(--muted-foreground);
+
+  /* Brand */
+  --primary: #b9501b;               /* terracotta */
+  --primary-foreground: #fdf8ec;
+  --ring: #b9501b;
+  --focus-ring: color-mix(in srgb, var(--ring) 42%, transparent);
+  --accent: #a35a14;                /* deep amber */
+  --accent-2: #6b8e23;              /* olive success */
+
+  /* States */
+  --danger: #b91c1c;
+  --warning: #c2780f;
+
+  /* Legacy aliases (kept for backward compat) */
+  --graphite: #2b1d12;
+  --graphite-text: #fdf8ec;
+}
+
+html[data-theme="dark"] {
+  /* Surfaces */
+  --background: #1a130c;            /* deep espresso */
+  --foreground: #f3ebd9;            /* warm cream */
+  --card: #221810;
+  --popover: #2a1f15;
+  --secondary: #2c2117;
+  --muted: #2c2117;
+  --muted-foreground: #a89683;
+  --surface: var(--card);
+  --surface-strong: var(--secondary);
+  --surface-elevated: var(--popover);
+  --surface-reader: #15100a;
+
+  /* Lines */
+  --border: rgba(243, 235, 217, 0.10);
+  --input: rgba(243, 235, 217, 0.14);
+  --chip: var(--secondary);
+  --chip-text: var(--muted-foreground);
+
+  /* Brand */
+  --primary: #e08a4d;               /* warm terracotta, lifted for contrast */
+  --primary-foreground: #1a130c;
+  --ring: #e08a4d;
+  --focus-ring: color-mix(in srgb, var(--ring) 55%, transparent);
+  --accent: #d4933d;
+  --accent-2: #8faf3a;
+
+  /* States */
+  --danger: #f87171;
+  --warning: #fbbf24;
+
+  --graphite: #1a130c;
+  --graphite-text: #f3ebd9;
+}
+
+html {
+  /* Design tokens (theme-agnostic) */
+  --radius: 0.625rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.625rem;
+  --radius-sheet: 0.875rem;
   --radius-pill: 999px;
   --control-h-sm: 2.25rem;
   --control-h-md: 2.75rem;
   --control-h-lg: 2.75rem;
-}
-
-html[data-theme="light"] {
-  --background: #faf8f4;
-  --foreground: #121212;
-  --card: #ffffff;
-  --popover: #ffffff;
-  --secondary: #f0ede6;
-  --muted: #f0ede6;
-  --muted-foreground: #6b6960;
-  --border: oklch(0% 0 0 / 0.08);
-  --input: oklch(0% 0 0 / 0.12);
-  --primary: #c98912;
-  --primary-foreground: #17120a;
-  --ring: #c98912;
-  --surface: var(--card);
-  --surface-strong: var(--secondary);
-  --chip: var(--muted);
-  --chip-text: var(--muted-foreground);
-  --surface-elevated: var(--popover);
-  --surface-reader: #f7f1e7;
-  --focus-ring: color-mix(in srgb, var(--ring) 42%, transparent);
-  --danger: #dc2626;
-  --warning: #d97706;
-  --accent: #c98912;
-  --accent-2: #10b981;
+  --shadow-soft: 0 1px 2px rgba(43, 29, 18, 0.04), 0 8px 24px rgba(43, 29, 18, 0.06);
+  --shadow-lift: 0 4px 12px rgba(43, 29, 18, 0.08), 0 20px 40px rgba(43, 29, 18, 0.10);
+  --grain-opacity: 0.04;            /* softer than before */
 }
 
 @theme inline {
@@ -109,11 +142,20 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
   font-feature-settings: "ss01", "cv11";
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Reserve room for the mobile tab bar so content is never hidden behind it. */
+  padding-bottom: env(safe-area-inset-bottom);
+  scroll-padding-bottom: 96px;
+}
+
+@media (min-width: 768px) {
+  body {
+    scroll-padding-bottom: 32px;
+  }
 }
 
 a {
@@ -134,7 +176,8 @@ img {
 }
 
 ::selection {
-  background: rgba(214, 162, 30, 0.22);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--foreground);
 }
 
 .font-display {
@@ -185,7 +228,7 @@ img {
 
 .hairline {
   border: 1px solid var(--border);
-  box-shadow: 0 14px 40px color-mix(in srgb, #000 24%, transparent);
+  box-shadow: var(--shadow-soft);
 }
 
 .ink-on-dark {
@@ -205,10 +248,14 @@ img {
   position: absolute;
   inset: 0;
   content: "";
-  opacity: 0.16;
-  background-image: radial-gradient(rgba(18, 18, 18, 0.16) 0.7px, transparent 0.7px);
+  opacity: var(--grain-opacity);
+  background-image: radial-gradient(color-mix(in srgb, var(--foreground) 18%, transparent) 0.7px, transparent 0.7px);
   background-size: 5px 5px;
   mix-blend-mode: multiply;
+}
+
+html[data-theme="dark"] .grain::after {
+  mix-blend-mode: screen;
 }
 
 .scrollbar-none {
@@ -271,19 +318,26 @@ img {
   }
 }
 
+/* Reader-specific themes. Each one swaps background/foreground for
+   the in-chapter area. Use warm tones for daytime reading. */
 .reader-theme-sepia {
   --background: #f1e6d2;
-  --foreground: #241c16;
+  --foreground: #2a1d12;
 }
 
 .reader-theme-paper {
+  --background: #faf3e2;
+  --foreground: #2b1d12;
+}
+
+.reader-theme-warm-light {
   --background: #f7f1e7;
-  --foreground: #191512;
+  --foreground: #2b1d12;
 }
 
 .reader-theme-graphite-dark {
-  --background: #0e0e10;
-  --foreground: #edeae3;
+  --background: #1a130c;
+  --foreground: #f3ebd9;
 }
 
 .reader-theme-pure-black {

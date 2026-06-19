@@ -56,6 +56,10 @@ export type Chapter = {
   pages: PageImage[];
   language: string;
   updatedAt: string;
+  /** Optional reading progress 0..1 for the current user. */
+  progress?: number | null;
+  /** Optional last read page index (0-based) for the current user. */
+  lastPageIndex?: number | null;
 };
 
 export type MangaSearchParams = {

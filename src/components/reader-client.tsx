@@ -3,25 +3,34 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, Download } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Loader2, AlertCircle, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const defaultPrefs: ReaderPrefs = {
-  theme: "warm-light",
+const basePrefs = {
   direction: "vertical",
   fit: "width",
   brightness: 0,
   fontSize: 18,
   gap: 8,
+} as const;
+
+const defaultPrefs: ReaderPrefs = {
+  ...basePrefs,
+  theme: "warm-light",
+};
+
+const darkDefaultPrefs: ReaderPrefs = {
+  ...basePrefs,
+  theme: "graphite-dark",
 };
 
 const readerThemes: Array<{ value: ReaderPrefs["theme"]; label: string; className: string }> = [
-  { value: "warm-light", label: "Sáng dịu", className: "bg-[#fbf7ef]" },
-  { value: "paper", label: "Giấy", className: "bg-[#f7f1e7]" },
+  { value: "warm-light", label: "Sáng dịu", className: "bg-[#f7f1e7]" },
+  { value: "paper", label: "Giấy", className: "bg-[#faf3e2]" },
   { value: "sepia", label: "Sepia", className: "bg-[#d9c3a1]" },
-  { value: "graphite-dark", label: "Graphite", className: "bg-[#343332]" },
+  { value: "graphite-dark", label: "Graphite", className: "bg-[#1a130c]" },
   { value: "pure-black", label: "OLED", className: "bg-black" },
 ];
 
@@ -56,10 +65,11 @@ function readStoredProgress(chapterId: string, totalPages: number) {
   }
 }
 
-export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapter: Chapter; chapters: Chapter[] }) {
+export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "light" }: { manga: Manga; chapter: Chapter; chapters: Chapter[]; initialAppTheme?: "light" | "dark" }) {
   const totalPages = Math.max(1, chapter.pages.length);
   const [showUi, setShowUi] = useState(true);
-  const [prefs, setPrefs] = useState<ReaderPrefs>(defaultPrefs);
+  const [showControls, setShowControls] = useState(false);
+  const [prefs, setPrefs] = useState<ReaderPrefs>(initialAppTheme === "dark" ? darkDefaultPrefs : defaultPrefs);
   const [prefsReady, setPrefsReady] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,24 +85,28 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   const nextChapter = currentIndex >= 0 && currentIndex < orderedChapters.length - 1 ? orderedChapters[currentIndex + 1] : null;
 
   const pageUrls = useMemo(() => chapter.pages.map((page) => imageProxyUrl(page.url, chapter.source)), [chapter]);
-  const statusText =
-    downloadState === "saving" ? "Đang lưu offline" :
-    downloadState === "saved" ? "Đã lưu chương này" :
-    downloadState === "error" ? "Không lưu được offline" :
-    bookmarkState === "saving" ? "Đang lưu bookmark" :
-    bookmarkState === "saved" ? "Đã lưu bookmark" :
-    bookmarkState === "anonymous" ? "Đăng nhập để đồng bộ bookmark" :
-    bookmarkState === "error" ? "Không lưu được bookmark" :
-    `${currentPage}/${totalPages} · H ẩn/hiện`;
+
+  const statusMessage = useMemo<{ tone: "info" | "success" | "warn" | "error"; icon: ReactNode; text: string } | null>(() => {
+    if (downloadState === "saving") return { tone: "info", icon: <Loader2 size={12} className="animate-spin" />, text: "Đang lưu offline" };
+    if (downloadState === "saved") return { tone: "success", icon: <Check size={12} />, text: "Đã lưu chương này" };
+    if (downloadState === "error") return { tone: "error", icon: <AlertCircle size={12} />, text: "Không lưu được offline" };
+    if (bookmarkState === "saving") return { tone: "info", icon: <Loader2 size={12} className="animate-spin" />, text: "Đang lưu bookmark" };
+    if (bookmarkState === "saved") return { tone: "success", icon: <Check size={12} />, text: "Đã lưu bookmark" };
+    if (bookmarkState === "anonymous") return { tone: "warn", icon: <AlertCircle size={12} />, text: "Đăng nhập để đồng bộ bookmark" };
+    if (bookmarkState === "error") return { tone: "error", icon: <AlertCircle size={12} />, text: "Không lưu được bookmark" };
+    return null;
+  }, [downloadState, bookmarkState]);
 
   const setReaderMode = (direction: ReaderPrefs["direction"]) => {
     setPrefs((current) => ({ ...current, direction }));
     setShowUi(true);
+    setShowControls(false);
   };
 
   const setReaderFit = (fit: ReaderPrefs["fit"]) => {
     setPrefs((current) => ({ ...current, fit }));
     setShowUi(true);
+    setShowControls(false);
   };
 
   const setReaderTheme = (theme: ReaderPrefs["theme"]) => {
@@ -266,38 +280,28 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
         <header className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">
-          <div className="scrollbar-none mx-auto flex max-w-7xl items-center gap-3 overflow-x-auto">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 md:gap-3">
             <Link
               href={`/manga/${encodeURIComponent(manga.id)}`}
-              className="inline-flex h-9 max-w-[44vw] shrink-0 items-center gap-2 rounded-[var(--radius-control)] px-2 font-code text-[10px] font-medium uppercase text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:max-w-sm"
+              className="inline-flex h-9 max-w-[40vw] shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:max-w-sm"
               aria-label="Quay lại truyện"
             >
-              <ArrowLeft size={14} />
+              <ArrowLeft size={15} />
               <span className="truncate">{manga.title}</span>
             </Link>
 
-            <div className="shrink-0 px-1 text-sm font-medium md:absolute md:left-1/2 md:-translate-x-1/2">Chương {chapter.number}</div>
+            <div className="ml-1 shrink-0 text-sm font-medium md:ml-0 md:absolute md:left-1/2 md:-translate-x-1/2">
+              Chương {chapter.number}
+            </div>
 
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              <div className="reader-control-group" aria-label="Kiểu đọc">
-                <QuickButton active={prefs.direction === "vertical"} onClick={() => setReaderMode("vertical")} label="Đọc dọc">↕</QuickButton>
-                <QuickButton active={prefs.direction === "horizontal-ltr"} onClick={() => setReaderMode("horizontal-ltr")} label="Đọc ngang trái sang phải">→</QuickButton>
-                <QuickButton active={prefs.direction === "horizontal-rtl"} onClick={() => setReaderMode("horizontal-rtl")} label="Đọc ngang phải sang trái">←</QuickButton>
-              </div>
-
-              <div className="reader-control-group" aria-label="Fit ảnh">
-                <QuickButton active={prefs.fit === "width"} onClick={() => setReaderFit("width")} label="Fit chiều rộng">W</QuickButton>
-                <QuickButton active={prefs.fit === "height"} onClick={() => setReaderFit("height")} label="Fit chiều cao">H</QuickButton>
-                <QuickButton active={prefs.fit === "smart"} onClick={() => setReaderFit("smart")} label="Fit thông minh">II</QuickButton>
-                <QuickButton active={prefs.fit === "original"} onClick={() => setReaderFit("original")} label="Kích thước gốc">1:1</QuickButton>
-              </div>
-
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
+              {/* Theme — only labeled, default to current */}
               <div className="reader-theme-row" aria-label="Màu đọc">
                 {readerThemes.map((theme) => (
                   <ThemeSwatch
                     key={theme.value}
                     active={prefs.theme === theme.value}
-                    label={theme.label}
+                    label={`Màu: ${theme.label}`}
                     className={theme.className}
                     onClick={() => setReaderTheme(theme.value)}
                   />
@@ -310,6 +314,29 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
               <ReaderIconButton onClick={warmCache} label="Tải offline" active={downloadState === "saved"}>
                 <Download size={15} />
               </ReaderIconButton>
+              <ReaderIconButton onClick={() => setShowControls((value) => !value)} label="Tuỳ chỉnh đọc" active={showControls}>
+                <Settings2 size={15} />
+              </ReaderIconButton>
+            </div>
+          </div>
+
+          {/* Slide-down controls drawer (direction + fit) */}
+          <div
+            className={cn(
+              "mx-auto mt-2 flex max-w-7xl flex-wrap items-center gap-2 overflow-hidden transition-all duration-200 ease-out md:gap-3",
+              showControls ? "max-h-24 opacity-100" : "max-h-0 opacity-0",
+            )}
+          >
+            <div className="reader-control-group" aria-label="Kiểu đọc">
+              <QuickButton active={prefs.direction === "vertical"} onClick={() => setReaderMode("vertical")} label="Đọc dọc">↕</QuickButton>
+              <QuickButton active={prefs.direction === "horizontal-ltr"} onClick={() => setReaderMode("horizontal-ltr")} label="Đọc ngang trái sang phải">→</QuickButton>
+              <QuickButton active={prefs.direction === "horizontal-rtl"} onClick={() => setReaderMode("horizontal-rtl")} label="Đọc ngang phải sang trái">←</QuickButton>
+            </div>
+            <div className="reader-control-group" aria-label="Fit ảnh">
+              <QuickButton active={prefs.fit === "width"} onClick={() => setReaderFit("width")} label="Fit chiều rộng">Rộng</QuickButton>
+              <QuickButton active={prefs.fit === "height"} onClick={() => setReaderFit("height")} label="Fit chiều cao">Cao</QuickButton>
+              <QuickButton active={prefs.fit === "smart"} onClick={() => setReaderFit("smart")} label="Fit thông minh">Tự động</QuickButton>
+              <QuickButton active={prefs.fit === "original"} onClick={() => setReaderFit("original")} label="Kích thước gốc">Gốc</QuickButton>
             </div>
           </div>
         </header>
@@ -361,7 +388,7 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       {showUi && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl" aria-label="Điều hướng chương">
           <div className="mb-2 h-0.5 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-primary" style={{ width: `${scrollProgress}%` }} />
+            <div className="h-full rounded-full bg-primary transition-[width] duration-150" style={{ width: `${scrollProgress}%` }} />
           </div>
           <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2">
             {previousChapter ? (
@@ -376,9 +403,28 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
                 <ArrowLeft size={15} /> <span><span className="hidden sm:inline">Chương </span>trước</span>
               </span>
             )}
-            <p className="meta-mono text-center leading-5">
-              {statusText}
-            </p>
+            <div className="meta-mono flex items-center justify-center gap-1.5 text-center leading-5">
+              {statusMessage ? (
+                <span className={cn(
+                  "inline-flex items-center gap-1.5",
+                  statusMessage.tone === "success" && "text-accent-2",
+                  statusMessage.tone === "error" && "text-danger",
+                  statusMessage.tone === "warn" && "text-warning",
+                  statusMessage.tone === "info" && "text-foreground",
+                )}>
+                  {statusMessage.icon}
+                  <span className="hidden sm:inline">{statusMessage.text}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span className="tabular-nums">{currentPage}/{totalPages}</span>
+                  <span aria-hidden className="hidden sm:inline">·</span>
+                  <span className="hidden items-center gap-1 sm:inline-flex" title="Phím H: ẩn/hiện giao diện">
+                    <EyeOff size={11} /> H
+                  </span>
+                </span>
+              )}
+            </div>
             {nextChapter ? (
               <Link
                 href={`/read/${encodeURIComponent(nextChapter.id)}`}

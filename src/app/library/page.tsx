@@ -136,17 +136,21 @@ export default async function LibraryPage({ searchParams }: Props) {
         {activeTab === "history" && latestHistory.length > 0 && <section>
           <SectionTitle icon={<Clock3 size={18} />} title="Đang đọc" count={latestHistory.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {latestHistory.map((item, index) => (
-              <ShelfCard
-                key={item.manga_id}
-                manga={historyManga[index]}
-                href={`/read/${encodeURIComponent(item.chapter_id)}`}
-                action="Đọc tiếp"
-                meta={`Ch. ${item.chapter_id.split(":").at(-1)?.slice(0, 8) ?? "?"} · ${Math.round(Number(item.scroll_percent))}%`}
-                progress={Number(item.scroll_percent)}
-                icon={<Play size={15} fill="currentColor" />}
-              />
-            ))}
+            {latestHistory.map((item, index) => {
+              const pct = Math.round(Number(item.scroll_percent));
+              const chapterLabel = `Ch. ${item.chapter_id.split(":").at(-1)?.replace(/^[0-9a-f-]+/, "").slice(0, 4) ?? item.chapter_id.split(":").at(-1)?.slice(0, 6) ?? "?"}`;
+              return (
+                <ShelfCard
+                  key={item.manga_id}
+                  manga={historyManga[index]}
+                  href={`/read/${encodeURIComponent(item.chapter_id)}`}
+                  action={pct > 0 ? `Đọc tiếp · ${pct}%` : "Đọc tiếp"}
+                  meta={`${chapterLabel} · cập nhật ${formatDate(item.updated_at)}`}
+                  progress={Number(item.scroll_percent)}
+                  icon={<Play size={15} fill="currentColor" />}
+                />
+              );
+            })}
           </div>
         </section>}
 
@@ -154,7 +158,7 @@ export default async function LibraryPage({ searchParams }: Props) {
           <SectionTitle icon={<BookMarked size={18} />} title="Bookmark" count={bookmarks.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {bookmarks.map((item) => (
-              <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Mở truyện" meta={`Đã lưu · ${formatDate(item.created_at)}`} />
+              <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Mở truyện" meta={`Đã lưu · ${formatDate(item.created_at)}`} icon={<BookMarked size={15} />} />
             ))}
           </div>
         </section>}
@@ -163,7 +167,7 @@ export default async function LibraryPage({ searchParams }: Props) {
           <SectionTitle icon={<Heart size={18} />} title="Theo dõi" count={follows.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {follows.map((item) => (
-              <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Xem cập nhật" meta={`Theo dõi · ${formatDate(item.created_at)}`} />
+              <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Xem cập nhật" meta={`Theo dõi · ${formatDate(item.created_at)}`} icon={<Heart size={15} />} />
             ))}
           </div>
         </section>}
@@ -205,25 +209,44 @@ function SectionTitle({ icon, title, count }: { icon: React.ReactNode; title: st
 }
 
 function ShelfCard({ manga, href, action, meta, progress, icon }: { manga: Manga; href: string; action: string; meta: string; progress?: number; icon?: React.ReactNode }) {
+  const pct = typeof progress === "number" ? Math.min(100, Math.max(0, progress)) : 0;
+  const completed = typeof progress === "number" && progress >= 95;
   return (
-    <Link href={href} className="group grid grid-cols-[82px_1fr] gap-4 rounded-[var(--radius-card)] border border-border bg-card p-3 transition hover:border-input focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring">
-      <div className="relative aspect-[2/3] overflow-hidden rounded-[4px] bg-surface-strong">
+    <Link
+      href={href}
+      className="group relative grid grid-cols-[82px_1fr] gap-4 overflow-hidden rounded-[var(--radius-card)] border border-border bg-card p-3 transition hover:border-input hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+    >
+      <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-control)] bg-surface-strong ring-1 ring-border/40">
         {manga.cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={manga.cover} alt={manga.title} className="h-full w-full object-cover transition group-hover:scale-[1.03]" referrerPolicy="no-referrer" />
+          <img src={manga.cover} alt={manga.title} className="h-full w-full object-cover transition group-hover:scale-[1.04]" referrerPolicy="no-referrer" />
         ) : (
           <div className="grid h-full place-items-center text-muted-foreground"><UserRound size={22} /></div>
         )}
-      </div>
-      <div className="min-w-0 py-1">
-        <p className="line-clamp-2 text-sm font-medium leading-[1.375]">{manga.title}</p>
-        <p className="meta-mono mt-2 line-clamp-1">{meta}</p>
-        {typeof progress === "number" && (
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background">
-            <div className="h-full rounded-full bg-accent-2" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+        {completed && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
+            Hoàn thành
           </div>
         )}
-        <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground">
+      </div>
+      <div className="flex min-w-0 flex-col py-0.5">
+        <p className="line-clamp-2 break-words text-sm font-medium leading-[1.375]">{manga.title}</p>
+        <p className="meta-mono mt-1.5 line-clamp-2 break-words">{meta}</p>
+        {typeof progress === "number" && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>Tiến độ</span>
+              <span className="tabular-nums font-medium text-foreground">{Math.round(pct)}%</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary">
+              <div
+                className={completed ? "h-full rounded-full bg-accent-2" : "h-full rounded-full bg-primary transition-[width] duration-300"}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
+        <span className="mt-3 inline-flex h-9 w-fit items-center gap-2 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-[var(--shadow-soft)]">
           {icon} {action}
         </span>
       </div>

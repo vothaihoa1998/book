@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter, Newsreader } from "next/font/google";
 import Script from "next/script";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
+import { PageTransition } from "@/components/page-transition";
 import { PwaRegister } from "@/components/pwa-register";
 import { SiteHeader } from "@/components/site-header";
 import { absoluteUrl } from "@/lib/utils";
@@ -56,9 +57,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {`(() => {
   try {
     const stored = localStorage.getItem('inkrail-theme');
-    document.documentElement.dataset.theme = stored === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = stored === 'dark' ? 'dark' : 'light';
   } catch {
-    document.documentElement.dataset.theme = 'dark';
+    document.documentElement.dataset.theme = 'light';
   }
 })();`}
         </Script>
@@ -92,9 +93,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 })();`}
         </Script>
       </head>
-      <body className="min-h-screen pb-16 font-ui md:pb-0">
+      <body className="min-h-screen pb-20 font-ui md:pb-0">
         <SiteHeader />
-        {children}
+        <PageTransition>{children}</PageTransition>
         <MobileTabBar />
         <PwaRegister />
       </body>

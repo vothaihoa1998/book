@@ -180,7 +180,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-16 lg:px-8">
       <header className="max-w-4xl">
         <p className="eyebrow text-primary">Khám phá</p>
-        <h1 className="mt-1 editorial-title leading-[0.92] text-foreground sm:text-[6rem] md:text-[7.5rem] lg:text-6xl">
+        <h1 className="mt-1 editorial-title leading-[0.92] text-foreground sm:text-[5rem] md:text-[6rem] lg:text-7xl">
           {hasQuery ? `Tìm ${state.q}` : "Toàn bộ truyện"}
         </h1>
         <p className="mt-2 text-sm font-medium leading-7 text-muted-foreground md:text-[16px]">
@@ -189,15 +189,15 @@ export default async function DiscoverPage({ searchParams }: Props) {
         <SortTabs state={state} />
       </header>
 
-      {/* <DiscoverForm
+      <DiscoverForm
         q={state.q}
         status={state.status}
         sort={state.sort}
         year={state.year}
         genres={state.genres}
-      /> */}
+      />
 
-      {/* {hasActiveFilter && (
+      {hasActiveFilter && (
         <section className="mt-5 flex flex-wrap items-center gap-2 text-sm">
           {state.q && <ActivePill label={`Tìm: ${state.q}`} href={discoverHref(state, { q: "", page: 1 })} />}
           {state.status !== "all" && <ActivePill label={statusLabel[state.status]} href={discoverHref(state, { status: "all", page: 1 })} />}
@@ -210,7 +210,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
             Xoá tất cả
           </Link>
         </section>
-      )} */}
+      )}
 
       {meta.errors.length > 0 && (
         <AlertState className="mt-5 flex gap-3">
@@ -224,9 +224,9 @@ export default async function DiscoverPage({ searchParams }: Props) {
           Thử bỏ bớt thể loại, đổi năm, hoặc dùng tên tiếng Anh/tiếng Việt khác. Kết quả rỗng không còn bị che bằng dữ liệu mẫu.
         </EmptyState>
       ) : (
-        <div className="mt-10 grid grid-cols-2 gap-x-4 gap-y-9 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <div className="mt-10 grid grid-cols-3 gap-x-3 gap-y-7 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
           {results.map((manga, index) => (
-            <MangaCard key={manga.id} manga={manga} eager={index < 6} />
+            <MangaCard key={manga.id} manga={manga} compact eager={index < 6} />
           ))}
         </div>
       )}
