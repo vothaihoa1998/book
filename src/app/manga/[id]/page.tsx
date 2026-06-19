@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
 import { FollowButton } from "@/components/follow-button";
 import { MangaCover } from "@/components/manga-cover";
+import { MangaDescription } from "@/components/manga-description";
 import { AppLinkButton, Badge } from "@/components/ui/primitives";
 import { getChapters, getManga } from "@/lib/sources";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
@@ -137,9 +138,7 @@ export default async function MangaDetailPage({ params }: Props) {
           {manga.altTitles.length > 0 && (
             <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">{manga.altTitles.slice(0, 3).join(" / ")}</p>
           )}
-          <p className="mt-5 max-w-3xl font-display text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8 md:text-xl md:leading-9">
-            {manga.description}
-          </p>
+          <MangaDescription description={manga.description} />
           <div className="mt-5 flex flex-wrap gap-1.5">
             {manga.genres.slice(0, 8).map((genre) => (
               <Badge key={genre}>{genre}</Badge>
