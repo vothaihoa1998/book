@@ -127,17 +127,17 @@ export function AuthPanel() {
 
   if (authReady && user) {
     return (
-      <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-2xl shadow-black/20">
+      <div className="rounded-[var(--radius-card)] border border-border bg-card p-5 shadow-2xl shadow-black/20">
         <div className="flex items-start gap-3">
           {typeof user.user_metadata?.avatar_url === "string" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={user.user_metadata.avatar_url} alt="Avatar" className="size-12 rounded-full object-cover" referrerPolicy="no-referrer" />
           ) : (
-            <span className="grid size-12 place-items-center rounded-full bg-accent-2 text-background"><CheckCircle2 size={18} /></span>
+            <span className="grid size-12 place-items-center rounded-[var(--radius-control)] bg-accent-2 text-background"><CheckCircle2 size={18} /></span>
           )}
           <div>
-            <h2 className="font-display text-3xl font-semibold">Đã đăng nhập</h2>
-            <p className="mt-2 break-all text-sm leading-6 text-muted">{getUserLabel(user)}</p>
+            <h2 className="section-title">Đã đăng nhập</h2>
+            <p className="mt-2 break-all text-sm leading-6 text-muted-foreground">{getUserLabel(user)}</p>
           </div>
         </div>
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -161,10 +161,10 @@ export function AuthPanel() {
   }
 
   return (
-    <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5 shadow-2xl shadow-black/20">
+    <div className="rounded-[var(--radius-card)] border border-border bg-card p-5 shadow-2xl shadow-black/20">
       <div>
-        <h2 className="font-display text-4xl font-semibold">Đăng nhập</h2>
-        <p className="mt-3 text-sm leading-6 text-muted">Tiếp tục nơi bạn đã dừng lại.</p>
+        <h2 className="section-title">Đăng nhập</h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">Tiếp tục nơi bạn đã dừng lại.</p>
       </div>
       <AppButton onClick={signInWithGoogle} variant="secondary" size="lg" className="mt-8 w-full">
         <GoogleIcon />
@@ -172,7 +172,7 @@ export function AuthPanel() {
       </AppButton>
       <div className="my-7 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
         <span className="h-px bg-border" />
-        <span className="text-xs font-medium text-muted">Hoặc email</span>
+        <span className="meta-mono">Hoặc email</span>
         <span className="h-px bg-border" />
       </div>
       <form onSubmit={signInWithEmail} className="mt-6 flex flex-col gap-3">
@@ -190,7 +190,7 @@ export function AuthPanel() {
         </AppButton>
       </form>
       {message && <AlertState className="mt-4">{message}</AlertState>}
-      <p className="mt-6 text-center text-sm text-muted">Chưa có tài khoản? Google sẽ tự tạo tài khoản Supabase cho bạn.</p>
+      <p className="mt-6 text-center text-sm text-muted-foreground">Chưa có tài khoản? Google sẽ tự tạo tài khoản Supabase cho bạn.</p>
     </div>
   );
 }

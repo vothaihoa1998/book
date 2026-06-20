@@ -26,56 +26,58 @@ export default async function HomePage() {
 
   return (
     <main>
-      <section className="mx-auto grid max-w-7xl grid-cols-[118px_minmax(0,1fr)] items-start gap-4 px-4 py-5 sm:grid-cols-[160px_minmax(0,1fr)] sm:px-6 md:grid-cols-[minmax(220px,320px)_1fr] md:items-center md:gap-8 md:py-10 lg:px-8">
-        <Link href={`/manga/${encodeURIComponent(featured.id)}`} className="group w-full max-w-[118px] sm:max-w-[160px] md:max-w-none">
-          <MangaCover manga={featured} priority className="hairline" />
+      <section className="mx-auto grid max-w-7xl grid-cols-[112px_minmax(0,1fr)] items-start gap-4 px-4 py-6 sm:grid-cols-[160px_minmax(0,1fr)] sm:px-6 sm:py-8 md:grid-cols-[minmax(240px,340px)_1fr] md:items-center md:gap-10 md:py-14 lg:px-8">
+        <Link href={`/manga/${encodeURIComponent(featured.id)}`} className="group w-full max-w-[112px] sm:max-w-[160px] md:max-w-none">
+          <MangaCover manga={featured} priority className="hairline rounded-[var(--radius-card)]" />
         </Link>
 
-        <div className="max-w-3xl">
-          <p className="text-sm font-semibold text-muted">Đang nổi bật / {featured.source}</p>
-          <h1 className="mt-2 font-display text-2xl font-semibold leading-[1.05] text-foreground sm:mt-3 sm:text-4xl md:mt-4 md:text-6xl lg:text-7xl">
+        <div className="min-w-0 max-w-3xl">
+          <p className="eyebrow flex items-center gap-2">
+            <span className="inline-block size-1.5 rounded-full bg-primary" />
+            Đang nổi bật <span className="text-muted-foreground/60">/</span> {featured.source}
+          </p>
+          <h1 className="mt-2 break-words editorial-title text-3xl leading-[1.05] text-foreground sm:mt-3 sm:text-5xl sm:leading-[1.0] md:mt-4 md:text-6xl md:leading-[0.98] lg:text-7xl">
             {featured.title}
           </h1>
-          <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-muted sm:line-clamp-3 sm:font-display sm:text-lg sm:leading-7 md:text-xl md:leading-8">
+          <p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:mt-4 sm:line-clamp-3 sm:font-display sm:text-lg sm:leading-7 md:text-xl md:leading-8">
             {truncate(featured.description, 190)}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
+          <div className="mt-4 flex flex-wrap gap-1.5 sm:mt-5">
             {featured.genres.slice(0, 3).map((genre) => (
               <Badge key={genre}>{genre}</Badge>
             ))}
           </div>
-          <div className="mt-5 flex flex-col gap-3 sm:mt-6 sm:flex-row">
+          <div className="mt-5 flex flex-col gap-2.5 sm:mt-6 sm:flex-row sm:gap-3">
             <AppLinkButton
+              className="rounded-full"
               href={`/manga/${encodeURIComponent(featured.id)}`}
               size="md"
-              pill
             >
-              <Play size={16} fill="currentColor" />
+              <Play size={15} fill="currentColor" />
               Bắt đầu đọc
             </AppLinkButton>
             <AppLinkButton
               href="/discover"
               variant="soft"
               size="md"
-              pill
-              className="hidden sm:inline-flex"
+              className="rounded-full"
             >
               Khám phá thêm
             </AppLinkButton>
           </div>
 
-          <div className="mt-8 hidden gap-3 border-y border-border py-4 sm:grid sm:grid-cols-3">
+          <div className="mt-6 hidden gap-3 border-y border-border py-4 sm:mt-8 sm:grid sm:grid-cols-3">
             <div>
-              <p className="text-xs font-semibold text-muted">Chương mới</p>
-              <p className="mt-1 text-lg font-semibold">{featured.lastChapter ?? "?"}</p>
+              <p className="meta-mono">Chương mới</p>
+              <p className="mt-1 text-lg font-medium">{featured.lastChapter ?? "—"}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted">Cập nhật</p>
-              <p className="mt-1 text-lg font-semibold">{formatDate(featured.updatedAt)}</p>
+              <p className="meta-mono">Cập nhật</p>
+              <p className="mt-1 text-lg font-medium">{formatDate(featured.updatedAt)}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-muted">Điểm đọc</p>
-              <p className="mt-1 text-lg font-semibold">{featured.rating ? featured.rating.toFixed(1) : "Editorial"}</p>
+              <p className="meta-mono">Điểm đọc</p>
+              <p className="mt-1 text-lg font-medium">{featured.rating ? featured.rating.toFixed(1) : "Editorial"}</p>
             </div>
           </div>
         </div>

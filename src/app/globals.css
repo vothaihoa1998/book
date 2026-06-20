@@ -1,54 +1,111 @@
 @import "tailwindcss";
 
-:root {
-  --background: #101011;
-  --foreground: #f5f0e8;
-  --surface: #17171a;
-  --surface-strong: #202126;
-  --muted: #a39c91;
-  --border: rgba(245, 240, 232, 0.13);
-  --chip: #242421;
-  --chip-text: #c9c0b4;
-  --surface-elevated: #1d1d21;
-  --surface-reader: #111113;
-  --focus-ring: color-mix(in srgb, var(--accent) 58%, transparent);
-  --danger: #f87171;
-  --warning: #f59e0b;
-  --accent: #6558ff;
-  --accent-2: #34d399;
-  --graphite: #0e0e10;
-  --graphite-text: #edeae3;
-  --radius: 0.5rem;
-  --radius-control: 0.75rem;
-  --radius-card: 0.5rem;
-  --radius-sheet: 1.125rem;
-  --radius-pill: 999px;
-  --control-h-sm: 2.5rem;
-  --control-h-md: 2.75rem;
-  --control-h-lg: 3rem;
+/* ============================================================
+   COZY LIBRARY — warm color system
+   Light by default (cream paper), warm dark mode as alternate.
+   Primary: terracotta  •  Text: chocolate  •  Base: warm cream
+   ============================================================ */
+
+:root,
+html[data-theme="light"] {
+  /* Surfaces */
+  --background: #f4ecdc;            /* warm cream paper */
+  --foreground: #101011;            /* dark chocolate */
+  --card: #fdf8ec;                  /* lifted paper */
+  --popover: #ffffff;               /* popover paper */
+  --secondary: #ece2cd;             /* aged paper */
+  --muted: #ece2cd;                 /* muted paper */
+  --muted-foreground: #6b5a45;      /* sepia text */
+  --surface: var(--card);
+  --surface-strong: var(--secondary);
+  --surface-elevated: var(--popover);
+  --surface-reader: #f7f1e7;        /* paper reading bg */
+
+  /* Lines */
+  --border: rgba(43, 29, 18, 0.10);
+  --input: rgba(43, 29, 18, 0.14);
+  --chip: var(--secondary);
+  --chip-text: var(--muted-foreground);
+
+  /* Brand */
+  --primary: #b9501b;               /* terracotta */
+  --primary-foreground: #fdf8ec;
+  --ring: #b9501b;
+  --focus-ring: color-mix(in srgb, var(--ring) 42%, transparent);
+  --accent: #a35a14;                /* deep amber */
+  --accent-2: #6b8e23;              /* olive success */
+
+  /* States */
+  --danger: #b91c1c;
+  --warning: #c2780f;
+
+  /* Legacy aliases (kept for backward compat) */
+  --graphite: #101011;
+  --graphite-text: #fdf8ec;
 }
 
-html[data-theme="light"] {
-  --background: #faf8f4;
-  --foreground: #121212;
-  --surface: #fffdf8;
-  --surface-strong: #f2eee6;
-  --muted: #6f6a61;
-  --border: oklch(0.9 0.008 82);
-  --chip: #f0ece5;
-  --chip-text: #6e6a62;
-  --surface-elevated: #ffffff;
-  --surface-reader: #f7f1e7;
-  --focus-ring: color-mix(in srgb, var(--accent) 42%, transparent);
-  --danger: #dc2626;
-  --warning: #d97706;
-  --accent: #4f46e5;
-  --accent-2: #10b981;
+html[data-theme="dark"] {
+  /* Surfaces */
+  --background: #1a130c;            /* deep espresso */
+  --foreground: #f3ebd9;            /* warm cream */
+  --card: #221810;
+  --popover: #2a1f15;
+  --secondary: #2c2117;
+  --muted: #2c2117;
+  --muted-foreground: #a89683;
+  --surface: var(--card);
+  --surface-strong: var(--secondary);
+  --surface-elevated: var(--popover);
+  --surface-reader: #15100a;
+
+  /* Lines */
+  --border: rgba(243, 235, 217, 0.10);
+  --input: rgba(243, 235, 217, 0.14);
+  --chip: var(--secondary);
+  --chip-text: var(--muted-foreground);
+
+  /* Brand */
+  --primary: #e08a4d;               /* warm terracotta, lifted for contrast */
+  --primary-foreground: #1a130c;
+  --ring: #e08a4d;
+  --focus-ring: color-mix(in srgb, var(--ring) 55%, transparent);
+  --accent: #d4933d;
+  --accent-2: #8faf3a;
+
+  /* States */
+  --danger: #f87171;
+  --warning: #fbbf24;
+
+  --graphite: #1a130c;
+  --graphite-text: #f3ebd9;
+}
+
+html {
+  /* Design tokens (theme-agnostic) */
+  --radius: 0.625rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.625rem;
+  --radius-sheet: 0.875rem;
+  --radius-pill: 999px;
+  --control-h-sm: 2.25rem;
+  --control-h-md: 2.75rem;
+  --control-h-lg: 2.75rem;
+  --shadow-soft: 0 1px 2px rgba(43, 29, 18, 0.04), 0 8px 24px rgba(43, 29, 18, 0.06);
+  --shadow-lift: 0 4px 12px rgba(43, 29, 18, 0.08), 0 20px 40px rgba(43, 29, 18, 0.10);
+  --grain-opacity: 0.04;            /* softer than before */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-popover: var(--popover);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-surface: var(--surface);
   --color-surface-strong: var(--surface-strong);
   --color-muted: var(--muted);
@@ -84,7 +141,21 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
-  text-rendering: geometricprecision;
+  font-size: 16px;
+  line-height: 1.55;
+  font-feature-settings: "ss01", "cv11";
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Reserve room for the mobile tab bar so content is never hidden behind it. */
+  padding-bottom: env(safe-area-inset-bottom);
+  scroll-padding-bottom: 96px;
+}
+
+@media (min-width: 768px) {
+  body {
+    scroll-padding-bottom: 32px;
+  }
 }
 
 a {
@@ -105,7 +176,8 @@ img {
 }
 
 ::selection {
-  background: rgba(79, 70, 229, 0.18);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--foreground);
 }
 
 .font-display {
@@ -120,9 +192,43 @@ img {
   font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
 }
 
+.eyebrow {
+  font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  font-weight: 400;
+  line-height: 0.9375rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.meta-mono {
+  font-family: var(--font-geist-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  font-weight: 400;
+  line-height: 0.9375rem;
+  letter-spacing: 0.5px;
+  color: var(--muted-foreground);
+}
+
+.section-title {
+  font-family: var(--font-newsreader), "Newsreader", Georgia, serif;
+  font-size: 1.875rem;
+  font-weight: 500;
+  line-height: 2.25rem;
+  letter-spacing: 0;
+}
+
+.editorial-title {
+  font-family: var(--font-newsreader), "Newsreader", Georgia, serif;
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
 .hairline {
   border: 1px solid var(--border);
-  box-shadow: 0 14px 40px color-mix(in srgb, #000 24%, transparent);
+  box-shadow: var(--shadow-soft);
 }
 
 .ink-on-dark {
@@ -142,10 +248,14 @@ img {
   position: absolute;
   inset: 0;
   content: "";
-  opacity: 0.16;
-  background-image: radial-gradient(rgba(18, 18, 18, 0.16) 0.7px, transparent 0.7px);
+  opacity: var(--grain-opacity);
+  background-image: radial-gradient(color-mix(in srgb, var(--foreground) 18%, transparent) 0.7px, transparent 0.7px);
   background-size: 5px 5px;
   mix-blend-mode: multiply;
+}
+
+html[data-theme="dark"] .grain::after {
+  mix-blend-mode: screen;
 }
 
 .scrollbar-none {
@@ -154,6 +264,24 @@ img {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+.reader-control-group {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-control) + 0.25rem);
+  background: color-mix(in srgb, var(--secondary) 86%, var(--background));
+  padding: 0.125rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+
+.reader-theme-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding-inline: 0.25rem;
 }
 
 .filter-sheet {
@@ -190,19 +318,26 @@ img {
   }
 }
 
+/* Reader-specific themes. Each one swaps background/foreground for
+   the in-chapter area. Use warm tones for daytime reading. */
 .reader-theme-sepia {
   --background: #f1e6d2;
-  --foreground: #241c16;
+  --foreground: #2a1d12;
 }
 
 .reader-theme-paper {
+  --background: #faf3e2;
+  --foreground: #101011;
+}
+
+.reader-theme-warm-light {
   --background: #f7f1e7;
-  --foreground: #191512;
+  --foreground: #101011;
 }
 
 .reader-theme-graphite-dark {
-  --background: #0e0e10;
-  --foreground: #edeae3;
+  --background: #1a130c;
+  --foreground: #f3ebd9;
 }
 
 .reader-theme-pure-black {

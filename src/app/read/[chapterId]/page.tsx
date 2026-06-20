@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { ReaderClient } from "@/components/reader-client";
 import { getChapter, getChapters, getManga } from "@/lib/sources";
 import { truncate } from "@/lib/utils";
@@ -32,6 +33,10 @@ export default async function ReadPage({ params }: Props) {
   const chapter = await getChapter(chapterId);
   const manga = await getManga(chapter.mangaId);
   const chapters = await getChapters(manga.id);
+  // Inherit the app theme so the reader doesn't clash with the shell on first paint.
+  const headerList = await headers();
+  const cookieTheme = headerList.get("x-inkrail-theme");
+  const initialTheme: "light" | "dark" = cookieTheme === "dark" ? "dark" : "light";
 
-  return <ReaderClient manga={manga} chapter={chapter} chapters={chapters} />;
+  return <ReaderClient manga={manga} chapter={chapter} chapters={chapters} initialAppTheme={initialTheme} />;
 }

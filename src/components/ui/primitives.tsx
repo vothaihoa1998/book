@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { type ComponentPropsWithoutRef, type ReactNode, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "soft" | "danger";
 type ButtonSize = "sm" | "md" | "lg" | "icon";
 
-const buttonBase = "inline-flex shrink-0 items-center justify-center gap-2 font-semibold transition disabled:pointer-events-none disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring";
+const buttonBase = "inline-flex shrink-0 items-center justify-center gap-2 text-sm font-medium leading-5 transition disabled:pointer-events-none disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring";
 
 const buttonVariants: Record<ButtonVariant, string> = {
-  primary: "bg-foreground ink-on-dark hover:opacity-90",
-  secondary: "border border-border bg-surface text-foreground hover:border-foreground/25 hover:bg-surface-elevated",
-  ghost: "text-foreground hover:bg-foreground/6",
-  soft: "bg-chip text-chip-text hover:text-foreground",
+  primary: "bg-primary text-primary-foreground shadow-sm hover:brightness-110",
+  secondary: "border border-border bg-secondary text-foreground hover:border-input hover:bg-surface-elevated",
+  ghost: "text-muted-foreground hover:bg-secondary hover:text-foreground",
+  soft: "bg-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
   danger: "bg-danger text-white hover:opacity-90",
 };
 
@@ -19,7 +19,7 @@ const buttonSizes: Record<ButtonSize, string> = {
   sm: "h-[var(--control-h-sm)] rounded-[var(--radius-control)] px-3 text-sm",
   md: "h-[var(--control-h-md)] rounded-[var(--radius-control)] px-4 text-sm",
   lg: "h-[var(--control-h-lg)] rounded-[var(--radius-control)] px-5 text-sm",
-  icon: "size-11 rounded-[var(--radius-control)] p-0",
+  icon: "size-9 rounded-[var(--radius-control)] p-0",
 };
 
 export type AppButtonProps = ComponentPropsWithoutRef<"button"> & {
@@ -60,19 +60,19 @@ export function IconLinkButton({ className, variant = "secondary", href, ...prop
 }
 
 export function FieldLabel({ className, ...props }: ComponentPropsWithoutRef<"span">) {
-  return <span className={cn("mb-2 block text-sm font-semibold text-foreground", className)} {...props} />;
+  return <span className={cn("mb-2 block text-sm font-medium text-foreground", className)} {...props} />;
 }
 
-const inputClass = "w-full rounded-[var(--radius-control)] border border-border bg-background text-sm text-foreground outline-none transition placeholder:text-muted focus:border-foreground/35 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
+const inputClass = "w-full rounded-[var(--radius-control)] border border-input bg-background text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-ring focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-focus-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-export function TextField({ label, className, inputClassName, ...props }: ComponentPropsWithoutRef<"input"> & { label?: string; inputClassName?: string }) {
+export const TextField = forwardRef<HTMLInputElement, ComponentPropsWithoutRef<"input"> & { label?: string; inputClassName?: string }>(function TextField({ label, className, inputClassName, ...props }, ref) {
   return (
     <label className={cn("block", className)}>
       {label && <FieldLabel>{label}</FieldLabel>}
-      <input className={cn(inputClass, "h-[var(--control-h-lg)] px-4", inputClassName)} {...props} />
+      <input ref={ref} className={cn(inputClass, "h-[var(--control-h-lg)] px-4", inputClassName)} {...props} />
     </label>
   );
-}
+});
 
 export function SelectField({ label, className, selectClassName, children, ...props }: ComponentPropsWithoutRef<"select"> & { label?: string; selectClassName?: string }) {
   return (
@@ -98,9 +98,9 @@ export function Badge({ className, tone = "neutral", ...props }: ComponentPropsW
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-        tone === "neutral" && "bg-chip text-chip-text",
-        tone === "accent" && "bg-foreground text-background",
+        "meta-mono inline-flex items-center gap-1.5 rounded-[var(--radius-control)] px-2 py-1",
+        tone === "neutral" && "bg-secondary text-muted-foreground",
+        tone === "accent" && "bg-primary/15 text-primary",
         tone === "success" && "bg-accent-2/18 text-accent-2",
         tone === "danger" && "bg-danger/15 text-danger",
         className,
@@ -114,8 +114,8 @@ export function FilterChip({ className, active, children, ...props }: ComponentP
   return (
     <span
       className={cn(
-        "inline-flex min-h-11 items-center gap-2 rounded-full bg-chip px-4 text-sm font-medium text-chip-text transition",
-        active && "bg-foreground text-background",
+        "inline-flex min-h-11 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-medium text-muted-foreground transition",
+        active && "bg-primary text-primary-foreground",
         className,
       )}
       {...props}
@@ -135,8 +135,8 @@ export function SegmentButton({ className, active, children, ...props }: Compone
       type="button"
       className={cn(
         buttonBase,
-        "min-h-11 rounded-full px-4 text-sm",
-        active ? "bg-foreground text-background" : "bg-chip text-chip-text hover:text-foreground",
+        "min-h-11 rounded-[var(--radius-control)] px-4",
+        active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground",
         className,
       )}
       {...props}
@@ -149,7 +149,7 @@ export function SegmentButton({ className, active, children, ...props }: Compone
 export function BottomSheet({ className, children, ...props }: ComponentPropsWithoutRef<"div">) {
   return (
     <div
-      className={cn("flex max-h-[82vh] w-full flex-col overflow-auto rounded-t-[var(--radius-sheet)] border border-border bg-background p-5 shadow-2xl md:h-full md:max-w-sm md:rounded-[var(--radius-card)]", className)}
+      className={cn("flex max-h-[82vh] w-full flex-col overflow-auto rounded-t-[var(--radius-sheet)] border border-border bg-popover p-5 shadow-2xl md:h-full md:max-w-sm md:rounded-[var(--radius-sheet)]", className)}
       {...props}
     >
       {children}
@@ -159,7 +159,7 @@ export function BottomSheet({ className, children, ...props }: ComponentPropsWit
 
 export function AlertState({ className, children, tone = "neutral" }: { className?: string; children: ReactNode; tone?: "neutral" | "danger" | "warning" }) {
   return (
-    <div className={cn("rounded-[var(--radius-card)] border border-border bg-surface p-4 text-sm leading-6 text-muted", tone === "danger" && "border-danger/30 text-danger", tone === "warning" && "border-warning/30 text-warning", className)}>
+    <div className={cn("rounded-[var(--radius-card)] border border-border bg-card p-4 text-sm leading-6 text-muted-foreground", tone === "danger" && "border-danger/30 text-danger", tone === "warning" && "border-warning/30 text-warning", className)}>
       {children}
     </div>
   );
@@ -168,9 +168,9 @@ export function AlertState({ className, children, tone = "neutral" }: { classNam
 export function EmptyState({ className, icon, title, children, action }: { className?: string; icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className={cn("border-y border-border py-14 text-center", className)}>
-      {icon && <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-chip text-chip-text">{icon}</div>}
-      <p className="font-display text-3xl font-semibold">{title}</p>
-      {children && <div className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted">{children}</div>}
+      {icon && <div className="mx-auto mb-4 grid size-11 place-items-center rounded-[var(--radius-control)] bg-secondary text-muted-foreground">{icon}</div>}
+      <p className="section-title">{title}</p>
+      {children && <div className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">{children}</div>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );

@@ -11,33 +11,49 @@ function applyTheme(theme: Theme) {
   window.localStorage.setItem("inkrail-theme", theme);
 }
 
+/**
+ * ThemeToggle — bám sát giá trị SSR ban đầu để khỏi hydration mismatch.
+ * - First render trả về "light" cứng (khớp với layout default + script inline).
+ * - useEffect đọc lại DOM sau mount để đồng bộ với theme user thực sự chọn
+ *   (nếu họ đã từng toggle trước đó) hoặc localStorage.
+ */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const stored = window.localStorage.getItem("inkrail-theme");
-      const next = stored === "light" ? "light" : "dark";
+      const fromDom = document.documentElement.dataset.theme;
+      const next: Theme =
+        stored === "light" || stored === "dark"
+          ? stored
+          : fromDom === "dark"
+            ? "dark"
+            : "light";
       setTheme(next);
-      document.documentElement.dataset.theme = next;
+      setMounted(true);
     });
+
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  const isDark = theme === "dark";
 
   return (
     <IconButton
       type="button"
       onClick={() => {
-        const next = theme === "dark" ? "light" : "dark";
+        const next: Theme = isDark ? "light" : "dark";
         setTheme(next);
         applyTheme(next);
       }}
       variant="secondary"
-      className="text-muted hover:text-foreground"
-      aria-label={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
-      title={theme === "dark" ? "Light mode" : "Dark mode"}
+      suppressHydrationWarning
+      aria-label={mounted ? (isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối") : "Đổi giao diện"}
+      title={mounted ? (isDark ? "Light mode" : "Dark mode") : "Theme"}
     >
-      {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+      {mounted && isDark ? <Sun size={16} /> : <Moon size={16} />}
     </IconButton>
   );
 }

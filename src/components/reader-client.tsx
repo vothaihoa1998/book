@@ -2,21 +2,37 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, Columns2, Download, Maximize2, Moon, PanelTop, Settings, Smartphone, Sun, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Loader2, AlertCircle, Settings2 } from "lucide-react";
 import Link from "next/link";
-import { AppButton, AppLinkButton, BottomSheet, FieldLabel, IconButton, IconLinkButton, SegmentButton, SegmentedControl } from "@/components/ui/primitives";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const defaultPrefs: ReaderPrefs = {
-  theme: "warm-light",
+const basePrefs = {
   direction: "vertical",
   fit: "width",
   brightness: 0,
   fontSize: 18,
   gap: 8,
+} as const;
+
+const defaultPrefs: ReaderPrefs = {
+  ...basePrefs,
+  theme: "warm-light",
 };
+
+const darkDefaultPrefs: ReaderPrefs = {
+  ...basePrefs,
+  theme: "graphite-dark",
+};
+
+const readerThemes: Array<{ value: ReaderPrefs["theme"]; label: string; className: string }> = [
+  { value: "warm-light", label: "Sáng dịu", className: "bg-[#f7f1e7]" },
+  { value: "paper", label: "Giấy", className: "bg-[#faf3e2]" },
+  { value: "sepia", label: "Sepia", className: "bg-[#d9c3a1]" },
+  { value: "graphite-dark", label: "Graphite", className: "bg-[#1a130c]" },
+  { value: "pure-black", label: "OLED", className: "bg-black" },
+];
 
 function readStoredPrefs() {
   if (typeof window === "undefined") return defaultPrefs;
@@ -30,15 +46,39 @@ function readStoredPrefs() {
   }
 }
 
-export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapter: Chapter; chapters: Chapter[] }) {
+function clampPage(page: number, totalPages: number) {
+  return Math.min(totalPages, Math.max(1, Math.round(page)));
+}
+
+function readStoredProgress(chapterId: string, totalPages: number) {
+  if (typeof window === "undefined") return { page: 1, scrollPercent: 0 };
+  const stored = window.localStorage.getItem(`inkrail-progress:${chapterId}`);
+  if (!stored) return { page: 1, scrollPercent: 0 };
+
+  try {
+    const parsed = JSON.parse(stored) as { pageIndex?: number; scrollPercent?: number };
+    const page = typeof parsed.pageIndex === "number" ? clampPage(parsed.pageIndex + 1, totalPages) : 1;
+    const scrollPercent = typeof parsed.scrollPercent === "number" ? Math.min(100, Math.max(0, parsed.scrollPercent)) : 0;
+    return { page, scrollPercent };
+  } catch {
+    return { page: 1, scrollPercent: 0 };
+  }
+}
+
+export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "light" }: { manga: Manga; chapter: Chapter; chapters: Chapter[]; initialAppTheme?: "light" | "dark" }) {
+  const totalPages = Math.max(1, chapter.pages.length);
   const [showUi, setShowUi] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
-  const [prefs, setPrefs] = useState<ReaderPrefs>(readStoredPrefs);
+  const [showControls, setShowControls] = useState(false);
+  const [prefs, setPrefs] = useState<ReaderPrefs>(initialAppTheme === "dark" ? darkDefaultPrefs : defaultPrefs);
+  const [prefsReady, setPrefsReady] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [downloadState, setDownloadState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [bookmarkState, setBookmarkState] = useState<"idle" | "saving" | "saved" | "error" | "anonymous">("idle");
   const lastSync = useRef(0);
   const prefsMounted = useRef(false);
+  const pageRefs = useRef<Array<HTMLImageElement | null>>([]);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const orderedChapters = chapters.slice().reverse();
   const currentIndex = orderedChapters.findIndex((item) => item.id === chapter.id);
@@ -46,52 +86,122 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   const nextChapter = currentIndex >= 0 && currentIndex < orderedChapters.length - 1 ? orderedChapters[currentIndex + 1] : null;
 
   const pageUrls = useMemo(() => chapter.pages.map((page) => imageProxyUrl(page.url, chapter.source)), [chapter]);
-  const statusText =
-    downloadState === "saving" ? "Đang lưu offline" :
-    downloadState === "saved" ? "Đã lưu chương này" :
-    downloadState === "error" ? "Không lưu được offline" :
-    bookmarkState === "saving" ? "Đang lưu bookmark" :
-    bookmarkState === "saved" ? "Đã lưu bookmark" :
-    bookmarkState === "anonymous" ? "Đăng nhập để đồng bộ bookmark" :
-    bookmarkState === "error" ? "Không lưu được bookmark" :
-    "Chạm giữa màn hình để ẩn hoặc hiện giao diện";
 
-  useEffect(() => {
-    if (!showUi || showSettings) return;
-    const timer = window.setTimeout(() => setShowUi(false), 3200);
-    return () => window.clearTimeout(timer);
-  }, [showUi, showSettings]);
+  const statusMessage = useMemo<{ tone: "info" | "success" | "warn" | "error"; icon: ReactNode; text: string } | null>(() => {
+    if (downloadState === "saving") return { tone: "info", icon: <Loader2 size={12} className="animate-spin" />, text: "Đang lưu offline" };
+    if (downloadState === "saved") return { tone: "success", icon: <Check size={12} />, text: "Đã lưu chương này" };
+    if (downloadState === "error") return { tone: "error", icon: <AlertCircle size={12} />, text: "Không lưu được offline" };
+    if (bookmarkState === "saving") return { tone: "info", icon: <Loader2 size={12} className="animate-spin" />, text: "Đang lưu bookmark" };
+    if (bookmarkState === "saved") return { tone: "success", icon: <Check size={12} />, text: "Đã lưu bookmark" };
+    if (bookmarkState === "anonymous") return { tone: "warn", icon: <AlertCircle size={12} />, text: "Đăng nhập để đồng bộ bookmark" };
+    if (bookmarkState === "error") return { tone: "error", icon: <AlertCircle size={12} />, text: "Không lưu được bookmark" };
+    return null;
+  }, [downloadState, bookmarkState]);
 
-  useEffect(() => {
-    const progress = localStorage.getItem(`inkrail-progress:${chapter.id}`);
-    if (progress) {
-      const parsed = JSON.parse(progress) as { scrollPercent?: number };
-      if (typeof parsed.scrollPercent === "number") {
-        const scrollPercent = parsed.scrollPercent;
-        requestAnimationFrame(() => {
-          setScrollProgress(Math.min(100, Math.max(0, scrollPercent)));
-          const max = document.documentElement.scrollHeight - window.innerHeight;
-          window.scrollTo({ top: (scrollPercent / 100) * max, behavior: "instant" });
-        });
+  const setReaderMode = (direction: ReaderPrefs["direction"]) => {
+    setPrefs((current) => ({ ...current, direction }));
+    setShowUi(true);
+    setShowControls(false);
+  };
+
+  const setReaderFit = (fit: ReaderPrefs["fit"]) => {
+    setPrefs((current) => ({ ...current, fit }));
+    setShowUi(true);
+    setShowControls(false);
+  };
+
+  const setReaderTheme = (theme: ReaderPrefs["theme"]) => {
+    setPrefs((current) => ({ ...current, theme }));
+    setShowUi(true);
+  };
+
+  const findCurrentPage = useCallback(() => {
+    const center = window.innerHeight / 2;
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    pageRefs.current.forEach((node, index) => {
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      const distance = rect.top <= center && rect.bottom >= center
+        ? 0
+        : Math.min(Math.abs(rect.top - center), Math.abs(rect.bottom - center));
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
       }
-    }
-  }, [chapter.id]);
+    });
+
+    return clampPage(bestIndex + 1, totalPages);
+  }, [totalPages]);
+
+  const syncReaderProgress = useCallback((page: number) => {
+    const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const scrollPercent = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
+    const pageIndex = clampPage(page, totalPages) - 1;
+    const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent };
+
+    setScrollProgress(scrollPercent);
+    setCurrentPage(pageIndex + 1);
+    localStorage.setItem(`inkrail-progress:${chapter.id}`, JSON.stringify(payload));
+
+    const now = Date.now();
+    if (now - lastSync.current < 3000) return;
+    lastSync.current = now;
+    fetch("/api/progress", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [chapter.id, manga.id, totalPages]);
 
   useEffect(() => {
     let active = true;
-    fetch("/api/preferences")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { prefs?: Partial<ReaderPrefs> } | null) => {
-        if (active && payload?.prefs) setPrefs((current) => ({ ...current, ...payload.prefs }));
-      })
-      .catch(() => undefined);
+    const frame = window.requestAnimationFrame(() => {
+      if (!active) return;
+      setPrefs(readStoredPrefs());
+      setPrefsReady(true);
+
+      fetch("/api/preferences")
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: { prefs?: Partial<ReaderPrefs>; mode?: string } | null) => {
+          if (active && payload?.mode === "synced" && payload.prefs) setPrefs((current) => ({ ...current, ...payload.prefs }));
+        })
+        .catch(() => undefined);
+    });
 
     return () => {
       active = false;
+      window.cancelAnimationFrame(frame);
     };
   }, []);
 
   useEffect(() => {
+    const progress = readStoredProgress(chapter.id, totalPages);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setCurrentPage(progress.page);
+        setScrollProgress(progress.scrollPercent);
+
+        const target = pageRefs.current[progress.page - 1];
+        if (target) {
+          // `behavior: "instant"` isn't in the standard TS DOM lib; cast is safe
+          // and degrades to default in older browsers.
+          target.scrollIntoView({ block: "start" });
+          return;
+        }
+
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        window.scrollTo({ top: (progress.scrollPercent / 100) * max });
+      });
+    });
+  }, [chapter.id, totalPages]);
+
+  useEffect(() => {
+    if (!prefsReady) return;
     localStorage.setItem("inkrail-reader-prefs", JSON.stringify(prefs));
     if (!prefsMounted.current) {
       prefsMounted.current = true;
@@ -108,45 +218,75 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [prefs]);
+  }, [prefs, prefsReady]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowUi(true);
-      if (event.key.toLowerCase() === "s") setShowSettings((value) => !value);
-      if (event.key.toLowerCase() === "f") document.documentElement.requestFullscreen?.();
-      if (event.key.toLowerCase() === "b") setShowUi((value) => !value);
-      if (event.key === "ArrowRight" && nextChapter) location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
-      if (event.key === "ArrowLeft" && previousChapter) location.href = `/read/${encodeURIComponent(previousChapter.id)}`;
-      if (event.key.toLowerCase() === "j" && nextChapter) location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
-      if (event.key.toLowerCase() === "k" && previousChapter) location.href = `/read/${encodeURIComponent(previousChapter.id)}`;
+      // Don't hijack typing in inputs (e.g. comments later).
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+
+      if (event.key === "Escape") {
+        // Priority: close the controls drawer first, otherwise surface the UI
+        // if it's hidden, otherwise no-op.
+        if (showControls) {
+          setShowControls(false);
+          return;
+        }
+        if (!showUi) {
+          setShowUi(true);
+        }
+        return;
+      }
+      if (event.key === "ArrowRight" && nextChapter) {
+        location.href = `/read/${encodeURIComponent(nextChapter.id)}`;
+        return;
+      }
+      if (event.key === "ArrowLeft" && previousChapter) {
+        location.href = `/read/${encodeURIComponent(previousChapter.id)}`;
+        return;
+      }
+      if (event.key === "h" || event.key === "H") {
+        setShowUi((value) => !value);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nextChapter, previousChapter]);
+  }, [nextChapter, previousChapter, showControls, showUi]);
 
   useEffect(() => {
-    const syncProgress = () => {
-      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const scrollPercent = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
-      const pageIndex = Math.min(chapter.pages.length - 1, Math.floor((scrollPercent / 100) * chapter.pages.length));
-      const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent };
-      setScrollProgress(scrollPercent);
-      localStorage.setItem(`inkrail-progress:${chapter.id}`, JSON.stringify(payload));
-
-      const now = Date.now();
-      if (now - lastSync.current < 3000) return;
-      lastSync.current = now;
-      fetch("/api/progress", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => undefined);
+    // rAF-throttle: findCurrentPage iterates every <img> ref and reads
+    // getBoundingClientRect. Without this, scroll fires it on every pixel.
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        syncReaderProgress(findCurrentPage());
+      });
     };
-    window.addEventListener("scroll", syncProgress, { passive: true });
-    return () => window.removeEventListener("scroll", syncProgress);
-  }, [chapter, manga.id]);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    onScroll();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [findCurrentPage, syncReaderProgress]);
+
+  // Close the controls drawer when clicking/tapping outside the header.
+  useEffect(() => {
+    if (!showControls) return;
+    const onPointer = (event: PointerEvent) => {
+      const header = headerRef.current;
+      if (!header) return;
+      if (event.target instanceof Node && header.contains(event.target)) return;
+      setShowControls(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [showControls]);
 
   async function warmCache() {
     if (!("caches" in window)) return;
@@ -182,26 +322,67 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
-        <div className="fixed inset-x-0 top-0 z-30 border-b border-border bg-background/90 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-7xl items-center gap-3">
-            <IconLinkButton href={`/manga/${encodeURIComponent(manga.id)}`} aria-label="Quay lại truyện">
-              <ArrowLeft size={16} />
-            </IconLinkButton>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-display text-lg font-semibold">{manga.title}</p>
-              <p className="text-xs font-medium text-muted">Ch. {chapter.number} · {chapter.pages.length} trang</p>
+        <header ref={headerRef} className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 md:gap-3">
+            <Link
+              href={`/manga/${encodeURIComponent(manga.id)}`}
+              className="inline-flex h-9 max-w-[40vw] shrink-0 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-sm font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring md:max-w-sm"
+              aria-label="Quay lại truyện"
+            >
+              <ArrowLeft size={15} />
+              <span className="truncate">{manga.title}</span>
+            </Link>
+
+            <div className="ml-1 shrink-0 text-sm font-medium md:ml-0 md:absolute md:left-1/2 md:-translate-x-1/2">
+              Chương {chapter.number}
             </div>
-            <IconButton onClick={warmCache} className="hidden sm:inline-flex" aria-label="Tải chương offline">
-              <Download size={16} />
-            </IconButton>
-            <IconButton onClick={() => document.documentElement.requestFullscreen?.()} className="hidden sm:inline-flex" aria-label="Toàn màn hình">
-              <Maximize2 size={16} />
-            </IconButton>
-            <IconButton onClick={() => setShowSettings(true)} variant="primary" aria-label="Cài đặt reader">
-              <Settings size={16} />
-            </IconButton>
+
+            <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
+              {/* Theme — only labeled, default to current */}
+              <div className="reader-theme-row" aria-label="Màu đọc">
+                {readerThemes.map((theme) => (
+                  <ThemeSwatch
+                    key={theme.value}
+                    active={prefs.theme === theme.value}
+                    label={`Màu: ${theme.label}`}
+                    className={theme.className}
+                    onClick={() => setReaderTheme(theme.value)}
+                  />
+                ))}
+              </div>
+
+              <ReaderIconButton onClick={saveBookmark} label="Lưu bookmark" active={bookmarkState === "saved"}>
+                <Bookmark size={15} />
+              </ReaderIconButton>
+              <ReaderIconButton onClick={warmCache} label="Tải offline" active={downloadState === "saved"}>
+                <Download size={15} />
+              </ReaderIconButton>
+              <ReaderIconButton onClick={() => setShowControls((value) => !value)} label="Tuỳ chỉnh đọc" active={showControls}>
+                <Settings2 size={15} />
+              </ReaderIconButton>
+            </div>
           </div>
-        </div>
+
+          {/* Slide-down controls drawer (direction + fit) */}
+          <div
+            className={cn(
+              "mx-auto mt-2 flex max-w-7xl flex-wrap items-center gap-2 overflow-hidden transition-all duration-200 ease-out md:gap-3",
+              showControls ? "max-h-24 opacity-100" : "max-h-0 opacity-0",
+            )}
+          >
+            <div className="reader-control-group" aria-label="Kiểu đọc">
+              <QuickButton active={prefs.direction === "vertical"} onClick={() => setReaderMode("vertical")} label="Đọc dọc">↕</QuickButton>
+              <QuickButton active={prefs.direction === "horizontal-ltr"} onClick={() => setReaderMode("horizontal-ltr")} label="Đọc ngang trái sang phải">→</QuickButton>
+              <QuickButton active={prefs.direction === "horizontal-rtl"} onClick={() => setReaderMode("horizontal-rtl")} label="Đọc ngang phải sang trái">←</QuickButton>
+            </div>
+            <div className="reader-control-group" aria-label="Fit ảnh">
+              <QuickButton active={prefs.fit === "width"} onClick={() => setReaderFit("width")} label="Fit chiều rộng">Rộng</QuickButton>
+              <QuickButton active={prefs.fit === "height"} onClick={() => setReaderFit("height")} label="Fit chiều cao">Cao</QuickButton>
+              <QuickButton active={prefs.fit === "smart"} onClick={() => setReaderFit("smart")} label="Fit thông minh">Tự động</QuickButton>
+              <QuickButton active={prefs.fit === "original"} onClick={() => setReaderFit("original")} label="Kích thước gốc">Gốc</QuickButton>
+            </div>
+          </div>
+        </header>
       )}
 
       <button aria-label="Ẩn hoặc hiện giao diện đọc" onClick={() => setShowUi((value) => !value)} className="fixed inset-x-1/3 top-1/3 z-10 h-1/3 cursor-default" />
@@ -214,20 +395,25 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
 
       <main
         className={cn(
-          "mx-auto px-0 pb-28 pt-24 md:pt-28",
+          "mx-auto px-0 pb-28 pt-16 md:pt-20",
           prefs.direction === "vertical" ? "max-w-[920px]" : "max-w-7xl",
         )}
       >
         <div
           className={cn(
             prefs.direction === "vertical" && "flex flex-col items-center",
-            prefs.direction !== "vertical" && "grid grid-cols-1 gap-4 md:grid-cols-2",
+            prefs.direction === "horizontal-ltr" && "grid grid-cols-1 gap-4 md:grid-cols-2",
+            prefs.direction === "horizontal-rtl" && "grid grid-cols-1 gap-4 md:grid-cols-2",
           )}
+          dir={prefs.direction === "horizontal-rtl" ? "rtl" : "ltr"}
           style={{ gap: `${prefs.gap}px` }}
         >
           {pageUrls.map((url, index) => (
             <img
               key={url}
+              ref={(node) => {
+                pageRefs.current[index] = node;
+              }}
               src={url}
               alt={`${manga.title} trang ${index + 1}`}
               loading={index < 2 ? "eager" : "lazy"}
@@ -245,92 +431,59 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
       </main>
 
       {showUi && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur-xl md:left-auto md:right-5 md:bottom-5 md:w-[380px] md:rounded-[var(--radius-card)] md:border md:pb-3 md:shadow-xl">
-          <div className="mb-3 h-1 overflow-hidden rounded-full bg-surface-strong">
-            <div className="h-full rounded-full bg-accent-2" style={{ width: `${scrollProgress}%` }} />
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl" aria-label="Điều hướng chương">
+          <div className="mb-2 h-0.5 overflow-hidden rounded-full bg-secondary">
+            <div className="h-full rounded-full bg-primary transition-[width] duration-150" style={{ width: `${scrollProgress}%` }} />
           </div>
-          <div className="flex items-center justify-between gap-3">
+          <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-2">
             {previousChapter ? (
-              <AppLinkButton href={`/read/${encodeURIComponent(previousChapter.id)}`} variant="secondary" size="sm">
-                <ArrowLeft size={15} /> Trước
-              </AppLinkButton>
+              <Link
+                href={`/read/${encodeURIComponent(previousChapter.id)}`}
+                className="inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-foreground transition hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+              >
+                <ArrowLeft size={15} /> <span><span className="hidden sm:inline">Chương </span>trước</span>
+              </Link>
             ) : (
-              <span />
+              <span className="inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-muted-foreground opacity-45">
+                <ArrowLeft size={15} /> <span><span className="hidden sm:inline">Chương </span>trước</span>
+              </span>
             )}
-            <AppButton onClick={saveBookmark} variant="secondary" size="sm">
-              <Bookmark size={15} /> Lưu
-            </AppButton>
+            <div className="meta-mono flex items-center justify-center gap-1.5 text-center leading-5">
+              {statusMessage ? (
+                <span className={cn(
+                  "inline-flex items-center gap-1.5",
+                  statusMessage.tone === "success" && "text-accent-2",
+                  statusMessage.tone === "error" && "text-danger",
+                  statusMessage.tone === "warn" && "text-warning",
+                  statusMessage.tone === "info" && "text-foreground",
+                )}>
+                  {statusMessage.icon}
+                  <span className="hidden sm:inline">{statusMessage.text}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span className="tabular-nums">{currentPage}/{totalPages}</span>
+                  <span aria-hidden className="hidden sm:inline">·</span>
+                  <span className="hidden items-center gap-1 sm:inline-flex" title="Phím H: ẩn/hiện giao diện">
+                    <EyeOff size={11} /> H
+                  </span>
+                </span>
+              )}
+            </div>
             {nextChapter ? (
-              <AppLinkButton href={`/read/${encodeURIComponent(nextChapter.id)}`} size="sm">
-                Sau <ArrowRight size={15} />
-              </AppLinkButton>
+              <Link
+                href={`/read/${encodeURIComponent(nextChapter.id)}`}
+                className="ml-auto inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+              >
+                <span><span className="hidden sm:inline">Chương </span>sau</span> <ArrowRight size={15} />
+              </Link>
             ) : (
-              <span />
+              <span className="ml-auto inline-flex h-11 w-fit items-center gap-2 rounded-[var(--radius-control)] bg-secondary px-3 text-sm font-medium text-muted-foreground opacity-45">
+                Hết chương <ArrowRight size={15} />
+              </span>
             )}
           </div>
-          <p className="mt-2 text-center text-xs font-medium text-muted">{statusText}</p>
-        </div>
-      )}
-
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-0 backdrop-blur-sm md:items-stretch md:justify-end md:p-4" onClick={() => setShowSettings(false)}>
-          <BottomSheet onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-muted">Reader</p>
-                <h2 className="mt-1 font-display text-3xl font-semibold">Không gian đọc</h2>
-              </div>
-              <IconButton onClick={() => setShowSettings(false)} aria-label="Đóng cài đặt">
-                <X size={16} />
-              </IconButton>
-            </div>
-            <Setting label="Giao diện">
-              <Segmented
-                value={prefs.theme}
-                options={[
-                  { value: "warm-light", label: "Sáng dịu", icon: <Sun size={14} /> },
-                  { value: "paper", label: "Giấy", icon: <Sun size={14} /> },
-                  { value: "sepia", label: "Sepia", icon: <Sun size={14} /> },
-                  { value: "graphite-dark", label: "Graphite", icon: <Moon size={14} /> },
-                  { value: "pure-black", label: "OLED", icon: <Moon size={14} /> },
-                ]}
-                onChange={(theme) => setPrefs({ ...prefs, theme: theme as ReaderPrefs["theme"] })}
-              />
-            </Setting>
-            <Setting label="Kiểu đọc">
-              <Segmented
-                value={prefs.direction}
-                options={[
-                  { value: "vertical", label: "Dọc", icon: <Smartphone size={14} /> },
-                  { value: "horizontal-ltr", label: "LTR", icon: <Columns2 size={14} /> },
-                  { value: "horizontal-rtl", label: "RTL", icon: <Columns2 size={14} /> },
-                ]}
-                onChange={(direction) => setPrefs({ ...prefs, direction: direction as ReaderPrefs["direction"] })}
-              />
-            </Setting>
-            <Setting label="Khung ảnh">
-              <Segmented
-                value={prefs.fit}
-                options={[
-                  { value: "width", label: "Rộng", icon: <PanelTop size={14} /> },
-                  { value: "height", label: "Cao", icon: <PanelTop size={14} /> },
-                  { value: "smart", label: "Smart", icon: <PanelTop size={14} /> },
-                  { value: "original", label: "Gốc", icon: <PanelTop size={14} /> },
-                ]}
-                onChange={(fit) => setPrefs({ ...prefs, fit: fit as ReaderPrefs["fit"] })}
-              />
-            </Setting>
-            <Setting label={`Độ tối ${prefs.brightness}%`}>
-              <input type="range" min="0" max="60" value={prefs.brightness} onChange={(event) => setPrefs({ ...prefs, brightness: Number(event.target.value) })} className="w-full accent-accent" />
-            </Setting>
-            <Setting label={`Cỡ UI ${prefs.fontSize}px`}>
-              <input type="range" min="14" max="24" value={prefs.fontSize} onChange={(event) => setPrefs({ ...prefs, fontSize: Number(event.target.value) })} className="w-full accent-accent" />
-            </Setting>
-            <Setting label={`Khoảng cách trang ${prefs.gap}px`}>
-              <input type="range" min="0" max="32" value={prefs.gap} onChange={(event) => setPrefs({ ...prefs, gap: Number(event.target.value) })} className="w-full accent-accent" />
-            </Setting>
-          </BottomSheet>
-        </div>
+        </nav>
       )}
 
       <div className="pointer-events-none fixed inset-0 z-20" style={{ background: `rgba(0,0,0,${prefs.brightness / 100})` }} />
@@ -338,27 +491,52 @@ export function ReaderClient({ manga, chapter, chapters }: { manga: Manga; chapt
   );
 }
 
-function Setting({ label, children }: { label: string; children: React.ReactNode }) {
+function QuickButton({ active, onClick, label, children }: { active?: boolean; onClick: () => void; label: string; children: ReactNode }) {
   return (
-    <label className="mt-6 block">
-      <FieldLabel>{label}</FieldLabel>
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-9 min-w-9 items-center justify-center rounded-[calc(var(--radius-control)+1px)] px-2.5 text-sm font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+      )}
+    >
       {children}
-    </label>
+    </button>
   );
 }
 
-function Segmented({ value, options, onChange }: { value: string; options: Array<{ value: string; label: string; icon?: React.ReactNode }>; onChange: (value: string) => void }) {
+function ReaderIconButton({ active, onClick, label, children }: { active?: boolean; onClick: () => void; label: string; children: ReactNode }) {
   return (
-    <SegmentedControl>
-      {options.map((option) => (
-        <SegmentButton
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          active={value === option.value}
-        >
-          {option.icon} {option.label}
-        </SegmentButton>
-      ))}
-    </SegmentedControl>
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex size-9 shrink-0 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        active && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ThemeSwatch({ active, label, className, onClick }: { active?: boolean; label: string; className: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "size-7 shrink-0 rounded-full border border-border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        className,
+        active && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+      )}
+    />
   );
 }

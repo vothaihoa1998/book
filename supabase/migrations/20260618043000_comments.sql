@@ -17,6 +17,10 @@ create index if not exists comments_parent_idx on public.comments (parent_id) wh
 
 alter table public.comments enable row level security;
 
+drop policy if exists "comments public read" on public.comments;
+drop policy if exists "comments insert own" on public.comments;
+drop policy if exists "comments update own" on public.comments;
+drop policy if exists "comments delete own" on public.comments;
 create policy "comments public read" on public.comments
   for select to anon, authenticated
   using (deleted_at is null);
