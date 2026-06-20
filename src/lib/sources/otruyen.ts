@@ -91,9 +91,18 @@ export async function searchOTruyen(query: string, options: Partial<Pick<Normali
   });
 }
 
-export async function getRecentOTruyen(limit = 12) {
-  const response = await fetchJson<Record<string, unknown>>(`${API}/danh-sach/truyen-moi?page=1`);
-  return itemsFromResponse(response).slice(0, limit).map(mapManga);
+export async function getRecentOTruyen(limit = 24) {
+  // Fetch nhiều trang song song để có feed dày hơn (VN-first content).
+  const pageCount = Math.ceil(limit / 24) || 1;
+  const responses = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) =>
+      fetchJson<Record<string, unknown>>(`${API}/danh-sach/truyen-moi?page=${index + 1}`).catch(() => null),
+    ),
+  );
+  const merged = responses
+    .filter((response): response is Record<string, unknown> => Boolean(response))
+    .flatMap((response) => itemsFromResponse(response));
+  return merged.slice(0, limit).map(mapManga);
 }
 
 export async function getOTruyenManga(slug: string) {
@@ -133,7 +142,9 @@ export async function getOTruyenChapter(encodedApi: string) {
   const item = (data.item || {}) as Record<string, unknown>;
   const domain = asString(data.domain_cdn || response.domain_cdn);
   const images = ((item.chapter_image || []) as Array<Record<string, unknown>>).filter(Boolean);
-  const slug = asString(item.comic_slug || item.slug || "otruyen");
+
+  // OTruyen chapter API không trả comic_slug → tra cứu từ slug cache hoặc fallback an toàn.
+  const slug = asString(item.comic_slug) || lookupOtruyenSlug(encodedApi) || "otruyen";
 
   return {
     id: makeScopedId("otruyen", encodedApi),
@@ -153,4 +164,19 @@ export async function getOTruyenChapter(encodedApi: string) {
       };
     }),
   } satisfies Chapter;
+}
+
+/**
+ * In-memory cache: chapter api URL → manga slug. Được set khi `getOTruyenChapters`
+ * chạy (vì chapter list có kèm chapter_api_data mà từ đó ta biết manga).
+ * OTruyen chapter API không trả comic_slug nên cần cache mapping này.
+ */
+const otruyenChapterSlugCache = new Map<string, string>();
+
+export function registerOtruyenChapterSlug(encodedApi: string, slug: string) {
+  if (encodedApi && slug) otruyenChapterSlugCache.set(encodedApi, slug);
+}
+
+function lookupOtruyenSlug(encodedApi: string): string | null {
+  return otruyenChapterSlugCache.get(encodedApi) ?? null;
 }
