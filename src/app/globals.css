@@ -1,12 +1,49 @@
 @import "tailwindcss";
 
 /* ============================================================
-   COZY LIBRARY — warm color system
-   Light by default (cream paper), warm dark mode as alternate.
-   Primary: terracotta  •  Text: chocolate  •  Base: warm cream
+   INKRAIL 2026 — dark-first color system
+   Default: deep navy #050814  •  Accent: warm gold
+   Light mode remains available as a warm paper alternate.
    ============================================================ */
 
 :root,
+html[data-theme="dark"] {
+  /* Surfaces */
+  --background: #050814;
+  --foreground: #f5f7fb;
+  --card: #0b1020;
+  --popover: #10162a;
+  --secondary: #111a2f;
+  --muted: #111a2f;
+  --muted-foreground: #9aa4b2;
+  --surface: var(--card);
+  --surface-strong: var(--secondary);
+  --surface-elevated: var(--popover);
+  --surface-reader: #070b16;
+
+  /* Lines */
+  --border: rgba(226, 232, 240, 0.10);
+  --input: rgba(226, 232, 240, 0.14);
+  --chip: var(--secondary);
+  --chip-text: var(--muted-foreground);
+
+  /* Brand */
+  --primary: #f2b84b;
+  --primary-foreground: #080b13;
+  --ring: #f2b84b;
+  --focus-ring: color-mix(in srgb, var(--ring) 55%, transparent);
+  --accent: #f2b84b;
+  --accent-2: #45d6a3;
+
+  /* States */
+  --danger: #fb7185;
+  --warning: #fbbf24;
+
+  /* Legacy aliases (kept for backward compat) */
+  --graphite: #050814;
+  --graphite-text: #f5f7fb;
+}
+
 html[data-theme="light"] {
   /* Surfaces */
   --background: #f4ecdc;            /* warm cream paper */
@@ -44,42 +81,6 @@ html[data-theme="light"] {
   --graphite-text: #fdf8ec;
 }
 
-html[data-theme="dark"] {
-  /* Surfaces */
-  --background: #1a130c;            /* deep espresso */
-  --foreground: #f3ebd9;            /* warm cream */
-  --card: #221810;
-  --popover: #2a1f15;
-  --secondary: #2c2117;
-  --muted: #2c2117;
-  --muted-foreground: #a89683;
-  --surface: var(--card);
-  --surface-strong: var(--secondary);
-  --surface-elevated: var(--popover);
-  --surface-reader: #15100a;
-
-  /* Lines */
-  --border: rgba(243, 235, 217, 0.10);
-  --input: rgba(243, 235, 217, 0.14);
-  --chip: var(--secondary);
-  --chip-text: var(--muted-foreground);
-
-  /* Brand */
-  --primary: #e08a4d;               /* warm terracotta, lifted for contrast */
-  --primary-foreground: #1a130c;
-  --ring: #e08a4d;
-  --focus-ring: color-mix(in srgb, var(--ring) 55%, transparent);
-  --accent: #d4933d;
-  --accent-2: #8faf3a;
-
-  /* States */
-  --danger: #f87171;
-  --warning: #fbbf24;
-
-  --graphite: #1a130c;
-  --graphite-text: #f3ebd9;
-}
-
 html {
   /* Design tokens (theme-agnostic) */
   --radius: 0.625rem;
@@ -90,8 +91,8 @@ html {
   --control-h-sm: 2.25rem;
   --control-h-md: 2.75rem;
   --control-h-lg: 2.75rem;
-  --shadow-soft: 0 1px 2px rgba(43, 29, 18, 0.04), 0 8px 24px rgba(43, 29, 18, 0.06);
-  --shadow-lift: 0 4px 12px rgba(43, 29, 18, 0.08), 0 20px 40px rgba(43, 29, 18, 0.10);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.18), 0 10px 28px rgba(0, 0, 0, 0.22);
+  --shadow-lift: 0 6px 18px rgba(0, 0, 0, 0.24), 0 24px 56px rgba(0, 0, 0, 0.32);
   --grain-opacity: 0.04;            /* softer than before */
 }
 
@@ -336,8 +337,8 @@ html[data-theme="dark"] .grain::after {
 }
 
 .reader-theme-graphite-dark {
-  --background: #1a130c;
-  --foreground: #f3ebd9;
+  --background: #050814;
+  --foreground: #f5f7fb;
 }
 
 .reader-theme-pure-black {

@@ -59,7 +59,8 @@ async function cachedList<T>(
   loader: () => Promise<T[]>,
 ) {
   const cached = await readCache<T[]>(table, cacheKey);
-  if (cached) return cached;
+  // Lưu ý: [] là truthy trong JS → phải check length để không cache poisoned value rỗng.
+  if (cached && cached.length) return cached;
 
   const value = await loader();
   if (value.length) await writeCache(table, cacheKey, source, value as Json, ttlSeconds);
@@ -71,11 +72,13 @@ export const getHome = cache(async (): Promise<HomePayload> => {
     const [popular, recent, oRecent] = await Promise.all([
       withFallback(getPopularMangaDex(24), sampleManga),
       withFallback(getRecentMangaDex(24), sampleManga.slice().reverse()),
-      withFallback(getRecentOTruyen(18), []),
+      withFallback(getRecentOTruyen(24), []),
     ]);
 
-    const trending = dedupeManga([...popular, ...sampleManga]).slice(0, 24);
-    const recentMerged = dedupeManga([...recent, ...oRecent, ...sampleManga]).slice(0, 30);
+    // VN-first featured: ưu tiên OTruyen (vietsub native) trước, rồi MangaDex VI.
+    const vnFirst = [...oRecent, ...popular, ...recent];
+    const trending = dedupeManga([...vnFirst, ...sampleManga]).slice(0, 24);
+    const recentMerged = dedupeManga([...oRecent, ...recent, ...sampleManga]).slice(0, 30);
     const recommended = dedupeManga([
       ...trending.filter((item) => item.genres.some((genre) => /fantasy|action|romance/i.test(genre))),
       ...sampleManga,
@@ -205,6 +208,34 @@ export const searchManga = cache(async (params: MangaSearchParams = {}) => {
   return payload.results;
 });
 
+function normalizeTitle(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .trim();
+}
+
+/**
+ * Cross-source fallback: khi MangaDex trả manga nhưng chapters rỗng,
+ * tìm OTruyen theo title để route user sang bản vietsub native.
+ * Trả về null nếu không tìm thấy.
+ */
+async function tryOtruyenFallbackByTitle(title: string): Promise<Manga | null> {
+  if (!title) return null;
+  const norm = normalizeTitle(title);
+  if (!norm) return null;
+  try {
+    const response = await searchOTruyen(title, { page: 1 });
+    const match = response.find((item) => normalizeTitle(item.title) === norm) ?? response[0];
+    if (!match) return null;
+    return match;
+  } catch {
+    return null;
+  }
+}
+
 export const getManga = cache(async (id: string) => {
   const parsed = parseScopedId(id);
   let manga: Manga | null = null;
@@ -236,6 +267,18 @@ export const getChapters = cache(async (mangaId: string) => {
     chapters = await cachedList("chapter_cache", `chapters:otruyen:${parsed.sourceId}`, "otruyen", 60 * 60, () =>
       withFallback(getOTruyenChapters(parsed.sourceId), []),
     );
+  }
+
+  // Cross-source fallback: nếu MangaDex không có chapter, tìm OTruyen theo title.
+  if (chapters.length === 0 && parsed.source === "mangadex") {
+    const manga = await getManga(mangaId);
+    const fallback = await tryOtruyenFallbackByTitle(manga.title);
+    if (fallback && fallback.source === "otruyen") {
+      const otChapters = await cachedList("chapter_cache", `chapters:otruyen:${fallback.sourceId}`, "otruyen", 60 * 60, () =>
+        withFallback(getOTruyenChapters(fallback.sourceId), []),
+      );
+      if (otChapters.length) return otChapters;
+    }
   }
 
   return chapters.length ? chapters : getSampleChapters(mangaId);

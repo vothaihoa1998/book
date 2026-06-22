@@ -1,6 +1,6 @@
 import "server-only";
 
-import { type Chapter, type Manga, makeScopedId, slugify } from "../types";
+import { type Chapter, type Manga, makeScopedId, type PageImage, slugify } from "../types";
 import { fetchJson, unique } from "./http";
 import { applySearchFilters, type NormalizedSearchParams } from "./search-utils";
 
@@ -91,9 +91,18 @@ export async function searchOTruyen(query: string, options: Partial<Pick<Normali
   });
 }
 
-export async function getRecentOTruyen(limit = 12) {
-  const response = await fetchJson<Record<string, unknown>>(`${API}/danh-sach/truyen-moi?page=1`);
-  return itemsFromResponse(response).slice(0, limit).map(mapManga);
+export async function getRecentOTruyen(limit = 24) {
+  // Fetch nhiều trang song song để có feed dày hơn (VN-first content).
+  const pageCount = Math.ceil(limit / 24) || 1;
+  const responses = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) =>
+      fetchJson<Record<string, unknown>>(`${API}/danh-sach/truyen-moi?page=${index + 1}`).catch(() => null),
+    ),
+  );
+  const merged = responses
+    .filter((response): response is Record<string, unknown> => Boolean(response))
+    .flatMap((response) => itemsFromResponse(response));
+  return merged.slice(0, limit).map(mapManga);
 }
 
 export async function getOTruyenManga(slug: string) {
@@ -111,12 +120,16 @@ export async function getOTruyenChapters(slug: string) {
 
   return chapters.map((chapter) => {
     const api = asString(chapter.chapter_api_data);
+    const encoded = encodeChapterApi(api);
     const number = asString(chapter.chapter_name || chapter.chapter_title || "?");
+    // Embed slug vào sourceId để getOTruyenChapter có thể tra ngược mangaId
+    // (OTruyen chapter API không trả comic_slug).
+    const scopedSourceId = `${slug}:${encoded}`;
     return {
-      id: makeScopedId("otruyen", encodeChapterApi(api)),
+      id: makeScopedId("otruyen", scopedSourceId),
       mangaId: makeScopedId("otruyen", slug),
       source: "otruyen",
-      sourceId: encodeChapterApi(api),
+      sourceId: scopedSourceId,
       number,
       title: asString(chapter.chapter_title) || null,
       pages: [],
@@ -126,31 +139,72 @@ export async function getOTruyenChapters(slug: string) {
   });
 }
 
-export async function getOTruyenChapter(encodedApi: string) {
+export async function getOTruyenChapter(scopedSourceId: string) {
+  // scopedSourceId format: "<mangaSlug>:<encodedChapterApi>"
+  const colonIndex = scopedSourceId.indexOf(":");
+  const slug = colonIndex === -1 ? "" : scopedSourceId.slice(0, colonIndex);
+  const encodedApi = colonIndex === -1 ? scopedSourceId : scopedSourceId.slice(colonIndex + 1);
   const api = decodeChapterApi(encodedApi);
   const response = await fetchJson<Record<string, unknown>>(api);
   const data = (response.data || {}) as Record<string, unknown>;
   const item = (data.item || {}) as Record<string, unknown>;
   const domain = asString(data.domain_cdn || response.domain_cdn);
   const images = ((item.chapter_image || []) as Array<Record<string, unknown>>).filter(Boolean);
-  const slug = asString(item.comic_slug || item.slug || "otruyen");
+
+  // OTruyen chapter API không trả comic_slug → dùng slug từ scopedSourceId.
+  const resolvedSlug = slug || asString(item.comic_slug) || "otruyen";
+
+  const chapterPath = asString(item.chapter_path || "");
+  const fallbackPath = `uploads/${asString(item.chapter_id || "")}`;
+
+  const pages = images.map((image, index) => {
+    const imageFile = asString(image.image_file);
+    // Nếu image_file là full URL → dùng luôn.
+    // Nếu là relative → ghép domain + chapter_path (hoặc fallback uploads/<id>).
+    const basePath = chapterPath || fallbackPath;
+    const url = imageFile.startsWith("http")
+      ? imageFile
+      : `${domain.replace(/\/+$/, "")}/${basePath.replace(/^\/+|\/+$/g, "")}/${imageFile}`;
+    return { index, url };
+  });
+
+  // Bỏ các page có URL double-slash (malformed → 404) hoặc rỗng.
+  const cleanPages = pages.filter((p) => {
+    if (!p.url || !p.url.startsWith("http")) return false;
+    // Chỉ giữ nếu URL không có "//" ở giữa path (sau scheme).
+    const path = p.url.replace(/^https?:\/\//, "");
+    return !path.includes("//");
+  });
 
   return {
-    id: makeScopedId("otruyen", encodedApi),
-    mangaId: makeScopedId("otruyen", slug),
+    id: makeScopedId("otruyen", scopedSourceId),
+    mangaId: makeScopedId("otruyen", resolvedSlug),
     source: "otruyen",
-    sourceId: encodedApi,
+    sourceId: scopedSourceId,
     number: asString(item.chapter_name || item.name || "?"),
     title: asString(item.chapter_title) || null,
     language: "vi",
     updatedAt: new Date().toISOString(),
-    pages: images.map((image, index) => {
-      const imageFile = asString(image.image_file);
-      const path = asString(image.chapter_path);
-      return {
-        index,
-        url: imageFile.startsWith("http") ? imageFile : `${domain}/${path}/${imageFile}`,
-      };
-    }),
+    pages: stripOtruyenAdPages(cleanPages),
   } satisfies Chapter;
+}
+
+/**
+ * Strip trang quảng cáo do uploader gắn vào chapter OTruyen
+ * (thường là page 0 với banner "TRUYENQQ.COM" hoặc tương tự).
+ * Đây là heuristic tạm — detect bằng filename pattern + page index đầu.
+ */
+function stripOtruyenAdPages(pages: PageImage[]): PageImage[] {
+  if (pages.length < 2) return pages;
+  const filtered = pages.filter((page, index) => {
+    if (index === 0 && pages.length >= 8) {
+      // Trang đầu thường là banner ad của nhóm dịch (đặc biệt khi chapter ngắn).
+      // Heuristic: nếu URL chứa "page_0" và đây là OTruyen, bỏ qua.
+      const url = page.url.toLowerCase();
+      if (url.includes("page_0") || url.includes("page_00")) return false;
+    }
+    return true;
+  });
+  // Re-index để reader không bị nhảy số.
+  return filtered.map((page, index) => ({ ...page, index }));
 }

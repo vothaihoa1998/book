@@ -217,7 +217,12 @@ async function fetchMangaDexChapterFeed(mangaId: string, language: string, limit
   });
   const response = await fetchJson<MangaDexListResponse>(`${API}/manga/${mangaId}/feed?${qs}`);
   return (response.data ?? [])
-    .filter((chapter) => Number(chapter.attributes.pages ?? 0) > 0)
+    // Giữ chapter có pages > 0 HOẶC có externalUrl (bản exclusive bên thứ 3 vẫn đọc được).
+    .filter((chapter) => {
+      const pages = Number(chapter.attributes.pages ?? 0);
+      const externalUrl = typeof chapter.attributes.externalUrl === "string" && chapter.attributes.externalUrl.length > 0;
+      return pages > 0 || externalUrl;
+    })
     .map((chapter) => mapChapter(chapter, makeScopedId("mangadex", mangaId)));
 }
 

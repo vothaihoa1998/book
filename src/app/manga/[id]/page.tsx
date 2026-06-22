@@ -198,12 +198,30 @@ export default async function MangaDetailPage({ params }: Props) {
                   Danh sách chương
                 </h2>
               </div>
-              <span className="meta-mono shrink-0">{chapters.length} chương</span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {chapters.length > 0 && chapters[0]?.source !== manga.source && (
+                  <span
+                    title={`MangaDex chưa có chương VI/EN — dùng nguồn ${chapters[0]?.source?.toUpperCase()} thay thế.`}
+                    className="meta-mono inline-flex items-center gap-1.5 rounded-full bg-accent-2/15 px-2.5 py-1 text-accent-2"
+                  >
+                    Nguồn: {chapters[0]?.source?.toUpperCase()}
+                  </span>
+                )}
+                <span className="meta-mono shrink-0">{chapters.length} chương</span>
+              </div>
             </div>
 
             {chapters.length === 0 ? (
               <div className="rounded-[var(--radius-card)] border border-border bg-card p-6 text-center text-sm text-muted-foreground">
                 Chưa có chương nào cho truyện này.
+              </div>
+            ) : chapters.every((chapter) => chapter.source === "sample") ? (
+              <div className="rounded-[var(--radius-card)] border border-dashed border-border bg-secondary/40 p-5 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Chưa tìm thấy chương từ nguồn chính thức.</p>
+                <p className="mt-1.5 leading-6">
+                  Truyện này hiện chưa có bản tiếng Việt hoặc tiếng Anh trên MangaDex/OTruyen, hoặc API tạm thời không phản hồi.
+                  Bên dưới là <span className="font-medium text-foreground">dữ liệu mẫu</span> để bạn xem trước giao diện đọc — bấm vào sẽ mở trang đọc demo.
+                </p>
               </div>
             ) : (
               <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-card)] border border-border bg-card">
@@ -234,8 +252,17 @@ export default async function MangaDetailPage({ params }: Props) {
                           )}
                         </span>
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className="meta-mono shrink-0">Ch. {chapter.number}</span>
+                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                              chapter.language?.startsWith("vi")
+                                ? "bg-accent-2/15 text-accent-2"
+                                : chapter.language?.startsWith("en")
+                                ? "bg-secondary text-muted-foreground"
+                                : "bg-secondary text-muted-foreground"
+                            }`}>
+                              {chapterLanguageLabel(chapter.language)}
+                            </span>
                             {isCurrent && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
                                 Đang đọc · {Math.round(continueTarget!.progress)}%
