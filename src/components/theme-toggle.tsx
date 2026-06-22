@@ -13,12 +13,12 @@ function applyTheme(theme: Theme) {
 
 /**
  * ThemeToggle — bám sát giá trị SSR ban đầu để khỏi hydration mismatch.
- * - First render trả về "light" cứng (khớp với layout default + script inline).
+ * - First render trả về "dark" cứng (khớp với layout default + script inline).
  * - useEffect đọc lại DOM sau mount để đồng bộ với theme user thực sự chọn
  *   (nếu họ đã từng toggle trước đó) hoặc localStorage.
  */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
+  const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -28,9 +28,9 @@ export function ThemeToggle() {
       const next: Theme =
         stored === "light" || stored === "dark"
           ? stored
-          : fromDom === "dark"
-            ? "dark"
-            : "light";
+          : fromDom === "light"
+            ? "light"
+            : "dark";
       setTheme(next);
       setMounted(true);
     });

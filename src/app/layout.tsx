@@ -57,9 +57,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {`(() => {
   try {
     const stored = localStorage.getItem('inkrail-theme');
-    document.documentElement.dataset.theme = stored === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = stored === 'light' ? 'light' : 'dark';
   } catch {
-    document.documentElement.dataset.theme = 'light';
+    document.documentElement.dataset.theme = 'dark';
   }
 })();`}
         </Script>

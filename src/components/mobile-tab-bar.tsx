@@ -18,7 +18,7 @@ export function MobileTabBar() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/85 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-8px_24px_rgba(43,29,18,0.06)] backdrop-blur-xl md:hidden"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/85 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:hidden"
     >
       <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {tabs.map((tab) => {

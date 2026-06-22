@@ -30,7 +30,7 @@ const readerThemes: Array<{ value: ReaderPrefs["theme"]; label: string; classNam
   { value: "warm-light", label: "Sáng dịu", className: "bg-[#f7f1e7]" },
   { value: "paper", label: "Giấy", className: "bg-[#faf3e2]" },
   { value: "sepia", label: "Sepia", className: "bg-[#d9c3a1]" },
-  { value: "graphite-dark", label: "Graphite", className: "bg-[#1a130c]" },
+  { value: "graphite-dark", label: "Graphite", className: "bg-[#050814]" },
   { value: "pure-black", label: "OLED", className: "bg-black" },
 ];
 
