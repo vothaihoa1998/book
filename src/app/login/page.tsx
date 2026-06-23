@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthPanel } from "@/components/auth-panel";
+import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
   title: "Đăng nhập",
@@ -8,6 +9,8 @@ export const metadata: Metadata = {
 };
 
 export default function LoginPage() {
+  const supabaseEnv = getSupabasePublicEnv();
+
   return (
     <main className="grid min-h-[calc(100vh-4rem)] bg-background text-foreground md:grid-cols-2">
       <section className="relative hidden border-r border-border px-10 py-12 md:flex md:flex-col md:justify-between lg:px-14">
@@ -27,7 +30,7 @@ export default function LoginPage() {
             <p className="font-display text-3xl font-medium">InkRail</p>
             <p className="mt-4 editorial-title text-4xl">Đăng nhập để đọc tiếp ở mọi thiết bị.</p>
           </div>
-          <AuthPanel />
+          <AuthPanel supabaseEnv={supabaseEnv} />
         </div>
       </section>
     </main>

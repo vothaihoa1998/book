@@ -6,6 +6,7 @@ import { PageTransition } from "@/components/page-transition";
 import { PwaRegister } from "@/components/pwa-register";
 import { SiteHeader } from "@/components/site-header";
 import { siteConfig } from "@/lib/seo";
+import { getSupabasePublicEnv } from "@/lib/supabase/env";
 import { absoluteUrl } from "@/lib/utils";
 import "./globals.css";
 
@@ -100,6 +101,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const supabaseEnv = getSupabasePublicEnv();
+
   return (
     <html lang="vi" data-scroll-behavior="smooth" suppressHydrationWarning className={`${inter.variable} ${newsreader.variable} ${geistMono.variable}`}>
       <head>
@@ -150,7 +153,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           Bỏ qua tới nội dung chính
         </a>
-        <SiteHeader />
+        <SiteHeader supabaseEnv={supabaseEnv} />
         <PageTransition>
           <div id="main-content">{children}</div>
         </PageTransition>

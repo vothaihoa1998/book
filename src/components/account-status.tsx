@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { Check, UserRound } from "lucide-react";
 import Link from "next/link";
 import { IconLinkButton } from "@/components/ui/primitives";
-import { getBrowserSupabaseClient } from "@/lib/supabase/client";
+import { getBrowserSupabaseClient, type SupabaseBrowserEnv } from "@/lib/supabase/client";
 
 function getUserLabel(user: User) {
   const name = user.user_metadata?.full_name || user.user_metadata?.name;
@@ -17,10 +17,10 @@ function getInitial(user: User) {
   return getUserLabel(user).trim().charAt(0).toUpperCase() || "U";
 }
 
-export function AccountStatus() {
+export function AccountStatus({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv | null }) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
-  const supabase = getBrowserSupabaseClient();
+  const supabase = getBrowserSupabaseClient(supabaseEnv);
 
   useEffect(() => {
     if (!supabase) {

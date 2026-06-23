@@ -8,6 +8,7 @@ import { AccountStatus } from "@/components/account-status";
 import { HeaderSearch } from "@/components/header-search";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { IconLinkButton } from "@/components/ui/primitives";
+import type { SupabaseBrowserEnv } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -17,7 +18,7 @@ const navItems = [
   { href: "/about", label: "Pháp lý" },
 ];
 
-export function SiteHeader({ className }: { className?: string }) {
+export function SiteHeader({ className, supabaseEnv }: { className?: string; supabaseEnv: SupabaseBrowserEnv | null }) {
   const pathname = usePathname();
   if (pathname.startsWith("/read/")) return null;
 
@@ -77,7 +78,7 @@ export function SiteHeader({ className }: { className?: string }) {
             <Library size={16} />
           </IconLinkButton>
           <ThemeToggle />
-          <AccountStatus />
+          <AccountStatus supabaseEnv={supabaseEnv} />
         </div>
       </div>
     </header>

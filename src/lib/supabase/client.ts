@@ -4,14 +4,24 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-let browserClient: SupabaseClient<Database> | null | undefined;
+export type SupabaseBrowserEnv = {
+  url: string;
+  key: string;
+};
 
-export function getBrowserSupabaseClient() {
-  if (browserClient !== undefined) return browserClient;
+let browserClient: SupabaseClient<Database> | null = null;
+let browserClientSignature = "";
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+export function getBrowserSupabaseClient(env?: SupabaseBrowserEnv | null) {
+  const url = env?.url || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env?.key || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  browserClient = url && key ? createBrowserClient<Database>(url, key) : null;
+  if (!url || !key) return browserClient;
+
+  const signature = `${url}:${key}`;
+  if (browserClient && browserClientSignature === signature) return browserClient;
+
+  browserClient = createBrowserClient<Database>(url, key);
+  browserClientSignature = signature;
   return browserClient;
 }
