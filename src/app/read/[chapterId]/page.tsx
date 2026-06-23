@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { ReaderClient } from "@/components/reader-client";
 import { getChapter, getChapters, getManga } from "@/lib/sources";
-import { truncate } from "@/lib/utils";
+import { siteConfig } from "@/lib/seo";
+import { imageProxyUrl } from "@/lib/types";
+import { absoluteUrl, truncate } from "@/lib/utils";
 
 export const revalidate = 2592000;
 
@@ -15,15 +17,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const chapter = await getChapter(chapterId);
   const manga = await getManga(chapter.mangaId);
   const title = `${manga.title} - Chương ${chapter.number}`;
+  const description = truncate(`Đọc ${title} trên InkRail với reader tối giản, giao diện tối dễ chịu, page progress và đồng bộ tiến độ.`, 155);
+  const cover = manga.cover ? absoluteUrl(imageProxyUrl(manga.cover, manga.source)) : siteConfig.ogImage;
 
   return {
     title,
-    description: truncate(`Đọc ${title} trên InkRail với reader tối giản, hỗ trợ offline và đồng bộ tiến độ.`, 155),
-    alternates: { canonical: `/read/${encodeURIComponent(chapter.id)}` },
+    description,
+    alternates: { canonical: absoluteUrl(`/read/${encodeURIComponent(chapter.id)}`) },
     openGraph: {
       title,
-      description: truncate(manga.description, 160),
-      images: manga.cover ? [{ url: manga.cover, alt: manga.title }] : undefined,
+      description,
+      type: "article",
+      images: [{ url: cover, alt: `Đọc ${manga.title} chương ${chapter.number}` }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [cover],
     },
   };
 }

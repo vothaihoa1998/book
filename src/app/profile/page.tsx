@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Hồ sơ",
   description: "Thông tin hồ sơ đọc truyện, thống kê thư viện và tuỳ chọn reader.",
+  robots: { index: false, follow: false },
 };
 
 type Props = {

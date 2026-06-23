@@ -5,6 +5,7 @@ import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { PageTransition } from "@/components/page-transition";
 import { PwaRegister } from "@/components/pwa-register";
 import { SiteHeader } from "@/components/site-header";
+import { siteConfig } from "@/lib/seo";
 import { absoluteUrl } from "@/lib/utils";
 import "./globals.css";
 
@@ -29,23 +30,72 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(absoluteUrl("/")),
   title: {
-    default: "InkRail - Web đọc truyện tranh editorial-minimal",
+    default: siteConfig.title,
     template: "%s | InkRail",
   },
-  description:
-    "Web đọc truyện tranh tối giản, ưu tiên trải nghiệm đọc, SEO tốt, đa nguồn MangaDex/OTruyen và đồng bộ thư viện bằng Supabase.",
-  applicationName: "InkRail",
-  authors: [{ name: "InkRail" }],
+  description: siteConfig.description,
+  applicationName: siteConfig.name,
+  authors: [{ name: siteConfig.name, url: siteConfig.url }],
+  creator: siteConfig.name,
+  publisher: siteConfig.name,
+  category: "manga reader",
+  keywords: siteConfig.keywords,
+  alternates: {
+    canonical: absoluteUrl("/"),
+    types: {
+      "application/rss+xml": [{ url: absoluteUrl("/rss.xml"), title: "InkRail - Chương mới" }],
+    },
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  appleWebApp: {
+    capable: true,
+    title: siteConfig.shortTitle,
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  manifest: "/manifest.webmanifest",
   openGraph: {
     type: "website",
-    siteName: "InkRail",
-    title: "InkRail",
-    description: "Một giao diện đọc truyện tranh editorial-minimal, tập trung vào reader.",
+    locale: siteConfig.locale,
+    siteName: siteConfig.name,
+    url: siteConfig.url,
+    title: siteConfig.title,
+    description: siteConfig.ogDescription,
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "InkRail - đọc truyện tranh mobile-first với reader tối giản",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "InkRail",
-    description: "Web đọc truyện tranh editorial-minimal với Next.js và Supabase.",
+    title: siteConfig.title,
+    description: siteConfig.ogDescription,
+    images: [siteConfig.twitterImage],
+  },
+  icons: {
+    icon: [
+      { url: "/icon/32", sizes: "32x32", type: "image/png" },
+      { url: "/icon/192", sizes: "192x192", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-icon", type: "image/png" }],
+    shortcut: ["/icon.svg"],
   },
 };
 
