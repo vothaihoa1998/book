@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Loader2, AlertCircle, Settings2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Loader2, AlertCircle, Settings2, Palette, X } from "lucide-react";
 import Link from "next/link";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -75,6 +75,7 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   const [currentPage, setCurrentPage] = useState(1);
   const [downloadState, setDownloadState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [bookmarkState, setBookmarkState] = useState<"idle" | "saving" | "saved" | "error" | "anonymous">("idle");
+  const [showThemePopover, setShowThemePopover] = useState(false);
   const lastSync = useRef(0);
   const prefsMounted = useRef(false);
   const pageRefs = useRef<Array<HTMLImageElement | null>>([]);
@@ -288,6 +289,86 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
     return () => document.removeEventListener("pointerdown", onPointer);
   }, [showControls]);
 
+  // Swipe gesture + prefetch next chapter + warm cache.
+  // Tách ra khỏi các effect khác để dễ debug.
+  useEffect(() => {
+    if (prefs.direction === "vertical") return;
+    if (typeof window === "undefined") return;
+
+    const SWIPE_MIN_DISTANCE = 60;
+    const SWIPE_MAX_DURATION = 500;
+    const EDGE_WIDTH = 24;
+
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let tracking = false;
+
+    function onStart(event: TouchEvent) {
+      const t = event.touches[0];
+      if (!t) return;
+      startX = t.clientX;
+      startY = t.clientY;
+      startT = Date.now();
+      tracking = true;
+    }
+
+    function onEnd(event: TouchEvent) {
+      if (!tracking) return;
+      tracking = false;
+      const t = event.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      const dt = Date.now() - startT;
+      if (dt > SWIPE_MAX_DURATION) return;
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      if (Math.abs(dx) < SWIPE_MIN_DISTANCE) return;
+
+      const fromLeftEdge = startX <= EDGE_WIDTH;
+      const fromRightEdge = startX >= window.innerWidth - EDGE_WIDTH;
+      const midScreen = !fromLeftEdge && !fromRightEdge;
+      if (midScreen && Math.abs(dx) < 120) return;
+
+      const isNext = prefs.direction === "horizontal-rtl" ? dx > 0 : dx < 0;
+      const target = isNext ? nextChapter : previousChapter;
+      if (target) {
+        location.href = `/read/${encodeURIComponent(target.id)}`;
+      }
+    }
+
+    function onCancel() {
+      tracking = false;
+    }
+
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    window.addEventListener("touchcancel", onCancel, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("touchcancel", onCancel);
+    };
+  }, [prefs.direction, nextChapter, previousChapter]);
+
+  // Prefetch next chapter + warm cache 3 trang đầu khi user reach 80% scroll
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!nextChapter) return;
+    const url = `/read/${encodeURIComponent(nextChapter.id)}`;
+    let injected = document.querySelector(`link[rel="prefetch"][href="${url}"]`);
+    if (!injected) {
+      injected = document.createElement("link");
+      injected.rel = "prefetch";
+      (injected as HTMLLinkElement).href = url;
+      (injected as HTMLLinkElement).as = "document";
+      document.head.appendChild(injected);
+    }
+    return () => {
+      // Don't remove — browser may already be prefetching
+    };
+  }, [nextChapter]);
+
   async function warmCache() {
     if (!("caches" in window)) return;
     setDownloadState("saving");
@@ -319,6 +400,9 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
     }
   }
 
+  // End-of-chapter detection (chỉ cho vertical, vì horizontal mỗi page = 1 chapter navigate ngay).
+  const endOfChapter = prefs.direction === "vertical" && scrollProgress >= 95;
+
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {showUi && (
@@ -337,9 +421,10 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
               Chương {chapter.number}
             </div>
 
-            <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
-              {/* Theme — only labeled, default to current */}
-              <div className="reader-theme-row" aria-label="Màu đọc">
+            <div className="ml-auto flex shrink-0 items-center gap-1 md:gap-1.5">
+              {/* Theme swatches — ẩn trên mobile, chỉ hiện popover.
+                  Trên desktop hiện ngang 5 swatches gọn 22x22. */}
+              <div className="hidden items-center gap-1 md:flex" aria-label="Màu đọc">
                 {readerThemes.map((theme) => (
                   <ThemeSwatch
                     key={theme.value}
@@ -349,6 +434,50 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
                     onClick={() => setReaderTheme(theme.value)}
                   />
                 ))}
+              </div>
+              {/* Mobile theme: tap icon mở popover, 5 swatches xếp dọc */}
+              <div className="relative md:hidden">
+                <ReaderIconButton
+                  onClick={() => setShowThemePopover((value) => !value)}
+                  label="Đổi màu nền đọc"
+                  active={showThemePopover}
+                >
+                  <Palette size={16} />
+                </ReaderIconButton>
+                {showThemePopover && (
+                  <>
+                    {/* Click-outside scrim */}
+                    <button
+                      type="button"
+                      aria-label="Đóng popover màu"
+                      onClick={() => setShowThemePopover(false)}
+                      className="fixed inset-0 z-20 cursor-default"
+                    />
+                    <div className="absolute right-0 top-full z-30 mt-2 flex flex-col gap-1.5 rounded-2xl border border-border bg-background p-2 shadow-[0_8px_30px_rgba(0,0,0,0.12)]">
+                      {readerThemes.map((theme) => (
+                        <button
+                          key={theme.value}
+                          type="button"
+                          aria-label={`Màu: ${theme.label}`}
+                          aria-pressed={prefs.theme === theme.value}
+                          onClick={() => {
+                            setReaderTheme(theme.value);
+                            setShowThemePopover(false);
+                          }}
+                          className={cn(
+                            "flex items-center gap-2 rounded-full px-2 py-1.5 text-left text-[11px] font-medium transition",
+                            prefs.theme === theme.value
+                              ? "bg-primary text-primary-foreground"
+                              : "text-foreground hover:bg-secondary",
+                          )}
+                        >
+                          <span className={cn("size-4 shrink-0 rounded-full border border-border", theme.className)} />
+                          <span>{theme.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               <ReaderIconButton onClick={saveBookmark} label="Lưu bookmark" active={bookmarkState === "saved"}>
@@ -385,12 +514,33 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
         </header>
       )}
 
-      <button aria-label="Ẩn hoặc hiện giao diện đọc" onClick={() => setShowUi((value) => !value)} className="fixed inset-x-1/3 top-1/3 z-10 h-1/3 cursor-default" />
+      {/* TAP ZONES — 3 vùng 33% trên mobile:
+          - Vertical:   left/right = scroll page (giữ behavior scroll tự nhiên), giữa = toggle UI
+          - Horizontal: left = chương trước, giữa = toggle UI, phải = chương sau
+          Trên desktop, chỉ có nút toggle UI ở giữa. */}
       {prefs.direction !== "vertical" && !showUi && previousChapter && (
-        <Link aria-label="Chương trước" href={`/read/${encodeURIComponent(previousChapter.id)}`} className="fixed inset-y-0 left-0 z-10 w-1/4" />
+        <button
+          aria-label="Chương trước"
+          onClick={() => previousChapter && (location.href = `/read/${encodeURIComponent(previousChapter.id)}`)}
+          className="fixed inset-y-0 left-0 z-10 w-1/3 cursor-default"
+        />
       )}
+      <button
+        aria-label="Ẩn hoặc hiện giao diện đọc"
+        onClick={() => setShowUi((value) => !value)}
+        className={cn(
+          "fixed top-1/4 z-10 h-1/2 cursor-default transition-[inset]",
+          prefs.direction === "vertical"
+            ? "inset-x-1/3" // 33% giữa
+            : "inset-x-1/3", // 33% giữa kể cả horizontal — không edge-overlap
+        )}
+      />
       {prefs.direction !== "vertical" && !showUi && nextChapter && (
-        <Link aria-label="Chương sau" href={`/read/${encodeURIComponent(nextChapter.id)}`} className="fixed inset-y-0 right-0 z-10 w-1/4" />
+        <button
+          aria-label="Chương sau"
+          onClick={() => nextChapter && (location.href = `/read/${encodeURIComponent(nextChapter.id)}`)}
+          className="fixed inset-y-0 right-0 z-10 w-1/3 cursor-default"
+        />
       )}
 
       <main
@@ -429,6 +579,54 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
           ))}
         </div>
       </main>
+
+      {/* END-OF-CHAPTER PANEL — hiện khi scrollProgress >= 95% (vertical mode).
+          Fade-in 220ms, đặt trên bottom nav để user có thể bấm ngay. */}
+      {endOfChapter && (
+        <div
+          role="dialog"
+          aria-label="Hết chương"
+          className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 mx-auto max-w-md rounded-2xl border border-border/70 bg-background/95 p-4 shadow-[0_8px_30px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all duration-200 ease-out md:bottom-4"
+        >
+          <div className="mb-3 flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary">
+              <Check size={15} />
+            </span>
+            <div>
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Đã xong</p>
+              <p className="text-sm font-semibold text-foreground">
+                Chương {chapter.number}
+                {chapter.title ? `: ${chapter.title}` : ""}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {previousChapter ? (
+              <Link
+                href={`/read/${encodeURIComponent(previousChapter.id)}`}
+                className="flex-1 rounded-full border border-border bg-card px-3 py-2 text-center text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+              >
+                ← Chương trước
+              </Link>
+            ) : null}
+            {nextChapter ? (
+              <Link
+                href={`/read/${encodeURIComponent(nextChapter.id)}`}
+                className="flex-1 rounded-full bg-primary px-3 py-2 text-center text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Chương sau →
+              </Link>
+            ) : (
+              <Link
+                href={`/manga/${encodeURIComponent(manga.id)}`}
+                className="flex-1 rounded-full bg-primary px-3 py-2 text-center text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Quay lại trang truyện
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {showUi && (
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/92 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 backdrop-blur-xl" aria-label="Điều hướng chương">
@@ -533,9 +731,9 @@ function ThemeSwatch({ active, label, className, onClick }: { active?: boolean; 
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "size-7 shrink-0 rounded-full border border-border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
+        "size-6 shrink-0 rounded-full border border-border/70 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring",
         className,
-        active && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+        active && "ring-2 ring-primary ring-offset-1 ring-offset-background",
       )}
     />
   );
