@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Loader2, AlertCircle, Settings2, Palette, X } from "lucide-react";
 import Link from "next/link";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
+import { pickReaderDirection } from "@/lib/reader-presets";
 import { cn } from "@/lib/utils";
 
 const basePrefs = {
@@ -261,12 +262,11 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
     if (explicitOverride) return;
 
     const viewportWidth = window.innerWidth;
-    // Import động để tránh circular dep (server-only file)
-    void viewportWidth;
-    void manga.title;
-    void chapter.title;
-    void chapter.direction;
-  }, [prefsReady, chapter.id, chapter.title, chapter.direction, manga.title]);
+    const detected = pickReaderDirection(manga, chapter, { width: viewportWidth });
+    if (detected !== prefs.direction) {
+      setPrefs((prev) => ({ ...prev, direction: detected }));
+    }
+  }, [prefsReady, chapter.id, chapter.title, chapter.direction, manga, prefs.direction]);
 
   useEffect(() => {
     if (!prefsReady) return;

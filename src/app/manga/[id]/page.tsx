@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Info, ListOrdered, Play, Radio } from "lucide-react";
 import Link from "next/link";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
+import { ChapterList } from "@/components/chapter-list";
 import { FollowButton } from "@/components/follow-button";
 import { MangaCover } from "@/components/manga-cover";
 import { MangaDescription } from "@/components/manga-description";
@@ -230,66 +231,16 @@ export default async function MangaDetailPage({ params }: Props) {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-card)] border border-border bg-card">
-                {chapters.map((chapter) => {
-                  const progress = progressByChapter.get(chapter.id);
-                  const isCurrent = continueTarget?.id === chapter.id;
-                  const thumb = chapter.pages[0]?.url;
-                  return (
-                    <li key={chapter.id}>
-                      <Link
-                        href={`/read/${encodeURIComponent(chapter.id)}`}
-                        className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 transition hover:bg-secondary/60 sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:gap-4 sm:px-4"
-                      >
-                        <span
-                          aria-hidden
-                          className="relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-control)] bg-surface-strong ring-1 ring-border"
-                        >
-                          {thumb ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
-                              src={imageProxyUrl(thumb, chapter.source)}
-                              alt=""
-                              loading="lazy"
-                              className="h-full w-full object-cover transition group-hover:scale-105"
-                            />
-                          ) : (
-                            <span className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">{chapter.number}</span>
-                          )}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="meta-mono shrink-0">Ch. {chapter.number}</span>
-                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-                              chapter.language?.startsWith("vi")
-                                ? "bg-accent-2/15 text-accent-2"
-                                : chapter.language?.startsWith("en")
-                                ? "bg-secondary text-muted-foreground"
-                                : "bg-secondary text-muted-foreground"
-                            }`}>
-                              {chapterLanguageLabel(chapter.language)}
-                            </span>
-                            {isCurrent && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                                Đang đọc · {Math.round(continueTarget!.progress)}%
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 line-clamp-2 break-words text-sm font-medium text-foreground md:text-base">
-                            {chapter.title || `Chương ${chapter.number}`}
-                          </p>
-                          {progress && (
-                            <div className="mt-2 h-1 overflow-hidden rounded-full bg-secondary">
-                              <div className="h-full rounded-full bg-accent-2" style={{ width: `${Math.min(100, Math.max(0, progress.scrollPercent))}%` }} />
-                            </div>
-                          )}
-                        </div>
-                        <span className="meta-mono shrink-0 text-right">{formatDate(chapter.updatedAt)}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <ChapterList
+                chapters={chapters}
+                progressByChapter={new Map(
+                  Array.from(progressByChapter.entries()).map(([k, v]) => [
+                    k,
+                    { scrollPercent: v.scrollPercent, updatedAt: v.updatedAt },
+                  ]),
+                )}
+                currentChapterId={continueTarget?.id ?? null}
+              />
             )}
           </div>
 

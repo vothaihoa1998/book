@@ -136,6 +136,15 @@ html {
   scroll-behavior: smooth;
 }
 
+.ink-cta {
+  background: var(--foreground);
+  color: var(--background);
+  transition: opacity 200ms;
+}
+.ink-cta:hover {
+  opacity: 0.85;
+}
+
 body {
   min-height: 100vh;
   margin: 0;

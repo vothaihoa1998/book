@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { AlertCircle, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { DiscoverForm } from "@/components/discover-form";
-import { MangaCard } from "@/components/manga-card";
-import { AlertState, EmptyState, FilterChip } from "@/components/ui/primitives";
+import { AlertCircle } from "lucide-react";
+import { DiscoverResults, type DiscoverState } from "@/components/discover-results";
+import { AlertState } from "@/components/ui/primitives";
 import { searchMangaWithMeta } from "@/lib/sources";
 import { siteConfig } from "@/lib/seo";
-import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
-import { normalizeGenres, normalizeSearchParams, type NormalizedSearchParams } from "@/lib/sources/search-utils";
+import { normalizeGenres, normalizeSearchParams } from "@/lib/sources/search-utils";
 import { type MangaSearchParams } from "@/lib/types";
 import { absoluteUrl } from "@/lib/utils";
 
@@ -17,17 +14,6 @@ type Props = {
 
 export const dynamic = "force-dynamic";
 
-type DiscoverState = NormalizedSearchParams;
-
-const statusLabel = {
-  all: "Mọi trạng thái",
-  ongoing: "Đang ra",
-  completed: "Hoàn thành",
-  hiatus: "Tạm nghỉ",
-  cancelled: "Đã huỷ",
-  unknown: "Chưa rõ",
-};
-
 const sortLabel = {
   relevance: "Liên quan",
   latest: "Mới cập nhật",
@@ -36,118 +22,36 @@ const sortLabel = {
   rating: "Đánh giá",
 };
 
-const quickSorts: Array<{ value: MangaSearchParams["sort"]; label: string }> = [
-  { value: "latest", label: "Mới nhất" },
-  { value: "hot", label: "Xu hướng" },
-  { value: "rating", label: "Đánh giá" },
-];
-
 function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
 function parseDiscoverState(raw: Record<string, string | string[] | undefined>): DiscoverState {
   const rawSort = one(raw.sort);
-  return normalizeSearchParams({
-    q: one(raw.q),
-    source: "all",
-    status: one(raw.status) as MangaSearchParams["status"],
-    sort: (rawSort === "hot" || rawSort === "popular" || rawSort === "rating" || rawSort === "relevance" ? rawSort : "latest") as MangaSearchParams["sort"],
-    year: one(raw.year),
+  return {
+    q: one(raw.q) ?? "",
+    source: (one(raw.source) as "all" | "mangadex" | "otruyen") ?? "all",
+    status: (one(raw.status) as DiscoverState["status"]) ?? "all",
+    sort: (rawSort === "hot" || rawSort === "popular" || rawSort === "rating" || rawSort === "relevance" ? rawSort : "latest") as DiscoverState["sort"],
+    year: one(raw.year) ?? "all",
     page: Number(one(raw.page) ?? "1"),
     genres: normalizeGenres(raw.genres),
-  });
+    view: (one(raw.view) as "grid" | "list") ?? "grid",
+  };
 }
 
-function ActivePill({ label, href }: { label: string; href: string }) {
-  return (
-    <Link href={href} className="focus-visible:outline-focus-ring rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
-      <FilterChip className="min-h-8 px-3 text-xs hover:text-foreground">
-        {label} <X size={14} />
-      </FilterChip>
-    </Link>
-  );
-}
-
-function discoverHref(state: DiscoverState, overrides: Partial<DiscoverState> = {}) {
-  const next = { ...state, ...overrides };
+function discoverHref(state: DiscoverState): string {
   const params = new URLSearchParams();
-  if (next.q) params.set("q", next.q);
-  if (next.status !== "all") params.set("status", next.status);
-  if (next.sort !== "latest") params.set("sort", next.sort);
-  if (next.year !== "all") params.set("year", next.year);
-  if (next.page > 1) params.set("page", String(next.page));
-  next.genres.forEach((genre) => params.append("genres", genre));
-  const query = params.toString();
-  return query ? `/discover?${query}` : "/discover";
-}
-
-function genreLabel(value: string) {
-  return DISCOVER_GENRES.find((item) => item.value === value)?.label ?? value;
-}
-
-function resultSummary(count: number, state: DiscoverState) {
-  const label = new Intl.NumberFormat("vi-VN").format(count);
-  return state.q ? `${label} kết quả · Trang ${state.page}` : `${label} truyện hiển thị · Trang ${state.page}`;
-}
-
-function SortTabs({ state }: { state: DiscoverState }) {
-  return (
-    <nav className="mt-8 flex flex-wrap gap-2" aria-label="Sắp xếp catalog">
-      {quickSorts.map((item) => {
-        const active = state.sort === item.value;
-        return (
-          <Link
-            key={item.value}
-            href={discoverHref(state, { sort: item.value, page: 1 })}
-            className={active
-              ? "inline-flex h-8 min-w-24 items-center justify-center rounded-(--radius-control) bg-foreground px-4 font-code text-[12px] font-normal uppercase leading-none tracking-[1px] transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-              : "inline-flex h-8 min-w-24 items-center justify-center rounded-(--radius-control) bg-secondary px-4 font-code text-[12px] font-normal uppercase leading-none tracking-[1px] text-muted-foreground transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-            }
-            style={active ? { color: "var(--background)" } : undefined}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function Pagination({ state, hasMore }: { state: DiscoverState; hasMore: boolean }) {
-  if (state.page <= 1 && !hasMore) return null;
-
-  return (
-    <nav className="mt-14 border-t border-border py-7" aria-label="Phân trang">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-        {state.page > 1 ? (
-          <Link
-            href={discoverHref(state, { page: state.page - 1 })}
-            className="inline-flex h-11 w-fit items-center gap-2 rounded-(--radius-control) border border-border px-4 text-sm font-medium text-foreground transition hover:border-input hover:bg-secondary focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-          >
-            <ChevronLeft size={16} /> Trang trước
-          </Link>
-        ) : (
-          <span className="inline-flex h-11 w-fit items-center gap-2 rounded-(--radius-control) border border-border px-4 text-sm font-medium text-muted-foreground opacity-40">
-            <ChevronLeft size={16} /> Trang trước
-          </span>
-        )}
-        <span className="eyebrow text-center">Trang {state.page}</span>
-        {hasMore ? (
-          <Link
-            href={discoverHref(state, { page: state.page + 1 })}
-            className="ml-auto inline-flex h-11 w-fit items-center gap-2 rounded-(--radius-control) border border-border px-4 text-sm font-medium text-foreground transition hover:border-input hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-          >
-            Trang sau <ChevronRight size={16} />
-          </Link>
-        ) : (
-          <span className="ml-auto inline-flex h-11 w-fit items-center gap-2 rounded-(--radius-control) border border-border px-4 text-sm font-medium text-muted-foreground opacity-40">
-            Trang sau <ChevronRight size={16} />
-          </span>
-        )}
-      </div>
-    </nav>
-  );
+  if (state.q) params.set("q", state.q);
+  if (state.status !== "all") params.set("status", state.status);
+  if (state.sort !== "latest") params.set("sort", state.sort);
+  if (state.year !== "all") params.set("year", state.year);
+  if (state.source !== "all") params.set("source", state.source);
+  if (state.page > 1) params.set("page", String(state.page));
+  if (state.view !== "grid") params.set("view", state.view);
+  state.genres.forEach((g) => params.append("genres", g));
+  const q = params.toString();
+  return q ? `/discover?${q}` : "/discover";
 }
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
@@ -180,45 +84,32 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function DiscoverPage({ searchParams }: Props) {
   const state = parseDiscoverState(await searchParams);
-  const { results, meta } = await searchMangaWithMeta(state);
+  // searchMangaWithMeta expects NormalizedSearchParams (no `view`/`source: "all"`)
+  const searchState = normalizeSearchParams({
+    q: state.q,
+    source: "all",
+    status: state.status as MangaSearchParams["status"],
+    sort: state.sort as MangaSearchParams["sort"],
+    year: state.year,
+    page: state.page,
+    genres: state.genres,
+  });
+  const { results, meta } = await searchMangaWithMeta(searchState);
   const hasQuery = Boolean(state.q);
-  const hasActiveFilter = hasQuery || state.genres.length > 0 || state.status !== "all" || state.year !== "all" || state.sort !== "latest";
 
   return (
-    <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 md:py-16 lg:px-8">
+    <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 md:pb-16 md:pt-12 lg:px-8">
       <header className="max-w-4xl">
         <p className="eyebrow text-primary">Khám phá</p>
-        <h1 className="mt-1 editorial-title leading-[0.92] text-foreground sm:text-[5rem] md:text-[6rem] lg:text-7xl">
+        <h1 className="mt-1 break-words editorial-title leading-[0.92] text-foreground sm:text-[5rem] md:text-[6rem] lg:text-7xl">
           {hasQuery ? `Tìm ${state.q}` : "Toàn bộ truyện"}
         </h1>
-        <p className="mt-2 text-sm font-medium leading-7 text-muted-foreground md:text-[16px]">
-          {resultSummary(results.length, state)}
-        </p>
-        <SortTabs state={state} />
+        {results.length > 0 && (
+          <p className="mt-2 text-sm font-medium leading-7 text-muted-foreground md:text-[16px]">
+            {results.length.toLocaleString("vi-VN")} truyện hiển thị · Trang {state.page}
+          </p>
+        )}
       </header>
-
-      <DiscoverForm
-        q={state.q}
-        status={state.status}
-        sort={state.sort}
-        year={state.year}
-        genres={state.genres}
-      />
-
-      {hasActiveFilter && (
-        <section className="mt-5 flex flex-wrap items-center gap-2 text-sm">
-          {state.q && <ActivePill label={`Tìm: ${state.q}`} href={discoverHref(state, { q: "", page: 1 })} />}
-          {state.status !== "all" && <ActivePill label={statusLabel[state.status]} href={discoverHref(state, { status: "all", page: 1 })} />}
-          {state.sort !== "latest" && <ActivePill label={sortLabel[state.sort]} href={discoverHref(state, { sort: "latest", page: 1 })} />}
-          {state.year !== "all" && <ActivePill label={state.year === "older" ? "Cũ hơn" : `Năm ${state.year}`} href={discoverHref(state, { year: "all", page: 1 })} />}
-          {state.genres.map((genre) => (
-            <ActivePill key={genre} label={genreLabel(genre)} href={discoverHref(state, { genres: state.genres.filter((item) => item !== genre), page: 1 })} />
-          ))}
-          <Link href="/discover" className="inline-flex h-9 items-center rounded-[var(--radius-control)] px-3 text-sm font-medium text-muted-foreground transition hover:text-foreground">
-            Xoá tất cả
-          </Link>
-        </section>
-      )}
 
       {meta.errors.length > 0 && (
         <AlertState className="mt-5 flex gap-3">
@@ -227,19 +118,12 @@ export default async function DiscoverPage({ searchParams }: Props) {
         </AlertState>
       )}
 
-      {results.length === 0 ? (
-        <EmptyState title="Không tìm thấy truyện phù hợp" className="mt-10">
-          Thử bỏ bớt thể loại, đổi năm, hoặc dùng tên tiếng Anh/tiếng Việt khác. Kết quả rỗng không còn bị che bằng dữ liệu mẫu.
-        </EmptyState>
-      ) : (
-        <div className="mt-10 grid grid-cols-3 gap-x-3 gap-y-7 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-          {results.map((manga, index) => (
-            <MangaCard key={manga.id} manga={manga} compact eager={index < 6} />
-          ))}
-        </div>
-      )}
-
-      <Pagination state={state} hasMore={meta.hasMore} />
+      <DiscoverResults
+        state={state}
+        results={results as never}
+        hasMore={meta.hasMore}
+        resultCount={results.length}
+      />
     </main>
   );
 }
