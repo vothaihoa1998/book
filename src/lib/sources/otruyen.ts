@@ -122,6 +122,14 @@ export async function getOTruyenChapters(slug: string) {
     const api = asString(chapter.chapter_api_data);
     const encoded = encodeChapterApi(api);
     const number = asString(chapter.chapter_name || chapter.chapter_title || "?");
+    const titleText = asString(chapter.chapter_title);
+    // Phase F2: detect từ chapter_title hoặc chapter_name — nhiều truyện VN
+    // upload sẽ gắn "(Manhwa)" / "(Manhua)" / "(Webtoon)" vào title.
+    let direction: Chapter["direction"];
+    const lower = `${titleText} ${number}`.toLowerCase();
+    if (lower.includes("manhwa") || lower.includes("manhua") || lower.includes("webtoon")) {
+      direction = "horizontal-ltr";
+    }
     // Embed slug vào sourceId để getOTruyenChapter có thể tra ngược mangaId
     // (OTruyen chapter API không trả comic_slug).
     const scopedSourceId = `${slug}:${encoded}`;
@@ -131,10 +139,11 @@ export async function getOTruyenChapters(slug: string) {
       source: "otruyen",
       sourceId: scopedSourceId,
       number,
-      title: asString(chapter.chapter_title) || null,
+      title: titleText || null,
       pages: [],
       language: "vi",
       updatedAt: new Date().toISOString(),
+      direction,
     } satisfies Chapter;
   });
 }

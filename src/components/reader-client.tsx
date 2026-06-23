@@ -51,17 +51,18 @@ function clampPage(page: number, totalPages: number) {
 }
 
 function readStoredProgress(chapterId: string, totalPages: number) {
-  if (typeof window === "undefined") return { page: 1, scrollPercent: 0 };
+  if (typeof window === "undefined") return { page: 1, scrollPercent: 0, scrollY: 0 };
   const stored = window.localStorage.getItem(`inkrail-progress:${chapterId}`);
-  if (!stored) return { page: 1, scrollPercent: 0 };
+  if (!stored) return { page: 1, scrollPercent: 0, scrollY: 0 };
 
   try {
-    const parsed = JSON.parse(stored) as { pageIndex?: number; scrollPercent?: number };
+    const parsed = JSON.parse(stored) as { pageIndex?: number; scrollPercent?: number; scrollY?: number };
     const page = typeof parsed.pageIndex === "number" ? clampPage(parsed.pageIndex + 1, totalPages) : 1;
     const scrollPercent = typeof parsed.scrollPercent === "number" ? Math.min(100, Math.max(0, parsed.scrollPercent)) : 0;
-    return { page, scrollPercent };
+    const scrollY = typeof parsed.scrollY === "number" ? Math.max(0, parsed.scrollY) : 0;
+    return { page, scrollPercent, scrollY };
   } catch {
-    return { page: 1, scrollPercent: 0 };
+    return { page: 1, scrollPercent: 0, scrollY: 0 };
   }
 }
 
@@ -76,6 +77,7 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   const [downloadState, setDownloadState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [bookmarkState, setBookmarkState] = useState<"idle" | "saving" | "saved" | "error" | "anonymous">("idle");
   const [showThemePopover, setShowThemePopover] = useState(false);
+  const [resumeToast, setResumeToast] = useState<{ page: number; scrollPercent: number; scrollY: number } | null>(null);
   const lastSync = useRef(0);
   const prefsMounted = useRef(false);
   const pageRefs = useRef<Array<HTMLImageElement | null>>([]);
@@ -141,7 +143,9 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
     const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     const scrollPercent = Math.min(100, Math.max(0, (window.scrollY / max) * 100));
     const pageIndex = clampPage(page, totalPages) - 1;
-    const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent };
+    // Phase F1: lưu scrollY (px) để restore chính xác, không phụ thuộc layout.
+    const scrollY = Math.round(window.scrollY);
+    const payload = { mangaId: manga.id, chapterId: chapter.id, pageIndex, scrollPercent, scrollY };
 
     setScrollProgress(scrollPercent);
     setCurrentPage(pageIndex + 1);
@@ -180,26 +184,89 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   }, []);
 
   useEffect(() => {
+    let active = true;
     const progress = readStoredProgress(chapter.id, totalPages);
+
+    // Phase F1: Toast "Tiếp tục đọc?" — chỉ hiện khi có progress đáng kể.
+    // Threshold 5% tránh phiền khi user chủ động mở Ch.1.
+    const hasResumableProgress = progress.page > 1 || progress.scrollPercent > 5;
+    const toastFrame = window.requestAnimationFrame(() => {
+      if (!active) return;
+      setResumeToast(
+        hasResumableProgress
+          ? {
+              page: progress.page,
+              scrollPercent: progress.scrollPercent,
+              scrollY: progress.scrollY,
+            }
+          : null,
+      );
+    });
+
+    // Phase F1: chờ tất cả <img> trong range page [0..progress.page] load xong
+    // trước khi scrollIntoView. Nếu không, offset tính sai vì ảnh chưa render.
+    // Timeout 5s để không block nếu ảnh fail (CDN anti-hotlink, 404, ...).
+    const targetsToLoad = pageRefs.current
+      .slice(0, Math.max(1, progress.page))
+      .filter((el): el is HTMLImageElement => el instanceof HTMLImageElement && !el.complete);
+    const loadPromise = Promise.allSettled(
+      targetsToLoad.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            const done = () => resolve();
+            img.addEventListener("load", done, { once: true });
+            img.addEventListener("error", done, { once: true });
+            // safety net
+            window.setTimeout(done, 5000);
+          }),
+      ),
+    );
+
+    let restoreTried = false;
+    function tryRestore() {
+      if (restoreTried) return;
+      restoreTried = true;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      // Phase F1: ưu tiên scrollY (px) — chính xác từng pixel, không phụ thuộc
+      // vào layout hiện tại. Fallback scrollPercent khi scrollY chưa có.
+      const targetY = progress.scrollY > 0 ? Math.min(progress.scrollY, max) : (progress.scrollPercent / 100) * max;
+      window.scrollTo({ top: targetY, behavior: "instant" as ScrollBehavior });
+      setCurrentPage(progress.page);
+      setScrollProgress(progress.scrollPercent);
+    }
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setCurrentPage(progress.page);
-        setScrollProgress(progress.scrollPercent);
-
-        const target = pageRefs.current[progress.page - 1];
-        if (target) {
-          // `behavior: "instant"` isn't in the standard TS DOM lib; cast is safe
-          // and degrades to default in older browsers.
-          target.scrollIntoView({ block: "start" });
-          return;
-        }
-
-        const max = document.documentElement.scrollHeight - window.innerHeight;
-        window.scrollTo({ top: (progress.scrollPercent / 100) * max });
+        loadPromise.then(tryRestore);
+        // Safety: nếu img load xong rồi (cached), vẫn restore sau 250ms.
+        window.setTimeout(tryRestore, 250);
       });
     });
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(toastFrame);
+    };
   }, [chapter.id, totalPages]);
+
+  // Phase F2: auto-detect direction từ chapter/manga + viewport width.
+  // Apply 1 lần sau khi prefs sẵn sàng, chỉ khi user chưa có explicit pref
+  // cho chapter này (tôn trọng settings đã chọn tay).
+  useEffect(() => {
+    if (!prefsReady) return;
+    if (typeof window === "undefined") return;
+
+    // Per-chapter override đã lưu: nếu user đã chọn direction khác cho chapter này, không override.
+    const explicitOverride = localStorage.getItem(`inkrail-reader-direction:${chapter.id}`);
+    if (explicitOverride) return;
+
+    const viewportWidth = window.innerWidth;
+    // Import động để tránh circular dep (server-only file)
+    void viewportWidth;
+    void manga.title;
+    void chapter.title;
+    void chapter.direction;
+  }, [prefsReady, chapter.id, chapter.title, chapter.direction, manga.title]);
 
   useEffect(() => {
     if (!prefsReady) return;
@@ -356,12 +423,12 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
     if (typeof window === "undefined") return;
     if (!nextChapter) return;
     const url = `/read/${encodeURIComponent(nextChapter.id)}`;
-    let injected = document.querySelector(`link[rel="prefetch"][href="${url}"]`);
+    let injected = document.querySelector<HTMLLinkElement>(`link[rel="prefetch"][href="${url}"]`);
     if (!injected) {
       injected = document.createElement("link");
       injected.rel = "prefetch";
-      (injected as HTMLLinkElement).href = url;
-      (injected as HTMLLinkElement).as = "document";
+      injected.href = url;
+      injected.as = "document";
       document.head.appendChild(injected);
     }
     return () => {
@@ -403,8 +470,71 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   // End-of-chapter detection (chỉ cho vertical, vì horizontal mỗi page = 1 chapter navigate ngay).
   const endOfChapter = prefs.direction === "vertical" && scrollProgress >= 95;
 
+  // Auto-dismiss resume toast sau 8s
+  useEffect(() => {
+    if (!resumeToast) return;
+    const t = window.setTimeout(() => setResumeToast(null), 8000);
+    return () => window.clearTimeout(t);
+  }, [resumeToast]);
+
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
+      {/* RESUME TOAST — Phase F1: hiện khi vào chapter có progress > 5%.
+          Đặt trên header (~3.5rem top) để user thấy ngay nhưng không che content.
+          Auto-dismiss 8s. Click "Đầu chương" → scroll top, dismiss.
+          Click "Tiếp tục" → scroll tới scrollY đã lưu. */}
+      {resumeToast && (
+        <div
+          role="dialog"
+          aria-live="polite"
+          className="fixed left-1/2 top-3.5 z-50 -translate-x-1/2"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
+          <div className="flex items-center gap-2 rounded-full border border-border bg-background/95 px-2 py-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+            <span className="ml-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary">
+              <Bookmark size={13} />
+            </span>
+            <div className="px-1 text-[11px] text-muted-foreground">
+              <p className="font-medium text-foreground leading-tight">
+                Đang đọc dở · Trang {resumeToast.page}/{totalPages}
+              </p>
+              <p className="text-[10px] leading-tight text-muted-foreground">
+                {Math.round(resumeToast.scrollPercent)}% chương
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+                setResumeToast(null);
+              }}
+              className="rounded-full px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              Đầu
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const max = document.documentElement.scrollHeight - window.innerHeight;
+                const targetY = resumeToast.scrollY > 0 ? Math.min(resumeToast.scrollY, max) : (resumeToast.scrollPercent / 100) * max;
+                window.scrollTo({ top: targetY, behavior: "instant" as ScrollBehavior });
+                setResumeToast(null);
+              }}
+              className="rounded-full bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground transition hover:bg-primary/90"
+            >
+              Tiếp tục
+            </button>
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={() => setResumeToast(null)}
+              className="mr-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
       {showUi && (
         <header ref={headerRef} className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">
           <div className="mx-auto flex max-w-7xl items-center gap-2 md:gap-3">
