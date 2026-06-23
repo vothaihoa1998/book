@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { CheckCircle2, LogOut, Mail } from "lucide-react";
 import { AlertState, AppButton, AppLinkButton, TextField } from "@/components/ui/primitives";
-import { getBrowserSupabaseClient } from "@/lib/supabase/client";
+import { getBrowserSupabaseClient, type SupabaseBrowserEnv } from "@/lib/supabase/client";
 
 function decodeAuthMessage(value: string | null) {
   if (!value) return "";
@@ -42,13 +42,13 @@ function getUserLabel(user: User) {
   return user.email ?? "Tài khoản Supabase";
 }
 
-export function AuthPanel() {
+export function AuthPanel({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv | null }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const supabase = getBrowserSupabaseClient();
+  const supabase = getBrowserSupabaseClient(supabaseEnv);
   const authRedirect = () => `${location.origin}/auth/callback?next=/library`;
 
   useEffect(() => {
