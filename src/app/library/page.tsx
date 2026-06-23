@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Thư viện",
   description: "Bookmark, lịch sử đọc và truyện đang theo dõi của bạn trên InkRail.",
+  robots: { index: false, follow: false },
 };
 
 type LibraryTab = "history" | "bookmarks" | "follows";

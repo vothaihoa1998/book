@@ -6,7 +6,16 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/progress"],
+      disallow: [
+        "/api/bookmarks",
+        "/api/follows",
+        "/api/preferences",
+        "/api/progress",
+        "/auth/callback",
+        "/library",
+        "/login",
+        "/profile",
+      ],
     },
     sitemap: absoluteUrl("/sitemap.xml"),
   };

@@ -31,6 +31,8 @@ FIRECRAWL_API_KEY=optional-firecrawl-key
 
 `FIRECRAWL_API_KEY` is optional. When present, search uses Firecrawl only as a fallback to discover MangaDex title URLs after MangaDex and OTruyen return no results.
 
+Google OAuth setup lives in [docs/google-login-setup.md](docs/google-login-setup.md). Use it when configuring the real Google Client ID/Secret in Supabase Dashboard and Google Cloud Console.
+
 ## Supabase
 
 Migration files live in `supabase/migrations`. Apply `20260616170000_initial_schema.sql` to create:

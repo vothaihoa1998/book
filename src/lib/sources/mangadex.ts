@@ -126,6 +126,14 @@ function mapManga(entity: MangaDexEntity): Manga {
 
 function mapChapter(entity: MangaDexEntity, mangaId: string): Chapter {
   const chapterNumber = (entity.attributes.chapter as string | undefined) ?? "?";
+  // Phase F2: detect direction from group name (MangaDex scanlation groups thường
+  // có prefix "Manhwa" / "Manhua" trong tên) — fallback Manga sẽ xử lý ở pickReaderDirection.
+  const groups = (entity as { relationships?: Array<{ type: string; attributes?: { name?: string } }> }).relationships ?? [];
+  const groupName = groups.find((r) => r.type === "scanlation_group")?.attributes?.name?.toLowerCase() ?? "";
+  let direction: Chapter["direction"];
+  if (groupName.includes("manhwa") || groupName.includes("manhua") || groupName.includes("webtoon")) {
+    direction = "horizontal-ltr";
+  }
   return {
     id: makeScopedId("mangadex", entity.id),
     mangaId,
@@ -136,6 +144,7 @@ function mapChapter(entity: MangaDexEntity, mangaId: string): Chapter {
     pages: [],
     language: (entity.attributes.translatedLanguage as string | undefined) ?? "vi",
     updatedAt: (entity.attributes.updatedAt as string | undefined) ?? new Date().toISOString(),
+    direction,
   };
 }
 

@@ -60,6 +60,12 @@ export type Chapter = {
   progress?: number | null;
   /** Optional last read page index (0-based) for the current user. */
   lastPageIndex?: number | null;
+  /** Phase F2: optional reading direction for THIS chapter. Overrides Manga.direction.
+   *  Source adapters fill this from `originalLanguage` (MangaDex) or category tags
+   *  (OTruyen: manhwa/manhua/webtoon → LTR). Defaults to Manga.direction at read time. */
+  direction?: ReaderDirection;
+  /** Optional view count for chapter list density. */
+  views?: number | null;
 };
 
 export type MangaSearchParams = {

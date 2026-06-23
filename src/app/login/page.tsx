@@ -4,6 +4,7 @@ import { AuthPanel } from "@/components/auth-panel";
 export const metadata: Metadata = {
   title: "Đăng nhập",
   description: "Đăng nhập InkRail bằng Supabase Auth để đồng bộ lịch sử đọc và thư viện.",
+  robots: { index: false, follow: false },
 };
 
 export default function LoginPage() {

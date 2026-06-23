@@ -5,6 +5,7 @@ import { DiscoverForm } from "@/components/discover-form";
 import { MangaCard } from "@/components/manga-card";
 import { AlertState, EmptyState, FilterChip } from "@/components/ui/primitives";
 import { searchMangaWithMeta } from "@/lib/sources";
+import { siteConfig } from "@/lib/seo";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
 import { normalizeGenres, normalizeSearchParams, type NormalizedSearchParams } from "@/lib/sources/search-utils";
 import { type MangaSearchParams } from "@/lib/types";
@@ -166,6 +167,13 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       title,
       description,
       url: absoluteUrl(discoverHref(state)),
+      images: [{ url: siteConfig.ogImage, width: 1200, height: 630, alt: siteConfig.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [siteConfig.twitterImage],
     },
   };
 }

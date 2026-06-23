@@ -7,9 +7,10 @@ import { MangaCover } from "@/components/manga-cover";
 import { MangaDescription } from "@/components/manga-description";
 import { AppLinkButton, Badge } from "@/components/ui/primitives";
 import { getChapters, getManga } from "@/lib/sources";
+import { siteConfig } from "@/lib/seo";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
-import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
 import { imageProxyUrl } from "@/lib/types";
+import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,23 +21,28 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const manga = await getManga(id);
-  const url = `/manga/${encodeURIComponent(manga.id)}`;
+  const url = absoluteUrl(`/manga/${encodeURIComponent(manga.id)}`);
+  const description = manga.description?.trim()
+    ? truncate(manga.description, 155)
+    : `Đọc ${manga.title} trên InkRail với reader tối giản, giao diện tối dễ chịu và đồng bộ thư viện.`;
+  const cover = manga.cover ? absoluteUrl(imageProxyUrl(manga.cover, manga.source)) : siteConfig.ogImage;
 
   return {
     title: manga.title,
-    description: truncate(manga.description, 155),
+    description,
     alternates: { canonical: url },
     openGraph: {
       title: manga.title,
-      description: truncate(manga.description, 180),
+      description,
       url,
-      images: manga.cover ? [{ url: manga.cover, alt: manga.title }] : undefined,
+      type: "article",
+      images: [{ url: cover, alt: `Bìa truyện ${manga.title}` }],
     },
     twitter: {
       card: "summary_large_image",
       title: manga.title,
-      description: truncate(manga.description, 180),
-      images: manga.cover ? [manga.cover] : undefined,
+      description,
+      images: [cover],
     },
   };
 }
