@@ -15,7 +15,8 @@ export function formatDate(value: string | null | undefined) {
 }
 
 export function absoluteUrl(path = "/") {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  const base = process.env.NEXT_PUBLIC_SITE_URL || (vercelUrl ? `https://${vercelUrl}` : "http://localhost:3000");
   return new URL(path, base).toString();
 }
 
