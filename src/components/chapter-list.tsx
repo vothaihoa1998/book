@@ -3,6 +3,7 @@
 import { ChevronDown, Filter, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ChapterFilterSheet } from "@/components/chapter-filter-sheet";
 import { imageProxyUrl, type Chapter } from "@/lib/types";
 import {
   chapterBadge,
@@ -39,16 +40,15 @@ export type ChapterListProps = {
   progressByChapter: Map<string, ChapterProgress>;
   /** chapterId đang đọc dở (highlight accent) */
   currentChapterId?: string | null;
-  /** hiện sheet filter (do parent quản lý) */
-  onOpenFilter?: () => void;
 };
 
 /**
  * Phase H1: Chapter list mật độ cao — compact row 3-col + search/sort/filter
  * + group volume + badges MỚI/ĐÃ ĐỌC/ĐANG ĐỌC + relative time + view count.
  */
-export function ChapterList({ chapters, progressByChapter, currentChapterId, onOpenFilter }: ChapterListProps) {
+export function ChapterList({ chapters, progressByChapter, currentChapterId }: ChapterListProps) {
   const [filter, setFilter] = useState<ChapterListFilter>(DEFAULT_FILTER);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
   const [pageSize, setPageSize] = useState(50);
@@ -191,7 +191,7 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId, onO
         </div>
         <button
           type="button"
-          onClick={onOpenFilter}
+          onClick={() => setFilterOpen(true)}
           aria-label="Mở bộ lọc"
           className="relative inline-flex h-8 items-center gap-1 rounded-full border border-border bg-card px-2.5 text-[12px] font-medium text-foreground transition hover:bg-secondary"
         >
@@ -424,6 +424,15 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId, onO
           Thu gọn
         </button>
       )}
+
+      <ChapterFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        filter={filter}
+        onChange={setFilter}
+        languages={languages}
+        resultCount={filtered.length}
+      />
     </div>
   );
 }

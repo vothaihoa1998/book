@@ -72,7 +72,17 @@ function decodeChapterApi(value: string) {
 
 function itemsFromResponse(response: Record<string, unknown>) {
   const data = (response.data || {}) as Record<string, unknown>;
-  return ((data.items || response.items || []) as OTruyenItem[]).filter(Boolean);
+  const params = (data.params || {}) as Record<string, unknown>;
+  const pagination = (params.pagination || {}) as Record<string, unknown>;
+  return {
+    items: ((data.items || response.items || []) as OTruyenItem[]).filter(Boolean),
+    total:
+      typeof pagination.totalItems === "number"
+        ? pagination.totalItems
+        : typeof data.totalItems === "number"
+          ? data.totalItems
+          : 0,
+  };
 }
 
 export async function searchOTruyen(query: string, options: Partial<Pick<NormalizedSearchParams, "page" | "status" | "sort" | "genres" | "year">> = {}) {
@@ -80,7 +90,8 @@ export async function searchOTruyen(query: string, options: Partial<Pick<Normali
   const response = await fetchJson<Record<string, unknown>>(
     `${API}/tim-kiem?keyword=${encodeURIComponent(query)}&page=${page}`,
   );
-  return applySearchFilters(itemsFromResponse(response).map(mapManga), {
+  const { items, total } = itemsFromResponse(response);
+  const results = applySearchFilters(items.map(mapManga), {
     q: query,
     source: "otruyen",
     status: options.status ?? "all",
@@ -89,6 +100,7 @@ export async function searchOTruyen(query: string, options: Partial<Pick<Normali
     page,
     genres: options.genres ?? [],
   });
+  return { results, total };
 }
 
 export async function getRecentOTruyen(limit = 24) {
@@ -101,8 +113,10 @@ export async function getRecentOTruyen(limit = 24) {
   );
   const merged = responses
     .filter((response): response is Record<string, unknown> => Boolean(response))
-    .flatMap((response) => itemsFromResponse(response));
-  return merged.slice(0, limit).map(mapManga);
+    .map((response) => itemsFromResponse(response));
+  const items = merged.flatMap((parsed) => parsed.items);
+  const maxTotal = merged.reduce((acc, parsed) => Math.max(acc, parsed.total), 0);
+  return { results: items.slice(0, limit).map(mapManga), total: maxTotal };
 }
 
 export async function getOTruyenManga(slug: string) {

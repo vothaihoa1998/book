@@ -310,6 +310,17 @@ html[data-theme="dark"] .grain::after {
   }
 }
 
+@keyframes tapHintFade {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.tap-hint {
+  animation: tapHintFade 3.5s ease-out forwards;
+}
+
 @media (min-width: 768px) {
   .filter-sheet {
     animation-name: filter-pop-in;
@@ -331,28 +342,28 @@ html[data-theme="dark"] .grain::after {
 /* Reader-specific themes. Each one swaps background/foreground for
    the in-chapter area. Use warm tones for daytime reading. */
 .reader-theme-sepia {
-  --background: #f1e6d2;
-  --foreground: #2a1d12;
+  --background: #c9b190;
+  --foreground: #1f1209;
 }
 
 .reader-theme-paper {
-  --background: #faf3e2;
+  --background: #e9dec5;
   --foreground: #101011;
 }
 
 .reader-theme-warm-light {
-  --background: #f7f1e7;
-  --foreground: #101011;
+  --background: #efe6d4;
+  --foreground: #1f1209;
 }
 
 .reader-theme-graphite-dark {
-  --background: #050814;
-  --foreground: #f5f7fb;
+  --background: #15121a;
+  --foreground: #ece5d3;
 }
 
 .reader-theme-pure-black {
   --background: #000000;
-  --foreground: #f2f2f2;
+  --foreground: #d8d8d8;
 }
 
 @media (prefers-reduced-motion: reduce) {

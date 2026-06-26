@@ -3,7 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Loader2, AlertCircle, Settings2, Palette, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, Download, EyeOff, Check, Hand, Loader2, AlertCircle, Settings2, Palette, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { type Chapter, type Manga, type ReaderPrefs, imageProxyUrl } from "@/lib/types";
 import { pickReaderDirection } from "@/lib/reader-presets";
@@ -28,10 +29,10 @@ const darkDefaultPrefs: ReaderPrefs = {
 };
 
 const readerThemes: Array<{ value: ReaderPrefs["theme"]; label: string; className: string }> = [
-  { value: "warm-light", label: "Sáng dịu", className: "bg-[#f7f1e7]" },
-  { value: "paper", label: "Giấy", className: "bg-[#faf3e2]" },
-  { value: "sepia", label: "Sepia", className: "bg-[#d9c3a1]" },
-  { value: "graphite-dark", label: "Graphite", className: "bg-[#050814]" },
+  { value: "warm-light", label: "Sáng dịu", className: "bg-[#efe6d4]" },
+  { value: "paper", label: "Giấy", className: "bg-[#e9dec5]" },
+  { value: "sepia", label: "Sepia", className: "bg-[#c9b190]" },
+  { value: "graphite-dark", label: "Graphite", className: "bg-[#15121a]" },
   { value: "pure-black", label: "OLED", className: "bg-black" },
 ];
 
@@ -71,6 +72,7 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
   const totalPages = Math.max(1, chapter.pages.length);
   const [showUi, setShowUi] = useState(true);
   const [showControls, setShowControls] = useState(false);
+  const [showTapHint, setShowTapHint] = useState(true);
   const [prefs, setPrefs] = useState<ReaderPrefs>(initialAppTheme === "dark" ? darkDefaultPrefs : defaultPrefs);
   const [prefsReady, setPrefsReady] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -104,6 +106,12 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
 
   const setReaderMode = (direction: ReaderPrefs["direction"]) => {
     setPrefs((current) => ({ ...current, direction }));
+    // Lưu explicit override per-chapter để auto-detect không override lại.
+    try {
+      localStorage.setItem(`inkrail-reader-direction:${chapter.id}`, direction);
+    } catch {
+      // ignore
+    }
     setShowUi(true);
     setShowControls(false);
   };
@@ -477,6 +485,12 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
     return () => window.clearTimeout(t);
   }, [resumeToast]);
 
+  // Auto-hide tap hint sau 3.5s
+  useEffect(() => {
+    const t = window.setTimeout(() => setShowTapHint(false), 3500);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <div className={cn("min-h-screen", prefs.theme !== "warm-light" && `reader-theme-${prefs.theme}`)} style={{ background: "var(--background)", color: "var(--foreground)", fontSize: `${prefs.fontSize}px` }}>
       {/* RESUME TOAST — Phase F1: hiện khi vào chapter có progress > 5%.
@@ -534,6 +548,19 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
             </button>
           </div>
         </div>
+      )}
+
+      {/* TAP HINT — overlay subtle ở giữa, fade out sau 3.5s. Dùng createPortal để bypass PageTransition containing block. */}
+      {typeof document !== "undefined" && showTapHint && showUi && createPortal(
+        <div
+          aria-hidden
+          className="tap-hint pointer-events-none fixed inset-x-0 top-1/2 z-[80] flex -translate-y-1/2 justify-center"
+        >
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-md backdrop-blur-sm">
+            <Hand size={11} /> Tap giữa để ẩn/hiện nav
+          </span>
+        </div>,
+        document.body,
       )}
       {showUi && (
         <header ref={headerRef} className="fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/92 px-3 pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] backdrop-blur-xl md:px-4">

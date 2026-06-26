@@ -21,6 +21,7 @@ type MangaDexEntity = {
 
 type MangaDexListResponse = {
   data?: MangaDexEntity[];
+  total?: number;
 };
 
 type MangaDexSingleResponse = {
@@ -207,7 +208,10 @@ export async function searchMangaDex(query: string, options: number | MangaDexSe
     ...searchOrder(normalized.sort),
   });
   const response = await fetchJson<MangaDexListResponse>(`${API}/manga?${qs}`);
-  return (response.data ?? []).map(mapManga);
+  return {
+    results: (response.data ?? []).map(mapManga),
+    total: response.total ?? 0,
+  };
 }
 
 export async function getMangaDex(id: string) {

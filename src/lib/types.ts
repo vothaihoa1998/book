@@ -100,6 +100,7 @@ export type MangaSearchMeta = {
   fallbackUsed: boolean;
   page: number;
   hasMore: boolean;
+  total?: number;
   errors: string[];
   sourceLimitations: string[];
 };

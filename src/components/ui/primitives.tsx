@@ -125,6 +125,22 @@ export function FilterChip({ className, active, children, ...props }: ComponentP
   );
 }
 
+// RadioChip — span styled purely via Tailwind peer-checked variant.
+// Place inside a <label> whose child <input type="radio" class="peer sr-only"> is a SIBLING.
+export function RadioChip({ className, children, ...props }: ComponentPropsWithoutRef<"span">) {
+  return (
+    <span
+      className={cn(
+        "inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-secondary px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus-ring",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function SegmentedControl({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn("flex flex-wrap gap-2", className)}>{children}</div>;
 }

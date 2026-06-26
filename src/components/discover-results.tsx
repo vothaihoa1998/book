@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MangaCard } from "@/components/manga-card";
 import { Sheet } from "@/components/ui/sheet";
-import { FilterChip } from "@/components/ui/primitives";
+import { FilterChip, RadioChip } from "@/components/ui/primitives";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ const SORTS = [
 ];
 
 const SOURCES = [
-  { value: "all", label: "Mọi nguồn" },
+  { value: "all", label: "Tất cả" },
   { value: "mangadex", label: "MangaDex" },
   { value: "otruyen", label: "OTruyen" },
 ];
@@ -34,8 +34,13 @@ const SOURCES = [
 function years() {
   const current = new Date().getFullYear();
   return [
-    { value: "all", label: "Mọi năm" },
-    ...Array.from({ length: 6 }, (_, i) => ({ value: String(current - i), label: String(current - i) })),
+    { value: "all", label: "Tất cả" },
+    { value: String(current), label: String(current) },
+    { value: String(current - 1), label: String(current - 1) },
+    { value: String(current - 2), label: String(current - 2) },
+    { value: String(current - 3), label: String(current - 3) },
+    { value: String(current - 4), label: String(current - 4) },
+    { value: String(current - 5), label: String(current - 5) },
     { value: "older", label: `Trước ${current - 5}` },
   ];
 }
@@ -58,13 +63,14 @@ export type DiscoverResultsProps = {
   results: MangaList;
   hasMore: boolean;
   resultCount: number;
+  total?: number;
 };
 
 /**
  * Phase H3: Discover results client — render grid/list với view toggle,
  * filter sheet (Sheet primitive), search bar sticky, active filter chips.
  */
-export function DiscoverResults({ state, results, hasMore, resultCount }: DiscoverResultsProps) {
+export function DiscoverResults({ state, results, hasMore, resultCount, total }: DiscoverResultsProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [view, setView] = useState<DiscoverState["view"]>(state.view ?? "grid");
 
@@ -242,7 +248,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
           </Link>
         </div>
       ) : view === "grid" ? (
-        <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {results.map((manga, index) => (
             <MangaCard key={manga.id} manga={manga} compact eager={index < 6} />
           ))}
@@ -327,9 +333,9 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
                     defaultChecked={state.sort === opt.value}
                     className="peer sr-only"
                   />
-                  <FilterChip active={state.sort === opt.value} className="text-[11px] peer-checked:bg-primary peer-checked:text-primary-foreground">
+                  <RadioChip className="text-[11px]">
                     {opt.label}
-                  </FilterChip>
+                  </RadioChip>
                 </label>
               ))}
             </div>
@@ -348,9 +354,9 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
                     defaultChecked={state.status === opt.value}
                     className="peer sr-only"
                   />
-                  <FilterChip active={state.status === opt.value} className="text-[11px] peer-checked:bg-primary peer-checked:text-primary-foreground">
+                  <RadioChip className="text-[11px]">
                     {opt.label}
-                  </FilterChip>
+                  </RadioChip>
                 </label>
               ))}
             </div>
@@ -369,9 +375,9 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
                     defaultChecked={state.source === opt.value}
                     className="peer sr-only"
                   />
-                  <FilterChip active={state.source === opt.value} className="text-[11px] peer-checked:bg-primary peer-checked:text-primary-foreground">
+                  <RadioChip className="text-[11px]">
                     {opt.label}
-                  </FilterChip>
+                  </RadioChip>
                 </label>
               ))}
             </div>
@@ -390,9 +396,9 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
                     defaultChecked={state.year === opt.value}
                     className="peer sr-only"
                   />
-                  <FilterChip active={state.year === opt.value} className="text-[11px] peer-checked:bg-primary peer-checked:text-primary-foreground">
+                  <RadioChip className="text-[11px]">
                     {opt.label}
-                  </FilterChip>
+                  </RadioChip>
                 </label>
               ))}
             </div>
@@ -411,9 +417,9 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
                     defaultChecked={state.genres.includes(opt.value)}
                     className="peer sr-only"
                   />
-                  <FilterChip active={state.genres.includes(opt.value)} className="text-[11px] peer-checked:bg-primary peer-checked:text-primary-foreground">
+                  <RadioChip className="text-[11px]">
                     {opt.label}
-                  </FilterChip>
+                  </RadioChip>
                 </label>
               ))}
             </div>
@@ -438,7 +444,15 @@ export function DiscoverResults({ state, results, hasMore, resultCount }: Discov
           ) : (
             <span />
           )}
-          <span className="text-[11px] text-muted-foreground">Trang {state.page}</span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            Trang {state.page}
+            {total && total > 0 ? (
+              <>
+                {" / "}
+                <span className="text-foreground">{Math.max(state.page, Math.ceil(total / (results.length || 1)))}</span>
+              </>
+            ) : null}
+          </span>
           {hasMore ? (
             <Link
               href={hrefFor({ page: state.page + 1 })}

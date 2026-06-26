@@ -123,6 +123,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
         results={results as never}
         hasMore={meta.hasMore}
         resultCount={results.length}
+        total={meta.total}
       />
     </main>
   );
