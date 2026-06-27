@@ -69,11 +69,12 @@ async function cachedList<T>(
 
 export const getHome = cache(async (): Promise<HomePayload> => {
   return cachedValue("manga_cache", "home:v1", "mixed", 60 * 30, async () => {
-    const [popular, recent, oRecent] = await Promise.all([
+    const [popular, recent, oRecentRaw] = await Promise.all([
       withFallback(getPopularMangaDex(24), sampleManga),
       withFallback(getRecentMangaDex(24), sampleManga.slice().reverse()),
-      withFallback(getRecentOTruyen(24), []),
+      getRecentOTruyen(24).catch(() => ({ results: [], total: 0 })),
     ]);
+    const oRecent = oRecentRaw.results ?? [];
 
     // VN-first featured: ưu tiên OTruyen (vietsub native) trước, rồi MangaDex VI.
     const vnFirst = [...oRecent, ...popular, ...recent];
@@ -93,15 +94,16 @@ export const getHome = cache(async (): Promise<HomePayload> => {
   });
 });
 
-async function runSearchSource(source: "mangadex" | "otruyen" | "firecrawl", target: string, loader: () => Promise<Manga[]>) {
+async function runSearchSource(source: "mangadex" | "otruyen" | "firecrawl", target: string, loader: () => Promise<Manga[] | { results: Manga[]; total?: number }>) {
   const startedAt = Date.now();
   try {
-    const results = await loader();
+    const payload = await loader();
+    const { results, total } = Array.isArray(payload) ? { results: payload, total: 0 } : payload;
     await logSourceFetch(source, target, true, Date.now() - startedAt).catch(() => undefined);
-    return { source, results, error: null as string | null };
+    return { source, results, total, error: null as string | null };
   } catch (error) {
     await logSourceFetch(source, target, false, Date.now() - startedAt).catch(() => undefined);
-    return { source, results: [], error: error instanceof Error ? error.message : `Không gọi được nguồn ${source}` };
+    return { source, results: [], total: 0, error: error instanceof Error ? error.message : `Không gọi được nguồn ${source}` };
   }
 }
 
@@ -118,16 +120,23 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
     const sourceResults = await Promise.all(
       selectedSources.map((source) => {
         if (source === "mangadex") {
-          return runSearchSource("mangadex", "catalog", () => searchMangaDex("", { ...normalized, limit: 36 }));
+          return runSearchSource("mangadex", "catalog", async () => {
+            const { results, total } = await searchMangaDex("", { ...normalized, limit: 36 });
+            return { results, total };
+          });
         }
 
-        return runSearchSource("otruyen", "catalog", () => getRecentOTruyen(36));
+        return runSearchSource("otruyen", "catalog", async () => {
+          const { results, total } = await getRecentOTruyen(36);
+          return { results, total };
+        });
       }),
     );
     const errors = [
       ...cacheErrors,
       ...sourceResults.flatMap((result) => result.error ? [`${result.source}: ${result.error}`] : []),
     ];
+    const total = sourceResults.reduce((acc, result) => Math.max(acc, result.total ?? 0), 0);
     const results = applySearchFilters(dedupeManga(sourceResults.flatMap((result) => result.results)), normalized);
     const payload: MangaSearchResult = {
       results,
@@ -139,6 +148,7 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
         fallbackUsed: false,
         page: normalized.page,
         hasMore: sourceResults.some((result) => result.results.length >= 36),
+        total,
         errors,
         sourceLimitations: sourceLimitations(normalized, selectedSources),
       },
@@ -168,6 +178,8 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
     if (result.error) errors.push(`${result.source}: ${result.error}`);
   });
 
+  const total = sourceResults.reduce((acc, result) => Math.max(acc, result.total ?? 0), 0);
+
   let fallbackUsed = false;
   let results = applySearchFilters(dedupeManga(sourceResults.flatMap((result) => result.results)), normalized);
   const sourceUsed = sourceResults.filter((result) => !result.error).map((result) => result.source);
@@ -192,6 +204,7 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
       fallbackUsed,
       page: normalized.page,
       hasMore: sourceResults.some((result) => result.results.length >= 24) || results.length >= 24,
+      total,
       errors,
       sourceLimitations: sourceLimitations(normalized, selectedSources),
     },
@@ -228,7 +241,8 @@ async function tryOtruyenFallbackByTitle(title: string): Promise<Manga | null> {
   if (!norm) return null;
   try {
     const response = await searchOTruyen(title, { page: 1 });
-    const match = response.find((item) => normalizeTitle(item.title) === norm) ?? response[0];
+    const list = response.results ?? [];
+    const match = list.find((item) => normalizeTitle(item.title) === norm) ?? list[0];
     if (!match) return null;
     return match;
   } catch {
