@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, FilterChip } from "@/components/ui/primitives";
 import { Sheet } from "@/components/ui/sheet";
 import type { ChapterListFilter } from "@/components/chapter-list";
 import { langShortLabel } from "@/lib/format-time";
@@ -30,11 +31,11 @@ export function ChapterFilterSheet({ open, onClose, filter, onChange, languages,
       open={open}
       onClose={onClose}
       ariaLabel="Bộ lọc chương"
-      defaultSnap="60vh"
       footer={
         <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() =>
               onChange({
                 search: "",
@@ -44,17 +45,12 @@ export function ChapterFilterSheet({ open, onClose, filter, onChange, languages,
                 showVolumes: true,
               })
             }
-            className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             Đặt lại
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-full bg-primary px-4 py-2 text-[12px] font-semibold text-primary-foreground transition hover:bg-primary/90"
-          >
+          </Button>
+          <Button onClick={onClose} className="flex-1">
             Áp dụng ({resultCount})
-          </button>
+          </Button>
         </div>
       }
     >
@@ -66,19 +62,15 @@ export function ChapterFilterSheet({ open, onClose, filter, onChange, languages,
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sắp xếp</p>
           <div className="flex flex-wrap gap-1.5">
             {SORTS.map((opt) => (
-              <button
+              <FilterChip
                 key={opt.value}
-                type="button"
-                aria-pressed={filter.sort === opt.value}
+                active={filter.sort === opt.value}
                 onClick={() => onChange({ ...filter, sort: opt.value })}
-                className={
-                  filter.sort === opt.value
-                    ? "rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground"
-                    : "rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-secondary"
-                }
+                role="button"
+                size="md"
               >
                 {opt.label}
-              </button>
+              </FilterChip>
             ))}
           </div>
         </div>
@@ -91,24 +83,20 @@ export function ChapterFilterSheet({ open, onClose, filter, onChange, languages,
               {languages.map((lang) => {
                 const active = filter.langs.includes(lang);
                 return (
-                  <button
+                  <FilterChip
                     key={lang}
-                    type="button"
-                    aria-pressed={active}
+                    active={active}
                     onClick={() =>
                       onChange({
                         ...filter,
                         langs: active ? filter.langs.filter((l) => l !== lang) : [...filter.langs, lang],
                       })
                     }
-                    className={
-                      active
-                        ? "rounded-full bg-primary px-3 py-1.5 text-[12px] font-semibold text-primary-foreground"
-                        : "rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground hover:bg-secondary"
-                    }
+                    role="button"
+                    size="md"
                   >
                     {langShortLabel(lang)}
-                  </button>
+                  </FilterChip>
                 );
               })}
             </div>

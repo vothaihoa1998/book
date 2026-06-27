@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MangaCard } from "@/components/manga-card";
 import { Sheet } from "@/components/ui/sheet";
-import { FilterChip, RadioChip } from "@/components/ui/primitives";
+import { FilterChip, RadioChip, Button, Input } from "@/components/ui/primitives";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
 import { cn } from "@/lib/utils";
 
@@ -129,11 +129,12 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
           {state.view !== "grid" && <input type="hidden" name="view" value={state.view} />}
           {state.genres.map((g) => <input key={g} type="hidden" name="genres" value={g} />)}
         </form>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => setFilterOpen(true)}
           aria-label="Mở bộ lọc"
-          className="relative inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-[12px] font-medium text-foreground transition hover:bg-secondary"
+          className="relative h-8 rounded-full px-2.5 text-[12px]"
         >
           <SlidersHorizontal size={13} />
           <span className="hidden sm:inline">Lọc</span>
@@ -142,7 +143,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
               {activeFilterCount}
             </span>
           )}
-        </button>
+        </Button>
         <div className="hidden items-center gap-0.5 rounded-full border border-border bg-card p-0.5 sm:flex">
           <button
             type="button"
@@ -184,7 +185,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
             </FilterChip>
           )}
           {state.status !== "all" && (
-            <FilterChip active className="gap-1 pl-2 pr-1 text-[10px]">
+            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
               <Link href={hrefFor({ status: "all", page: 1 })} className="flex items-center gap-1">
                 {STATUSES.find((s) => s.value === state.status)?.label}
                 <span className="text-base leading-none">×</span>
@@ -192,7 +193,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
             </FilterChip>
           )}
           {state.sort !== "latest" && (
-            <FilterChip active className="gap-1 pl-2 pr-1 text-[10px]">
+            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
               <Link href={hrefFor({ sort: "latest", page: 1 })} className="flex items-center gap-1">
                 {SORTS.find((s) => s.value === state.sort)?.label}
                 <span className="text-base leading-none">×</span>
@@ -200,7 +201,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
             </FilterChip>
           )}
           {state.year !== "all" && (
-            <FilterChip active className="gap-1 pl-2 pr-1 text-[10px]">
+            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
               <Link href={hrefFor({ year: "all", page: 1 })} className="flex items-center gap-1">
                 {state.year === "older" ? "Cũ hơn" : state.year}
                 <span className="text-base leading-none">×</span>
@@ -208,7 +209,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
             </FilterChip>
           )}
           {state.source !== "all" && (
-            <FilterChip active className="gap-1 pl-2 pr-1 text-[10px]">
+            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
               <Link href={hrefFor({ source: "all", page: 1 })} className="flex items-center gap-1">
                 {SOURCES.find((s) => s.value === state.source)?.label}
                 <span className="text-base leading-none">×</span>
@@ -216,7 +217,7 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
             </FilterChip>
           )}
           {state.genres.map((g) => (
-            <FilterChip key={g} active className="gap-1 pl-2 pr-1 text-[10px]">
+            <FilterChip key={g} active className="h-8 min-h-0 gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
               <Link href={hrefFor({ genres: state.genres.filter((x) => x !== g), page: 1 })} className="flex items-center gap-1">
                 {DISCOVER_GENRES.find((d) => d.value === g)?.label ?? g}
                 <span className="text-base leading-none">×</span>
@@ -307,13 +308,13 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
             >
               Đặt lại
             </Link>
-            <button
+            <Button
               type="submit"
               form="discover-filter-form"
-              className="flex-1 rounded-full bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground transition hover:bg-primary/90"
+              className="flex-1 rounded-full text-[13px]"
             >
               Lọc kết quả ({resultCount})
-            </button>
+            </Button>
           </div>
         }
       >
