@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Info, ListOrdered, Play, Radio } from "lucide-react";
 import Link from "next/link";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
+import { ChapterList } from "@/components/chapter-list";
 import { FollowButton } from "@/components/follow-button";
 import { MangaCover } from "@/components/manga-cover";
 import { MangaDescription } from "@/components/manga-description";
@@ -126,69 +127,89 @@ export default async function MangaDetailPage({ params }: Props) {
     <main>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      {/* Hero */}
-      <section className="mx-auto grid max-w-7xl grid-cols-[112px_minmax(0,1fr)] items-start gap-4 px-4 py-6 sm:grid-cols-[160px_minmax(0,1fr)] sm:px-6 sm:py-8 md:grid-cols-[minmax(240px,340px)_1fr] md:items-start md:gap-10 md:py-14 lg:px-8">
-        <div className="md:sticky md:top-24">
-          <MangaCover manga={manga} priority className="hairline rounded-[var(--radius-card)]" />
-        </div>
-        <div className="min-w-0 max-w-3xl">
-          <p className="eyebrow flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-muted-foreground">{manga.source}</span>
-            <span className="text-muted-foreground/40">·</span>
-            <span className="text-foreground">{manga.status}</span>
-            {manga.rating ? (<><span className="text-muted-foreground/40">·</span><span className="text-primary">{manga.rating.toFixed(1)} ★</span></>) : null}
-          </p>
-          <h1 className="mt-3 break-words editorial-title text-4xl leading-[1.05] text-foreground sm:mt-4 sm:text-5xl md:text-6xl md:leading-[0.98] lg:text-7xl">
-            {manga.title}
-          </h1>
-          {manga.altTitles.length > 0 && (
-            <p className="mt-3 break-words text-sm leading-6 text-muted-foreground">{manga.altTitles.slice(0, 3).join(" / ")}</p>
-          )}
-          <MangaDescription description={manga.description} />
-          <div className="mt-5 flex flex-wrap gap-1.5">
-            {manga.genres.slice(0, 8).map((genre) => (
-              <Badge key={genre}>{genre}</Badge>
-            ))}
+      {/* Hero — mobile-first editorial. Cover lớn 50vw mobile, info wrap.
+          Desktop: 2-col với cover sticky bên trái. */}
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="relative grid grid-cols-1 gap-5 py-5 sm:py-8 md:grid-cols-[minmax(260px,300px)_1fr] md:items-start md:gap-10 md:py-12">
+          {/* Cover — mobile centered ~140px, desktop sticky */}
+          <div className="mx-auto w-[140px] sm:w-[180px] md:sticky md:top-24 md:mx-0 md:w-auto">
+            <MangaCover manga={manga} priority className="hairline rounded-[var(--radius-card)] shadow-[0_24px_60px_-24px_rgba(60,28,8,0.4)]" />
           </div>
 
-          {/* CTA row */}
-          <div className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:gap-3">
-            {continueTarget ? (
-              <AppLinkButton
-                href={`/read/${encodeURIComponent(continueTarget.id)}`}
-                size="lg"
-                className="rounded-full"
-              >
-                <Play size={15} fill="currentColor" />
-                Đọc tiếp · {Math.round(continueTarget.progress)}%
-              </AppLinkButton>
-            ) : firstChapter ? (
-              <AppLinkButton
-                href={`/read/${encodeURIComponent(firstChapter.id)}`}
-                size="lg"
-                className="rounded-full"
-              >
-                <Play size={15} fill="currentColor" />
-                Đọc từ đầu
-              </AppLinkButton>
-            ) : null}
-            {latestChapter && latestChapter.id !== firstChapter?.id && (
-              <AppLinkButton
-                href={`/read/${encodeURIComponent(latestChapter.id)}`}
-                variant="secondary"
-                size="lg"
-                className="rounded-full"
-              >
-                Chương mới nhất <ArrowRight size={15} />
-              </AppLinkButton>
+          {/* Info */}
+          <div className="min-w-0">
+            {/* Source eyebrow */}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-code text-[11px] uppercase tracking-[1.5px] text-muted-foreground">
+              <span>{manga.source}</span>
+              <span className="text-muted-foreground/40">·</span>
+              <span className="text-foreground">{manga.status}</span>
+              {manga.rating ? (<><span className="text-muted-foreground/40">·</span><span className="text-primary font-semibold">★ {manga.rating.toFixed(1)}</span></>) : null}
+            </p>
+
+            {/* Title */}
+            <h1 className="mt-2 break-words font-display text-[28px] font-medium leading-[1.05] text-foreground sm:text-4xl md:text-5xl md:leading-[0.98] lg:text-6xl">
+              {manga.title}
+            </h1>
+
+            {/* Alt titles */}
+            {manga.altTitles.length > 0 && (
+              <p className="mt-1.5 break-words text-[12px] leading-5 text-muted-foreground sm:text-sm sm:leading-6">{manga.altTitles.slice(0, 3).join(" / ")}</p>
             )}
-            <FollowButton manga={manga} />
-          </div>
 
-          <div className="mt-7 grid gap-4 border-y border-border py-4 sm:grid-cols-3">
-            <Meta icon={<Radio size={14} />} label="Tác giả" value={manga.author ?? "Đang cập nhật"} />
-            <Meta icon={<Info size={14} />} label="Cập nhật" value={formatDate(manga.updatedAt)} />
-            <Meta icon={<ListOrdered size={14} />} label="Số chương" value={String(chapters.length)} />
+            {/* Description — collapse */}
+            <div className="mt-3 sm:mt-4">
+              <MangaDescription description={manga.description} />
+            </div>
+
+            {/* Genres */}
+            {manga.genres.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4">
+                {manga.genres.slice(0, 8).map((genre) => (
+                  <Badge key={genre}>{genre}</Badge>
+                ))}
+              </div>
+            )}
+
+            {/* CTA row — primary "Đọc" full-width mobile, secondary inline desktop */}
+            <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:flex sm:flex-wrap sm:gap-2.5">
+              {continueTarget ? (
+                <AppLinkButton
+                  href={`/read/${encodeURIComponent(continueTarget.id)}`}
+                  size="lg"
+                  className="ink-cta rounded-full sm:px-6"
+                >
+                  <Play size={15} fill="currentColor" />
+                  Đọc tiếp · {Math.round(continueTarget.progress)}%
+                </AppLinkButton>
+              ) : firstChapter ? (
+                <AppLinkButton
+                  href={`/read/${encodeURIComponent(firstChapter.id)}`}
+                  size="lg"
+                  className="ink-cta rounded-full sm:px-6"
+                >
+                  <Play size={15} fill="currentColor" />
+                  Đọc từ đầu
+                </AppLinkButton>
+              ) : null}
+              {latestChapter && latestChapter.id !== firstChapter?.id && (
+                <AppLinkButton
+                  href={`/read/${encodeURIComponent(latestChapter.id)}`}
+                  variant="secondary"
+                  size="lg"
+                  className="rounded-full sm:px-5"
+                >
+                  Mới nhất <ArrowRight size={14} />
+                </AppLinkButton>
+              )}
+              <FollowButton manga={manga} />
+            </div>
+
+            {/* Stats row — 3 cột gọn */}
+            <dl className="mt-5 grid grid-cols-3 gap-x-2 border-y border-border py-3 sm:mt-6 sm:gap-x-4 sm:py-4">
+              <Meta icon={<Radio size={12} />} label="Tác giả" value={manga.author ?? "—"} />
+              <Meta icon={<Info size={12} />} label="Cập nhật" value={formatDate(manga.updatedAt)} />
+              <Meta icon={<ListOrdered size={12} />} label="Số chương" value={String(chapters.length)} />
+            </dl>
           </div>
         </div>
       </section>
@@ -230,66 +251,16 @@ export default async function MangaDetailPage({ params }: Props) {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-border overflow-hidden rounded-[var(--radius-card)] border border-border bg-card">
-                {chapters.map((chapter) => {
-                  const progress = progressByChapter.get(chapter.id);
-                  const isCurrent = continueTarget?.id === chapter.id;
-                  const thumb = chapter.pages[0]?.url;
-                  return (
-                    <li key={chapter.id}>
-                      <Link
-                        href={`/read/${encodeURIComponent(chapter.id)}`}
-                        className="group grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 transition hover:bg-secondary/60 sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:gap-4 sm:px-4"
-                      >
-                        <span
-                          aria-hidden
-                          className="relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-control)] bg-surface-strong ring-1 ring-border"
-                        >
-                          {thumb ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
-                              src={imageProxyUrl(thumb, chapter.source)}
-                              alt=""
-                              loading="lazy"
-                              className="h-full w-full object-cover transition group-hover:scale-105"
-                            />
-                          ) : (
-                            <span className="grid h-full w-full place-items-center text-[10px] text-muted-foreground">{chapter.number}</span>
-                          )}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="meta-mono shrink-0">Ch. {chapter.number}</span>
-                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
-                              chapter.language?.startsWith("vi")
-                                ? "bg-accent-2/15 text-accent-2"
-                                : chapter.language?.startsWith("en")
-                                ? "bg-secondary text-muted-foreground"
-                                : "bg-secondary text-muted-foreground"
-                            }`}>
-                              {chapterLanguageLabel(chapter.language)}
-                            </span>
-                            {isCurrent && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-                                Đang đọc · {Math.round(continueTarget!.progress)}%
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-0.5 line-clamp-2 break-words text-sm font-medium text-foreground md:text-base">
-                            {chapter.title || `Chương ${chapter.number}`}
-                          </p>
-                          {progress && (
-                            <div className="mt-2 h-1 overflow-hidden rounded-full bg-secondary">
-                              <div className="h-full rounded-full bg-accent-2" style={{ width: `${Math.min(100, Math.max(0, progress.scrollPercent))}%` }} />
-                            </div>
-                          )}
-                        </div>
-                        <span className="meta-mono shrink-0 text-right">{formatDate(chapter.updatedAt)}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <ChapterList
+                chapters={chapters}
+                progressByChapter={new Map(
+                  Array.from(progressByChapter.entries()).map(([k, v]) => [
+                    k,
+                    { scrollPercent: v.scrollPercent, updatedAt: v.updatedAt },
+                  ]),
+                )}
+                currentChapterId={continueTarget?.id ?? null}
+              />
             )}
           </div>
 

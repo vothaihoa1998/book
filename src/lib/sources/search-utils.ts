@@ -70,7 +70,7 @@ export function normalizeSearchParams(params: MangaSearchParams = {}): Normalize
 export function searchCacheKey(params: NormalizedSearchParams) {
   const genres = params.genres.map((genre) => genre.toLowerCase()).sort().join("+") || "all";
   return [
-    "search:v2",
+    "search:v3",
     params.q.toLowerCase() || "home",
     params.source,
     params.status,

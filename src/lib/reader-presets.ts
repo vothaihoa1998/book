@@ -41,6 +41,7 @@ export function pickReaderDirection(
   // 3. Mobile default = vertical (webtoon-style, dễ vuốt dọc)
   if (viewport.width < 768) return "vertical";
 
-  // 4. Desktop default cho VN/EN scanlation = horizontal-rtl (giống manga JP)
-  return "horizontal-rtl";
+  // 4. Desktop default = vertical (user yêu cầu ưu tiên dọc trên mọi thiết bị).
+  // Manhwa/manhua đã được xử lý ở trên (horizontal-ltr).
+  return "vertical";
 }

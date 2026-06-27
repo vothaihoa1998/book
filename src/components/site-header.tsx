@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { AccountStatus } from "@/components/account-status";
-import { HeaderSearch } from "@/components/header-search";
+import { InstantSearch } from "@/components/instant-search";
+import { MobileSearchButton } from "@/components/mobile-search-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { IconLinkButton } from "@/components/ui/primitives";
 import type { SupabaseBrowserEnv } from "@/lib/supabase/client";
@@ -53,16 +54,10 @@ export function SiteHeader({ className, supabaseEnv }: { className?: string; sup
           })}
         </nav>
 
-        <HeaderSearch className="ml-auto hidden w-[min(30vw,360px)] min-w-[260px] md:block" />
+        <InstantSearch className="ml-auto hidden w-[min(30vw,360px)] min-w-[260px] md:block" />
 
         <div className="ml-auto flex items-center gap-1 md:ml-0">
-          <IconLinkButton
-            href="/discover"
-            className="text-muted-foreground hover:text-foreground md:hidden"
-            aria-label="Tìm truyện"
-          >
-            <Search size={17} />
-          </IconLinkButton>
+          <MobileSearchButton className="md:hidden" />
           <IconLinkButton
             href="/rss.xml"
             className="hidden text-muted-foreground hover:text-foreground sm:inline-flex"
