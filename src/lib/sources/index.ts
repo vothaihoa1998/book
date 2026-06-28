@@ -15,7 +15,7 @@ import {
   searchMangaDex,
 } from "./mangadex";
 import { getOTruyenChapter, getOTruyenChapters, getOTruyenManga, getRecentOTruyen, searchOTruyen } from "./otruyen";
-import { applySearchFilters, dedupeManga, normalizeSearchParams, searchCacheKey, selectedSearchSources, sourceLimitations, uniqueSources } from "./search-utils";
+import { allowsSearchFallback, applySearchFilters, dedupeManga, normalizeSearchParams, searchCacheKey, selectedSearchSources, sourceLimitations, uniqueSources } from "./search-utils";
 
 function withFallback<T>(promise: Promise<T>, fallback: T) {
   return promise.catch(() => fallback);
@@ -184,7 +184,7 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
   let results = applySearchFilters(dedupeManga(sourceResults.flatMap((result) => result.results)), normalized);
   const sourceUsed = sourceResults.filter((result) => !result.error).map((result) => result.source);
 
-  if (!results.length && normalized.source !== "otruyen") {
+  if (!results.length && allowsSearchFallback(normalized.source)) {
     const fallback = await runSearchSource("firecrawl", target, () => searchFirecrawlManga(normalized.q));
     if (fallback.error) errors.push(`firecrawl: ${fallback.error}`);
     if (fallback.results.length) {

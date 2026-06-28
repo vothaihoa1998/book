@@ -86,6 +86,10 @@ export function selectedSearchSources(source: MangaSearchSource): Array<"mangade
   return ["mangadex", "otruyen"];
 }
 
+export function allowsSearchFallback(source: MangaSearchSource) {
+  return source === "all";
+}
+
 function dedupeKey(item: Manga) {
   const normalizedTitle = item.title
     .normalize("NFKD")

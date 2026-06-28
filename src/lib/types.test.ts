@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { latestHistoryByManga } from "./library";
-import { applySearchFilters, dedupeManga, normalizeSearchParams, searchCacheKey, selectedSearchSources } from "./sources/search-utils";
+import { allowsSearchFallback, applySearchFilters, dedupeManga, normalizeSearchParams, searchCacheKey, selectedSearchSources } from "./sources/search-utils";
 import { imageProxyUrl, makeScopedId, parseScopedId, slugify, type Manga } from "./types";
 
 describe("source identity helpers", () => {
@@ -112,6 +112,12 @@ describe("search helpers", () => {
   it("selects all sources or one source explicitly", () => {
     expect(selectedSearchSources("all")).toEqual(["mangadex", "otruyen"]);
     expect(selectedSearchSources("mangadex")).toEqual(["mangadex"]);
+  });
+
+  it("only allows external fallback when every source is selected", () => {
+    expect(allowsSearchFallback("all")).toBe(true);
+    expect(allowsSearchFallback("mangadex")).toBe(false);
+    expect(allowsSearchFallback("otruyen")).toBe(false);
   });
 
   it("dedupes, filters, and returns empty results without sample fallback", () => {
