@@ -271,7 +271,7 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
 
     const viewportWidth = window.innerWidth;
     const detected = pickReaderDirection(manga, chapter, { width: viewportWidth });
-    let timer: ReturnType<typeof window.setTimeout> | null = null;
+    let timer: number | null = null;
     if (detected !== prefs.direction) {
       timer = window.setTimeout(() => {
         setPrefs((prev) => prev.direction === detected ? prev : { ...prev, direction: detected });
