@@ -13,9 +13,12 @@ export function ReaderTapHint() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-    const t = window.setTimeout(() => setVisible(false), 3500);
-    return () => window.clearTimeout(t);
+    const mountTimer = window.setTimeout(() => setMounted(true), 0);
+    const hideTimer = window.setTimeout(() => setVisible(false), 3500);
+    return () => {
+      window.clearTimeout(mountTimer);
+      window.clearTimeout(hideTimer);
+    };
   }, []);
 
   if (!mounted) return null;

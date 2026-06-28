@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ArrowRight, Info, ListOrdered, Play, Radio } from "lucide-react";
-import Link from "next/link";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
 import { ChapterList } from "@/components/chapter-list";
 import { FollowButton } from "@/components/follow-button";

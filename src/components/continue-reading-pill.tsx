@@ -54,6 +54,7 @@ export function ContinueReadingPill({ mangaId, title, cover, history }: Continue
 
   return (
     <div
+      data-manga-id={mangaId}
       className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-30 transition-all duration-300 sm:bottom-6"
       style={{
         opacity: visible ? 1 : 0,

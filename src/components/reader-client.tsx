@@ -271,10 +271,16 @@ export function ReaderClient({ manga, chapter, chapters, initialAppTheme = "ligh
 
     const viewportWidth = window.innerWidth;
     const detected = pickReaderDirection(manga, chapter, { width: viewportWidth });
+    let timer: ReturnType<typeof window.setTimeout> | null = null;
     if (detected !== prefs.direction) {
-      setPrefs((prev) => ({ ...prev, direction: detected }));
+      timer = window.setTimeout(() => {
+        setPrefs((prev) => prev.direction === detected ? prev : { ...prev, direction: detected });
+      }, 0);
     }
-  }, [prefsReady, chapter.id, chapter.title, chapter.direction, manga, prefs.direction]);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [prefsReady, chapter, manga, prefs.direction]);
 
   useEffect(() => {
     if (!prefsReady) return;

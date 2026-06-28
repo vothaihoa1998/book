@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Library, Rss, Search } from "lucide-react";
+import { BookOpen, Library, Rss } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
