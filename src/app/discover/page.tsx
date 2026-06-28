@@ -91,7 +91,7 @@ export default async function DiscoverPage({ searchParams }: Props) {
   // searchMangaWithMeta expects NormalizedSearchParams (no `view`/`source: "all"`)
   const searchState = normalizeSearchParams({
     q: state.q,
-    source: "all",
+    source: state.source as MangaSearchParams["source"],
     status: state.status as MangaSearchParams["status"],
     sort: state.sort as MangaSearchParams["sort"],
     year: state.year,
