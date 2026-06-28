@@ -3,6 +3,7 @@
 import { Clock, Loader2, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { apiSearchHref, discoverSearchHref, type SearchFilterParams } from "@/lib/search-links";
 import { cn } from "@/lib/utils";
 
 const HISTORY_KEY = "inkrail-search-history";
@@ -23,33 +24,45 @@ type InstantSearchProps = {
   className?: string;
   placeholder?: string;
   onNavigate?: () => void;
+  defaultQuery?: string;
+  filters?: SearchFilterParams;
+  limit?: number;
+  inputClassName?: string;
+  dropdownClassName?: string;
 };
 
 /**
  * Phase H4: Instant search dropdown — debounce 300ms, fetch top 5, recent
  * history 10, popular chips. Click outside / Esc / submit dismisses dropdown.
  */
-export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", onNavigate }: InstantSearchProps) {
+export function InstantSearch({
+  className,
+  placeholder = "Tìm truyện nhanh",
+  onNavigate,
+  defaultQuery = "",
+  filters,
+  limit = 5,
+  inputClassName,
+  dropdownClassName,
+}: InstantSearchProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(defaultQuery);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(defaultQuery.trim()));
   const [results, setResults] = useState<InstantResult[]>([]);
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem(HISTORY_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aborterRef = useRef<AbortController | null>(null);
-
-  // Load history from localStorage
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) setHistory(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-  }, []);
 
   // "/" focuses search
   useEffect(() => {
@@ -93,17 +106,14 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) {
-      setResults([]);
-      setLoading(false);
       return;
     }
-    setLoading(true);
     debounceRef.current = setTimeout(async () => {
       aborterRef.current?.abort();
       const aborter = new AbortController();
       aborterRef.current = aborter;
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}&limit=5`, { signal: aborter.signal });
+        const res = await fetch(apiSearchHref(query.trim(), filters, limit), { signal: aborter.signal });
         if (!res.ok) throw new Error("search failed");
         const data = (await res.json()) as { results: InstantResult[] };
         setResults(data.results);
@@ -117,7 +127,7 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [filters, limit, query]);
 
   function saveToHistory(q: string) {
     const trimmed = q.trim();
@@ -135,7 +145,7 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
     saveToHistory(q);
     setOpen(false);
     onNavigate?.();
-    router.push(q ? `/discover?q=${encodeURIComponent(q)}` : "/discover");
+    router.push(discoverSearchHref(q, filters));
   }
 
   function clearHistory() {
@@ -166,7 +176,15 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
           ref={inputRef}
           value={query}
           onChange={(event) => {
-            setQuery(event.target.value);
+            const nextQuery = event.target.value;
+            setQuery(nextQuery);
+            if (!nextQuery.trim()) {
+              aborterRef.current?.abort();
+              setResults([]);
+              setLoading(false);
+            } else {
+              setLoading(true);
+            }
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -175,7 +193,10 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
           aria-keyshortcuts="/"
           autoComplete="off"
           spellCheck={false}
-          className="h-9 w-full rounded-[var(--radius-control)] border border-border bg-card pl-9 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:border-input focus-visible:bg-background focus-visible:outline-none"
+          className={cn(
+            "h-9 w-full rounded-[var(--radius-control)] border border-border bg-card pl-9 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:border-input focus-visible:bg-background focus-visible:outline-none",
+            inputClassName,
+          )}
         />
         {query ? (
           <button
@@ -183,6 +204,9 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
             aria-label="Xoá"
             onClick={() => {
               setQuery("");
+              aborterRef.current?.abort();
+              setResults([]);
+              setLoading(false);
               inputRef.current?.focus();
             }}
             className="absolute right-2.5 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -202,14 +226,17 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
       {open && (showHistory || showPopular || showResults) && (
         <div
           ref={dropdownRef}
-          className="absolute inset-x-0 top-[calc(100%+6px)] z-50 max-h-[70vh] overflow-y-auto rounded-[var(--radius-card)] border border-border bg-popover p-1.5 shadow-[0_24px_60px_-20px_rgba(60,28,8,0.35)]"
+          className={cn(
+            "absolute inset-x-0 top-[calc(100%+6px)] z-50 max-h-[70vh] overflow-y-auto rounded-[var(--radius-card)] border border-border bg-popover p-1.5 shadow-[0_24px_60px_-20px_rgba(60,28,8,0.35)]",
+            dropdownClassName,
+          )}
           role="listbox"
         >
           {/* Loading state */}
           {loading && (
             <div className="flex items-center gap-2 px-3 py-2 text-[12px] text-muted-foreground">
               <Loader2 size={12} className="animate-spin" />
-              Đang tìm "{query}"…
+              <span>Đang tìm <span className="font-medium text-foreground">{query}</span>...</span>
             </div>
           )}
 
@@ -253,7 +280,7 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
                   onClick={() => goSearch(query)}
                   className="mt-1 w-full rounded-[var(--radius-control)] bg-primary px-3 py-2 text-[12px] font-semibold text-primary-foreground transition hover:bg-primary/90"
                 >
-                  Xem tất cả kết quả cho "{query}" →
+                  Xem tất cả kết quả cho <span>{query}</span> →
                 </button>
               </li>
             </ul>
@@ -262,7 +289,7 @@ export function InstantSearch({ className, placeholder = "Tìm truyện nhanh", 
           {/* No results */}
           {showResults && !loading && results.length === 0 && (
             <div className="px-3 py-4 text-center">
-              <p className="text-[12px] text-muted-foreground">Không tìm thấy cho "{query}"</p>
+              <p className="text-[12px] text-muted-foreground">Không tìm thấy cho <span className="font-medium text-foreground">{query}</span></p>
               <button
                 type="button"
                 onClick={() => goSearch(query)}
