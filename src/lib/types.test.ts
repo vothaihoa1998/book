@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { latestHistoryByManga } from "./library";
+import { apiSearchHref, discoverSearchHref } from "./search-links";
 import { allowsSearchFallback, applySearchFilters, dedupeManga, normalizeSearchParams, searchCacheKey, selectedSearchSources } from "./sources/search-utils";
 import { imageProxyUrl, makeScopedId, parseScopedId, slugify, type Manga } from "./types";
 
@@ -34,6 +35,29 @@ describe("library helpers", () => {
     ]);
 
     expect(latest.map((item) => `${item.manga_id}:${item.chapter_id}`)).toEqual(["m1:c2", "m2:c7"]);
+  });
+});
+
+describe("search link helpers", () => {
+  it("builds API search URLs with active discover filters", () => {
+    expect(apiSearchHref(" doraemon ", {
+      source: "mangadex",
+      status: "completed",
+      sort: "relevance",
+      year: "2026",
+      genres: ["action", "fantasy"],
+    }, 5)).toBe("/api/search?q=doraemon&limit=5&source=mangadex&status=completed&sort=relevance&year=2026&genres=action&genres=fantasy");
+  });
+
+  it("builds discover search URLs and omits default filters", () => {
+    expect(discoverSearchHref(" doraemon ", {
+      source: "mangadex",
+      status: "all",
+      sort: "latest",
+      year: "all",
+      view: "list",
+      genres: ["action"],
+    })).toBe("/discover?q=doraemon&source=mangadex&view=list&genres=action");
   });
 });
 
