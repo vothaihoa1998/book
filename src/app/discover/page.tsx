@@ -22,6 +22,10 @@ const sortLabel = {
   rating: "Đánh giá",
 };
 
+function getSortLabel(sort: string) {
+  return sort in sortLabel ? sortLabel[sort as keyof typeof sortLabel] : sortLabel.latest;
+}
+
 function one(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -58,7 +62,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const state = parseDiscoverState(await searchParams);
   const title = state.q ? `Tìm ${state.q}` : "Khám phá truyện";
   const description = state.q
-    ? `Kết quả tìm kiếm ${state.q}, sắp xếp theo ${sortLabel[state.sort].toLowerCase()}.`
+    ? `Kết quả tìm kiếm ${state.q}, sắp xếp theo ${getSortLabel(state.sort).toLowerCase()}.`
     : "Catalog truyện tranh có phân trang, lọc theo thể loại, năm, trạng thái và độ phổ biến.";
 
   return {

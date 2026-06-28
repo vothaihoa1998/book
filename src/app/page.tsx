@@ -32,7 +32,7 @@ export default async function HomePage() {
     <main>
       <HeroFeatured featured={featured} />
 
-      {topContinue && <ContinueReadingPill mangaId={topContinue.manga.id} title={topContinue.manga.title} cover={topContinue.manga.cover} history={topContinue.history} />}
+      {topContinue && <ContinueReadingPill mangaId={topContinue.manga.id} title={topContinue.manga.title} cover={topContinue.manga.cover ?? undefined} history={topContinue.history} />}
 
       <div className="mx-auto max-w-7xl space-y-4 px-4 sm:px-6 sm:space-y-6 lg:px-8">
         {homeSections.map((section) => {

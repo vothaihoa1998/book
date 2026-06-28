@@ -30,7 +30,7 @@ export function MobileSearchButton({ className }: { className?: string }) {
         open={open}
         onClose={() => setOpen(false)}
         ariaLabel="Tìm truyện"
-        defaultSnap="90vh"
+        maxHeightClass="max-h-[90vh]"
       >
         <div className="flex flex-col gap-3 pb-2">
           <h2 className="text-[15px] font-semibold text-foreground">Tìm truyện</h2>
