@@ -2,10 +2,11 @@
 
 import { Grid3x3, LayoutList, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { InstantSearch } from "@/components/instant-search";
 import { MangaCard } from "@/components/manga-card";
 import { Sheet } from "@/components/ui/sheet";
-import { FilterChip, RadioChip, Button, Input } from "@/components/ui/primitives";
+import { FilterChip, RadioChip, Button } from "@/components/ui/primitives";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +74,14 @@ export type DiscoverResultsProps = {
 export function DiscoverResults({ state, results, hasMore, resultCount, total }: DiscoverResultsProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [view, setView] = useState<DiscoverState["view"]>(state.view ?? "grid");
+  const searchFilters = useMemo(() => ({
+    source: state.source,
+    status: state.status,
+    sort: state.sort,
+    year: state.year,
+    view,
+    genres: state.genres,
+  }), [state.genres, state.source, state.status, state.sort, state.year, view]);
 
   const activeFilterCount =
     state.genres.length +
@@ -101,34 +110,15 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
     <>
       {/* Sticky filter bar */}
       <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 bg-background/92 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6">
-        <form action="/discover" method="get" className="relative flex-1">
-          <input
-            type="search"
-            name="q"
-            defaultValue={state.q}
-            placeholder="Tìm truyện, tác giả, thể loại..."
-            className="w-full rounded-full border border-border bg-card py-1.5 pl-9 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-          />
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
-          </span>
-          {state.q && (
-            <Link
-              href={hrefFor({ q: "" })}
-              aria-label="Xoá tìm kiếm"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <span className="text-lg leading-none">×</span>
-            </Link>
-          )}
-          {/* Preserve current filter state in hidden inputs */}
-          {state.status !== "all" && <input type="hidden" name="status" value={state.status} />}
-          {state.sort !== "latest" && <input type="hidden" name="sort" value={state.sort} />}
-          {state.year !== "all" && <input type="hidden" name="year" value={state.year} />}
-          {state.source !== "all" && <input type="hidden" name="source" value={state.source} />}
-          {state.view !== "grid" && <input type="hidden" name="view" value={state.view} />}
-          {state.genres.map((g) => <input key={g} type="hidden" name="genres" value={g} />)}
-        </form>
+        <InstantSearch
+          key={state.q}
+          className="flex-1"
+          defaultQuery={state.q}
+          filters={searchFilters}
+          placeholder="Tìm truyện, tác giả, thể loại..."
+          inputClassName="h-auto rounded-full py-1.5 pl-9 pr-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+          dropdownClassName="z-[70] rounded-[var(--radius-sheet)]"
+        />
         <Button
           variant="outline"
           size="sm"
