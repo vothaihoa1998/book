@@ -31,6 +31,10 @@ export async function GET(request: Request) {
     results: limited,
     hasMore: payload.meta.hasMore,
     total: payload.results.length,
-    query: params.q,
+    query: payload.meta.query,
+    source: payload.meta.source,
+    sourceUsed: payload.meta.sourceUsed,
+    fallbackUsed: payload.meta.fallbackUsed,
+    errors: payload.meta.errors,
   });
 }
