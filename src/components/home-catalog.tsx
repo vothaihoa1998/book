@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { MangaCard } from "@/components/manga-card";
 import { MangaCover } from "@/components/manga-cover";
+import { SelectField } from "@/components/ui/select-field";
 import { relativeTime } from "@/lib/format-time";
 import { mangaFormatLabels, type Manga, type MangaFormat } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -45,15 +46,22 @@ export function HomeCatalog({ recent, trending }: { recent: Manga[]; trending: M
           </div>
           <div className="flex items-center gap-2">
             {formats.length > 0 && (
-              <select
+              <SelectField
                 aria-label="Lọc loại truyện mới cập nhật"
-                className="h-9 rounded-lg border border-border bg-card px-2.5 text-sm"
                 value={format}
-                onChange={(event) => { setFormat(event.target.value as MangaFormat | "all"); setPage(1); }}
-              >
-                <option value="all">Mọi loại</option>
-                {formats.map((value) => <option value={value} key={value}>{mangaFormatLabels[value]}</option>)}
-              </select>
+                className="w-fit"
+                triggerClassName="h-9 min-w-32 w-fit rounded-lg bg-card px-2.5"
+                options={[
+                  { value: "all", label: "Mọi loại" },
+                  ...formats.map((value) => ({ value, label: mangaFormatLabels[value] })),
+                ]}
+                onValueChange={(value) => {
+                  if (value !== null && (value === "all" || Object.hasOwn(mangaFormatLabels, value))) {
+                    setFormat(value as MangaFormat | "all");
+                    setPage(1);
+                  }
+                }}
+              />
             )}
             <div className="flex rounded-lg border border-border bg-card p-0.5" aria-label="Kiểu hiển thị">
               <button type="button" aria-label="Dạng danh sách" aria-pressed={!grid} onClick={() => setGrid(false)} className={cn("rounded-md p-2", !grid && "bg-secondary text-primary")}><List size={16} /></button>

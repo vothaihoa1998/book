@@ -4,8 +4,8 @@ export function defaultReaderPrefs(dark: boolean): ReaderPrefs {
   return {
     theme: dark ? "graphite-dark" : "warm-light",
     layout: "auto",
-    direction: "vertical",
-    fit: "width",
+    direction: "horizontal-ltr",
+    fit: "smart",
     brightness: 0,
     fontSize: 18,
     gap: 8,
@@ -18,12 +18,15 @@ export function resolveReaderLayout(
   chapter: Chapter,
   narrow: boolean,
 ): Exclude<ReaderLayout, "auto"> {
-  if (!prefs.layout) return prefs.direction === "vertical" ? "strip" : "double";
+  if (!prefs.layout) {
+    if (narrow || prefs.direction === "vertical") return "strip";
+    return "double";
+  }
   if (prefs.layout !== "auto") return prefs.layout;
   const vertical = manga.format === "manhwa" || manga.format === "manhua" ||
     manga.genres.some((genre) => /webtoon|manhwa|manhua/i.test(genre)) || chapter.direction === "horizontal-ltr";
-  if (vertical) return "strip";
-  if (manga.format === "manga" || manga.source === "sample") return narrow ? "single" : "double";
+  if (narrow || vertical) return "strip";
+  if (manga.format === "manga" || manga.source === "sample") return "double";
   return "strip";
 }
 

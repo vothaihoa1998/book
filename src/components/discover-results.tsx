@@ -7,6 +7,7 @@ import { InstantSearch } from "@/components/instant-search";
 import { MangaCard } from "@/components/manga-card";
 import { MangaCover } from "@/components/manga-cover";
 import { Sheet } from "@/components/ui/sheet";
+import { SelectField } from "@/components/ui/select-field";
 import { relativeTime } from "@/lib/format-time";
 import { discoverSearchHref } from "@/lib/search-links";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
@@ -177,11 +178,13 @@ function FilterLink({ href, children }: { href: string; children: React.ReactNod
 
 function FilterSelect({ label, name, value, options }: { label: string; name: string; value: string; options: string[][] }) {
   return (
-    <label className="min-w-0 text-xs font-medium text-muted-foreground">
-      {label}
-      <select name={name} defaultValue={value} className="mt-1 block h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground">
-        {options.map(([option, title]) => <option key={option} value={option}>{title}</option>)}
-      </select>
-    </label>
+    <SelectField
+      label={label}
+      name={name}
+      defaultValue={value}
+      className="min-w-0"
+      triggerClassName="mt-1 h-10 w-full bg-background px-2"
+      options={options.map(([option, title]) => ({ value: option, label: title }))}
+    />
   );
 }

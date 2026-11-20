@@ -5,9 +5,9 @@ import { createServerSupabaseClient } from "./supabase/server";
 
 export const readerPreferencesSchema = z.object({
   theme: z.enum(["warm-light", "paper", "sepia", "graphite-dark", "pure-black"]).default("warm-light"),
-  direction: z.enum(["vertical", "horizontal-ltr", "horizontal-rtl"]).default("vertical"),
+  direction: z.enum(["vertical", "horizontal-ltr", "horizontal-rtl"]).default("horizontal-ltr"),
   layout: z.enum(["auto", "single", "double", "strip"]).optional(),
-  fit: z.enum(["width", "height", "original", "smart"]).default("width"),
+  fit: z.enum(["width", "height", "original", "smart"]).default("smart"),
   brightness: z.number().int().min(0).max(60).default(0),
   gap: z.number().int().min(0).max(32).default(8),
   fontSize: z.number().int().min(14).max(24).default(18),

@@ -3,12 +3,13 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
-  ArrowLeft, ArrowRight, Bookmark, ChevronLeft, ChevronRight, Download, Eye, List,
+  ArrowLeft, ArrowRight, Bookmark, ChevronLeft, ChevronRight, Download, List,
   Maximize, Settings2,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Sheet } from "@/components/ui/sheet";
+import { SelectField } from "@/components/ui/select-field";
 import { defaultReaderPrefs, orderChapters, resolveReaderLayout } from "@/lib/reader-presets";
 import { readPosition, savePosition, type ReaderPosition } from "@/lib/reading-progress";
 import { imageProxyUrl, type Chapter, type Manga, type ReaderPrefs } from "@/lib/types";
@@ -69,6 +70,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const [ready, setReady] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [page, setPage] = useState(0);
+  const [pageTurn, setPageTurn] = useState<"forward" | "backward" | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [panel, setPanel] = useState<"chapters" | "settings" | null>(null);
   const [endReached, setEndReached] = useState(false);
@@ -76,6 +78,8 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const [saving, setSaving] = useState<"bookmark" | "offline" | null>(null);
   const [failedPage, setFailedPage] = useState<number[]>([]);
   const [attempts, setAttempts] = useState<Record<number, number>>({});
+  const controlsVisible = useRef(true);
+  const controlsShownAt = useRef(Number.NEGATIVE_INFINITY);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const pendingJump = useRef<ReaderPosition | null>(null);
   const restoring = useRef(true);
@@ -85,12 +89,20 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const preferencesQueue = useRef(Promise.resolve());
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
+  const updateControlsVisibility = useCallback((visible: boolean) => {
+    if (controlsVisible.current === visible) return;
+    controlsVisible.current = visible;
+    if (visible) controlsShownAt.current = performance.now();
+    setShowControls(visible);
+  }, []);
+
   const layout = resolveReaderLayout(prefs, manga, chapter, narrow);
   const strip = layout === "strip";
+  const fitSpread = !strip && prefs.fit !== "width";
   const step = layout === "double" ? 2 : 1;
   const start = Math.floor(page / step) * step;
   const end = Math.min(total, start + step);
-  const rtl = prefs.direction === "horizontal-rtl" || (prefs.direction === "vertical" && manga.format === "manga");
+  const rtl = prefs.direction === "horizontal-rtl";
   const { sequence, prev, next } = useMemo(() => {
     const available = chapters.filter((item) => item.language === chapter.language && item.id !== chapter.id);
     const sequence = orderChapters([...available, chapter]);
@@ -238,9 +250,77 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
     };
   }, [ready, record, strip, total]);
 
+  useEffect(() => {
+    if (!narrow || !ready) return;
+
+    let previousY = window.scrollY;
+    let previousDirection = 0;
+    let distance = 0;
+    let lastScrollAt = 0;
+    let frame = 0;
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const currentY = Math.max(0, window.scrollY);
+        if (restoring.current) {
+          previousY = currentY;
+          previousDirection = 0;
+          distance = 0;
+          lastScrollAt = 0;
+          return;
+        }
+
+        if (currentY <= 4 && !controlsVisible.current) {
+          updateControlsVisibility(true);
+          previousY = currentY;
+          previousDirection = 0;
+          distance = 0;
+          lastScrollAt = 0;
+          return;
+        }
+
+        const delta = currentY - previousY;
+        previousY = currentY;
+        if (Math.abs(delta) < 3) return;
+
+        const now = performance.now();
+        if (now - lastScrollAt > 250) {
+          previousDirection = 0;
+          distance = 0;
+        }
+        lastScrollAt = now;
+        const direction = Math.sign(delta);
+        distance = direction === previousDirection ? distance + Math.abs(delta) : Math.abs(delta);
+        previousDirection = direction;
+
+        if (direction > 0 && distance >= 36 &&
+          now - controlsShownAt.current >= 800) {
+          updateControlsVisibility(false);
+          previousDirection = 0;
+          distance = 0;
+        } else if (direction < 0 && distance >= 80) {
+          updateControlsVisibility(true);
+          previousDirection = 0;
+          distance = 0;
+        }
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [narrow, ready, updateControlsVisibility]);
+
   const goToPage = useCallback((target: number) => {
     if (!ready) return;
     const destination = Math.max(0, Math.min(total - 1, target));
+    if (!strip && Math.floor(destination / step) !== Math.floor(page / step)) {
+      setPageTurn(destination > page ? "forward" : "backward");
+    }
     setPage(destination);
     const position = {
       pageIndex: destination,
@@ -254,25 +334,25 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
       window.scrollTo({ top: 0, behavior: "instant" });
     }
     record(position);
-  }, [jumpToStripPage, ready, record, step, strip, total]);
+  }, [jumpToStripPage, page, ready, record, step, strip, total]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || panel ||
         (event.target instanceof HTMLElement && event.target.closest("button, a, input, textarea, select, [contenteditable]"))) return;
       if (event.key.toLowerCase() === "h") {
-        setShowControls((show) => !show);
+        updateControlsVisibility(!controlsVisible.current);
         return;
       }
       if (strip || !["ArrowRight", "ArrowLeft", " "].includes(event.key)) return;
       event.preventDefault();
-      const forward = event.key === " " ? !event.shiftKey : (event.key === "ArrowRight") !== rtl;
+      const forward = event.key === " " ? !event.shiftKey : event.key === "ArrowRight";
       const destination = start + step * (forward ? 1 : -1);
       if (destination >= 0 && destination < total) goToPage(destination);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goToPage, panel, rtl, start, step, strip, total]);
+  }, [goToPage, panel, start, step, strip, total, updateControlsVisibility]);
 
   function updatePrefs(patch: Partial<ReaderPrefs>) {
     const updated = { ...prefs, ...patch };
@@ -328,10 +408,19 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
     }
   }
 
+  const pageTurnZoneWidth = "max(1rem, calc(50vw - 66.667dvh + 7rem))";
+
   return (
     <div className={cn("min-h-dvh bg-background pb-12 text-foreground", `reader-theme-${prefs.theme}`)}>
-      {showControls ? (
-        <header className="sticky top-0 z-30 border-b border-border bg-background/95 text-foreground backdrop-blur">
+      {(showControls || narrow) && (
+        <header
+          aria-hidden={!showControls}
+          inert={!showControls}
+          className={cn(
+            "sticky top-0 z-30 border-b border-border bg-background/95 text-foreground backdrop-blur transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none",
+            narrow && !showControls && "pointer-events-none -translate-y-full opacity-0",
+          )}
+        >
           <div className="mx-auto flex max-w-5xl items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-5">
             <Link href={seriesHref} className="min-w-0 flex-1 truncate py-2 text-sm font-semibold hover:text-primary" aria-label={`Quay lại ${manga.title}`}>
               <ArrowLeft size={15} className="mr-1.5 inline" /><span className="align-middle">{manga.title}</span>
@@ -340,16 +429,15 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
               <List size={15} /> <span>Ch. {chapter.number}</span>
             </button>
             <IconButton label="Cài đặt đọc" onClick={() => setPanel("settings")}><Settings2 size={17} /></IconButton>
-            <IconButton label="Ẩn điều khiển" onClick={() => setShowControls(false)}><Eye size={17} /></IconButton>
           </div>
         </header>
-      ) : (
-        <button onClick={() => setShowControls(true)} className="fixed right-3 top-3 z-30 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground shadow" type="button">
-          Hiện điều khiển
-        </button>
       )}
 
-      <main className="mx-auto max-w-5xl px-2 pt-3 sm:px-4"
+      <main className={cn("pt-3", strip ? "mx-auto w-full max-w-5xl px-2 sm:px-4" : "w-full px-0")}
+        onDoubleClick={(event) => {
+          if (narrow || (event.target instanceof HTMLElement && event.target.closest("button, a, input, textarea, select, [contenteditable]"))) return;
+          updateControlsVisibility(!controlsVisible.current);
+        }}
         onTouchStart={(event) => {
           const point = event.touches[0];
           swipe.current = event.touches.length === 1 ? { x: point.clientX, y: point.clientY } : null;
@@ -366,14 +454,34 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
           if (destination >= 0 && destination < total) goToPage(destination);
         }}>
         {ready && (
-          <div data-reader-layout={layout} className={cn("mx-auto", strip ? "flex max-w-[820px] flex-col items-center" : "grid items-start", !strip && step === 2 && end - start === 2 && "grid-cols-2")}
-            dir={!strip && rtl ? "rtl" : "ltr"} style={{ gap: prefs.gap }}>
+          <div
+            key={strip ? "reader-strip" : start}
+            data-reader-layout={layout}
+            onAnimationEnd={() => setPageTurn(null)}
+            className={cn(
+              "mx-auto",
+              strip ? "flex max-w-[820px] flex-col items-center" :
+                fitSpread ? "flex w-fit max-w-full items-start justify-center" : "grid w-full items-start",
+              !strip && !fitSpread && step === 2 && end - start === 2 && "grid-cols-2",
+              !strip && pageTurn && `reader-page-turn-${pageTurn}`,
+            )}
+            dir={!strip && rtl ? "rtl" : "ltr"} style={{ gap: layout === "double" ? 0 : prefs.gap }}>
             {pagesToShow.map((image, offset) => {
               const i = strip ? offset : start + offset;
               const url = pageUrls[i];
               const attempt = attempts[i] ?? 0;
               return (
-                <figure key={i} ref={(node) => { pageRefs.current[i] = node; }} className="relative w-full min-w-0" data-page={i + 1}>
+                <figure
+                  key={i}
+                  ref={(node) => { pageRefs.current[i] = node; }}
+                  className={cn(
+                    "relative min-w-0",
+                    (strip || !fitSpread) && "w-full",
+                    fitSpread && layout === "double" && end - start === 2 && "max-w-[50vw]",
+                    fitSpread && (layout !== "double" || end - start === 1) && "max-w-full",
+                  )}
+                  data-page={i + 1}
+                >
                   {failedPage.includes(i) ? (
                     <div className="grid min-h-40 place-content-center bg-card p-4 text-center text-sm text-foreground">
                       <p>Không tải được trang {i + 1}.</p>
@@ -394,7 +502,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
                       onError={() => setFailedPage((items) => items.includes(i) ? items : [...items, i])}
                       className={cn("mx-auto block h-auto max-w-full object-contain",
                         prefs.fit === "width" && "w-full",
-                        prefs.fit === "smart" && "max-h-[calc(100dvh-9rem)] w-full",
+                        prefs.fit === "smart" && cn("max-h-[calc(100dvh-9rem)]", fitSpread ? "w-auto" : "w-full"),
                         prefs.fit === "height" && "max-h-[calc(100dvh-9rem)] w-auto")}
                       style={{ filter: prefs.brightness ? `brightness(${1 - prefs.brightness / 100})` : undefined }}
                     />
@@ -422,8 +530,39 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
         )}
       </main>
 
-      {showControls && ready && (
-        <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-foreground backdrop-blur" aria-label="Điều hướng đọc">
+      {!strip && (
+        <>
+          <button
+            type="button"
+            title="Trang trước"
+            aria-label="Trang trước"
+            disabled={start === 0}
+            onClick={() => goToPage(start - step)}
+            className="fixed inset-y-14 left-0 z-20 hidden cursor-pointer bg-transparent transition-colors hover:bg-foreground/5 disabled:cursor-default md:top-16 md:block"
+            style={{ width: pageTurnZoneWidth, bottom: "4rem" }}
+          />
+          <button
+            type="button"
+            title="Trang sau"
+            aria-label="Trang sau"
+            disabled={end >= total}
+            onClick={() => goToPage(start + step)}
+            className="fixed inset-y-14 right-0 z-20 hidden cursor-pointer bg-transparent transition-colors hover:bg-foreground/5 disabled:cursor-default md:top-16 md:block"
+            style={{ width: pageTurnZoneWidth, bottom: "4rem" }}
+          />
+        </>
+      )}
+
+      {(showControls || narrow) && ready && (
+        <nav
+          aria-hidden={!showControls}
+          inert={!showControls}
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-foreground backdrop-blur transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none",
+            !showControls && "pointer-events-none translate-y-full opacity-0",
+          )}
+          aria-label="Điều hướng đọc"
+        >
           <div className="mx-auto flex max-w-5xl items-center gap-1.5 sm:gap-3">
             {prev && <Link href={chapterHref(prev)} aria-label="Chương trước" className="shrink-0 rounded-lg border border-border p-2"><ArrowLeft size={16} /></Link>}
             {!strip && <IconButton label="Trang trước" disabled={start === 0} onClick={() => goToPage(start - step)}><ChevronLeft size={17} /></IconButton>}
@@ -489,11 +628,15 @@ function IconButton({ children, label, onClick, disabled = false }: { children: 
 
 function ReaderSelect<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Record<T, string>; onChange: (value: T) => void }) {
   return (
-    <label className="min-w-0 text-xs font-medium text-muted-foreground">
-      {label}
-      <select value={value} onChange={(event) => onChange(event.target.value as T)} className="mt-1 block h-10 w-full rounded-lg border border-border bg-card px-2 text-sm text-foreground">
-        {Object.entries(options).map(([key, text]) => <option key={key} value={key}>{String(text)}</option>)}
-      </select>
-    </label>
+    <SelectField
+      label={label}
+      value={value}
+      className="min-w-0"
+      triggerClassName="mt-1 h-10 w-full bg-card px-2"
+      options={Object.entries(options).map(([key, text]) => ({ value: key, label: String(text) }))}
+      onValueChange={(selected) => {
+        if (selected !== null && Object.hasOwn(options, selected)) onChange(selected as T);
+      }}
+    />
   );
 }

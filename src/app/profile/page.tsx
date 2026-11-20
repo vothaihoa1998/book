@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AlertTriangle, BookMarked, CheckCircle2, Heart, LogIn, Save, Settings2, UserRound } from "lucide-react";
-import { AlertState, AppButton, AppLinkButton, SelectField, TextField } from "@/components/ui/primitives";
+import { AlertState, AppButton, AppLinkButton, TextField } from "@/components/ui/primitives";
+import { SelectField } from "@/components/ui/select-field";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { updateProfile, updateProfilePrefs } from "./actions";
 
@@ -146,7 +147,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 <Select name="theme" label="Theme" value={prefs.data?.theme ?? "warm-light"} options={["warm-light", "paper", "sepia", "graphite-dark", "pure-black"]} />
                 <Select name="layout" label="Bố cục" value={prefs.data?.layout ?? (prefs.data ? (prefs.data.direction === "vertical" ? "strip" : "double") : "auto")}
                   options={["auto", "single", "double", "strip"]} labels={{ auto: "Tự động", single: "Một trang", double: "Hai trang", strip: "Cuộn dọc" }} />
-                <Select name="direction" label="Hướng lật trang" value={prefs.data?.direction ?? "vertical"}
+                <Select name="direction" label="Hướng lật trang" value={prefs.data?.direction ?? "horizontal-ltr"}
                   options={["vertical", "horizontal-ltr", "horizontal-rtl"]} labels={{ vertical: "Tự động", "horizontal-ltr": "Trái sang phải", "horizontal-rtl": "Phải sang trái" }} />
                 <Select name="fit" label="Fit ảnh" value={prefs.data?.fit ?? "width"} options={["width", "height", "original", "smart"]} />
               </div>
@@ -181,8 +182,12 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
 
 function Select({ name, label, value, options, labels = {} }: { name: string; label: string; value: string; options: string[]; labels?: Record<string, string> }) {
   return (
-    <SelectField name={name} label={label} defaultValue={value}>
-        {options.map((option) => <option key={option} value={option}>{labels[option] ?? option}</option>)}
-    </SelectField>
+    <SelectField
+      name={name}
+      label={label}
+      defaultValue={value}
+      triggerClassName="mt-1 h-10 w-full bg-background px-2"
+      options={options.map((option) => ({ value: option, label: labels[option] ?? option }))}
+    />
   );
 }

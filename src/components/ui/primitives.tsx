@@ -141,23 +141,6 @@ export const TextField = forwardRef<
   );
 });
 
-export function SelectField({
-  label,
-  className,
-  selectClassName,
-  children,
-  ...props
-}: ComponentPropsWithoutRef<"select"> & { label?: string; selectClassName?: string }) {
-  return (
-    <label className={cn("block", className)}>
-      {label && <FieldLabel>{label}</FieldLabel>}
-      <select className={cn(inputClass, "h-[var(--control-h-md)] px-4", selectClassName)} {...props}>
-        {children}
-      </select>
-    </label>
-  );
-}
-
 export function TextareaField({
   label,
   className,
