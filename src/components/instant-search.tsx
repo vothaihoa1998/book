@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Loader2, Search, X } from "lucide-react";
+import { ArrowUpRight, Clock, Flame, Loader2, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { apiSearchHref, discoverSearchHref, type SearchFilterParams } from "@/lib/search-links";
@@ -338,21 +338,30 @@ export function InstantSearch({
 
           {/* Popular */}
           {showPopular && (
-            <div>
-              <p className="px-2 pt-2 font-code text-[10px] uppercase tracking-wider text-muted-foreground">Xu hướng</p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5 px-2 pb-2">
+            <section className="border-t border-border/70 px-2 pb-2 pt-3" aria-labelledby="popular-search-heading">
+              <div className="mb-3 flex items-center gap-2.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                  <Flame size={15} aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 id="popular-search-heading" className="text-sm font-semibold text-foreground">Đang được quan tâm</h2>
+                  <p className="text-[11px] text-muted-foreground">Chọn từ khóa để tìm truyện nhanh</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
                 {POPULAR_QUERIES.map((q) => (
                   <button
                     key={q}
                     type="button"
                     onClick={() => goSearch(q)}
-                    className="rounded-full bg-secondary px-2.5 py-1 text-[11px] text-foreground transition hover:bg-primary hover:text-primary-foreground"
+                    className="group flex min-h-10 min-w-0 items-center gap-2 rounded-full bg-secondary/60 px-3 text-left text-xs font-medium text-muted-foreground transition-colors duration-200 hover:bg-primary/10 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
                   >
-                    {q}
+                    <span className="min-w-0 flex-1 truncate">{q}</span>
+                    <ArrowUpRight size={13} className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:text-primary group-hover:opacity-100" aria-hidden="true" />
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       )}

@@ -51,12 +51,12 @@ export default async function DiscoverPage({ searchParams }: Props) {
   return (
     <main className="mx-auto max-w-6xl px-4 pb-24 pt-8 sm:px-6 md:pb-16 md:pt-10">
       <h1 className="break-words font-display text-5xl leading-tight">{state.q ? `Tìm “${state.q}”` : "Khám phá truyện"}</h1>
-      {failed.length > 0 && (
+      {/* {failed.length > 0 && (
         <AlertState className="mt-4 flex gap-2">
           <AlertCircle className="mt-0.5 shrink-0" size={16} />
           <p>Tạm thời chưa tải được dữ liệu từ {failed.join(", ")}.</p>
         </AlertState>
-      )}
+      )} */}
       <DiscoverResults
         key={discoverSearchHref(state.q, state)}
         state={state}
