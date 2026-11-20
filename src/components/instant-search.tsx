@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowUpRight, Clock, Flame, Loader2, Search, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, Clock, Flame, Loader2, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { apiSearchHref, discoverSearchHref, type SearchFilterParams } from "@/lib/search-links";
-import { mangaFormatLabels, type MangaFormat } from "@/lib/types";
+import { imageProxyUrl, mangaFormatLabels, type MangaFormat, type MangaSource } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const HISTORY_KEY = "inkrail-search-history";
@@ -18,7 +18,7 @@ type InstantResult = {
   author?: string | null;
   lastChapter?: string | null;
   format?: MangaFormat;
-  source: string;
+  source: MangaSource;
   status?: string;
 };
 
@@ -265,10 +265,18 @@ export function InstantSearch({
                     }}
                     className="flex w-full items-center gap-2.5 rounded-[var(--radius-control)] px-2 py-1.5 text-left transition hover:bg-secondary"
                   >
-                    <span className="block aspect-[2/3] w-9 shrink-0 overflow-hidden rounded bg-surface-strong ring-1 ring-border">
+                    <span className="relative block aspect-[2/3] w-9 shrink-0 overflow-hidden rounded bg-surface-strong ring-1 ring-border">
+                      <span className="absolute inset-0 grid place-items-center text-muted-foreground" aria-hidden="true">
+                        <BookOpen size={15} strokeWidth={1.5} />
+                      </span>
                       {m.cover && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.cover} alt="" className="h-full w-full object-cover" />
+                        <img
+                          src={imageProxyUrl(m.cover, m.source)}
+                          alt=""
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(event) => event.currentTarget.remove()}
+                        />
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
