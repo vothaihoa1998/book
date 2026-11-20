@@ -4,6 +4,7 @@ import Script from "next/script";
 import { MobileTabBar } from "@/components/mobile-tab-bar";
 import { PageTransition } from "@/components/page-transition";
 import { PwaRegister } from "@/components/pwa-register";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { siteConfig } from "@/lib/seo";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
@@ -157,6 +158,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <PageTransition>
           <div id="main-content">{children}</div>
         </PageTransition>
+        <SiteFooter />
         <MobileTabBar />
         <PwaRegister />
       </body>

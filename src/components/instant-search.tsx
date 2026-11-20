@@ -204,7 +204,7 @@ export function InstantSearch({
           autoComplete="off"
           spellCheck={false}
           className={cn(
-            "h-9 w-full rounded-[var(--radius-control)] border border-border bg-card pl-9 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:border-input focus-visible:bg-background focus-visible:outline-none",
+            "h-9 w-full rounded-full border border-border bg-card pl-9 pr-12 text-[13px] text-foreground placeholder:text-muted-foreground focus-visible:border-input focus-visible:bg-background focus-visible:outline-none",
             inputClassName,
           )}
         />

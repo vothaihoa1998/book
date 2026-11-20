@@ -6,6 +6,7 @@ import { Check, UserRound } from "lucide-react";
 import Link from "next/link";
 import { IconLinkButton } from "@/components/ui/primitives";
 import { getBrowserSupabaseClient, type SupabaseBrowserEnv } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 
 function getUserLabel(user: User) {
   const name = user.user_metadata?.full_name || user.user_metadata?.name;
@@ -17,7 +18,15 @@ function getInitial(user: User) {
   return getUserLabel(user).trim().charAt(0).toUpperCase() || "U";
 }
 
-export function AccountStatus({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv | null }) {
+export function AccountStatus({
+  supabaseEnv,
+  selected = false,
+  onSelect,
+}: {
+  supabaseEnv: SupabaseBrowserEnv | null;
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const supabase = getBrowserSupabaseClient(supabaseEnv);
@@ -51,7 +60,15 @@ export function AccountStatus({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv
     return (
       <IconLinkButton
         href="/login"
-        variant="primary"
+        variant="ghost"
+        className={cn(
+          "relative z-10 rounded-full transition-colors duration-300 ease-in-out",
+          selected
+            ? "bg-transparent text-primary-foreground hover:bg-transparent hover:text-primary-foreground"
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+        )}
+        onClick={onSelect}
+        data-header-action="account"
         aria-label="Account"
       >
         <UserRound size={16} />
@@ -62,11 +79,17 @@ export function AccountStatus({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv
   return (
     <Link
       href="/profile"
-      className="group flex h-9 items-center gap-2 rounded-[var(--radius-control)] bg-primary px-3 text-sm font-medium text-primary-foreground transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+      onClick={onSelect}
+      data-header-action="account"
+      className={`group flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium transition duration-300 ease-in-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ${
+        selected
+          ? "relative z-10 bg-transparent text-primary-foreground hover:bg-transparent hover:text-primary-foreground"
+          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+      }`}
       aria-label={`Đã đăng nhập: ${getUserLabel(user)}`}
       title={getUserLabel(user)}
     >
-      <span className="grid size-6 place-items-center rounded-[var(--radius-control)] bg-background font-code text-[10px] text-foreground">
+      <span className="grid size-6 place-items-center rounded-full bg-background font-code text-[10px] text-foreground">
         {getInitial(user)}
       </span>
       <Check size={14} className="hidden sm:block" />

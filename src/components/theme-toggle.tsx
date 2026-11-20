@@ -17,7 +17,7 @@ function applyTheme(theme: Theme) {
  * - useEffect đọc lại DOM sau mount để đồng bộ với theme user thực sự chọn
  *   (nếu họ đã từng toggle trước đó) hoặc localStorage.
  */
-export function ThemeToggle() {
+export function ThemeToggle({ selected = false, onSelect }: { selected?: boolean; onSelect?: () => void }) {
   const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
@@ -44,11 +44,18 @@ export function ThemeToggle() {
     <IconButton
       type="button"
       onClick={() => {
+        onSelect?.();
         const next: Theme = isDark ? "light" : "dark";
         setTheme(next);
         applyTheme(next);
       }}
-      variant="secondary"
+      variant="ghost"
+      data-header-action="theme"
+      className={`rounded-full transition-colors duration-300 ease-in-out ${
+        selected
+          ? "relative z-10 bg-transparent text-primary-foreground hover:bg-transparent hover:text-primary-foreground"
+          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+      }`}
       suppressHydrationWarning
       aria-label={mounted ? (isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối") : "Đổi giao diện"}
       title={mounted ? (isDark ? "Light mode" : "Dark mode") : "Theme"}

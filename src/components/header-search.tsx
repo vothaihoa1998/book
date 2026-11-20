@@ -43,7 +43,7 @@ export function HeaderSearch({ className }: { className?: string }) {
         placeholder="Tìm truyện nhanh"
         aria-label="Tìm truyện nhanh"
         aria-keyshortcuts="/"
-        inputClassName="h-9 rounded-[var(--radius-control)] bg-card pl-9 pr-12 focus:bg-background"
+        inputClassName="h-9 rounded-full bg-card pl-9 pr-12 focus:bg-background"
       />
       <span className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded-[var(--radius-control)] border border-border px-1.5 py-0.5 font-code text-[10px] leading-none text-muted-foreground lg:block" aria-hidden>
         /

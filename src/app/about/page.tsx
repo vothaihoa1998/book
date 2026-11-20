@@ -19,7 +19,8 @@ export default function AboutPage() {
           Ảnh trang truyện được proxy có cache nhằm giảm hotlink và cải thiện tốc độ đọc cá nhân. Ứng dụng không lưu ảnh manga/chapter của bên thứ ba vào Supabase Storage; Storage chỉ dành cho avatar và tệp người dùng.
         </p>
         <p>
-          Nếu bạn là chủ sở hữu quyền và muốn gỡ nội dung khỏi chỉ mục/proxy, gửi yêu cầu DMCA với URL truyện/chương, bằng chứng sở hữu và thông tin liên hệ tới email vận hành dự án.
+          Nếu bạn là chủ sở hữu quyền và muốn gỡ nội dung khỏi chỉ mục/proxy, gửi yêu cầu DMCA với URL truyện/chương, bằng chứng sở hữu và thông tin liên hệ tới{" "}
+          <a href="mailto:contactinkrail@proton.me" className="text-primary hover:underline">contactinkrail@proton.me</a>.
         </p>
       </div>
       <AlertState className="mt-10">

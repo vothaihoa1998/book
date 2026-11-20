@@ -10,17 +10,32 @@ import { cn } from "@/lib/utils";
  * Mobile search button — opens a full-screen Sheet with InstantSearch inside.
  * Hidden on md+ where header search is always visible.
  */
-export function MobileSearchButton({ className }: { className?: string }) {
+export function MobileSearchButton({
+  className,
+  selected = false,
+  onSelect,
+}: {
+  className?: string;
+  selected?: boolean;
+  onSelect?: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          onSelect?.();
+          setOpen(true);
+        }}
         aria-label="Tìm truyện"
+        data-header-action="search"
         className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-control)] text-muted-foreground transition hover:bg-secondary hover:text-foreground",
+          "relative z-10 inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-300 ease-in-out",
+          selected
+            ? "bg-transparent text-primary-foreground hover:bg-transparent hover:text-primary-foreground"
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground",
           className,
         )}
       >
