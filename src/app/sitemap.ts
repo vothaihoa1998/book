@@ -4,7 +4,7 @@ import { absoluteUrl } from "@/lib/utils";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const home = await getHome();
-  const manga = [...home.trending, ...home.recent, ...home.recommended]
+  const manga = [...home.trending, ...home.recent]
     .filter((item, index, list) => list.findIndex((other) => other.id === item.id) === index)
     .slice(0, 5000);
 

@@ -25,6 +25,7 @@ type HistoryRow = {
   manga_id: string;
   chapter_id: string;
   page_index: number;
+  page_offset: number | null;
   scroll_percent: number;
   updated_at: string;
 };
@@ -34,14 +35,15 @@ type HistoryInsert = {
   manga_id: string;
   chapter_id: string;
   page_index?: number;
+  page_offset?: number | null;
   scroll_percent?: number;
   updated_at?: string;
 };
-type HistoryUpdate = { page_index?: number; scroll_percent?: number; updated_at?: string };
+type HistoryUpdate = { page_index?: number; page_offset?: number | null; scroll_percent?: number; updated_at?: string };
 
-type PrefsRow = { user_id: string; theme: string; direction: string; fit: string; brightness: number; font_size: number; gap: number; updated_at: string };
-type PrefsInsert = { user_id: string; theme?: string; direction?: string; fit?: string; brightness?: number; font_size?: number; gap?: number; updated_at?: string };
-type PrefsUpdate = { theme?: string; direction?: string; fit?: string; brightness?: number; font_size?: number; gap?: number; updated_at?: string };
+type PrefsRow = { layout: string | null; content_filters: Json | null; user_id: string; theme: string; direction: string; fit: string; brightness: number; font_size: number; gap: number; updated_at: string };
+type PrefsInsert = { layout?: string | null; content_filters?: Json; user_id: string; theme?: string; direction?: string; fit?: string; brightness?: number; font_size?: number; gap?: number; updated_at?: string };
+type PrefsUpdate = { layout?: string | null; content_filters?: Json; theme?: string; direction?: string; fit?: string; brightness?: number; font_size?: number; gap?: number; updated_at?: string };
 
 type CacheRow = { cache_key: string; source: string; payload: Json; expires_at: string; updated_at: string };
 type CacheInsert = { cache_key: string; source: string; payload: Json; expires_at: string; updated_at?: string };

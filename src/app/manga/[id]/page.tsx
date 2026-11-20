@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRight, Info, ListOrdered, Play, Radio } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
 import { ChapterList } from "@/components/chapter-list";
 import { FollowButton } from "@/components/follow-button";
@@ -9,18 +11,19 @@ import { AppLinkButton, Badge } from "@/components/ui/primitives";
 import { getChapters, getManga } from "@/lib/sources";
 import { siteConfig } from "@/lib/seo";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
-import { imageProxyUrl } from "@/lib/types";
+import { imageProxyUrl, mangaFormatLabels } from "@/lib/types";
+import { normalizeChapterLanguage } from "@/lib/sources/search-utils";
+import { orderChapters } from "@/lib/reader-presets";
 import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-type Props = {
-  params: Promise<{ id: string }>;
-};
+type Props = PageProps<"/manga/[id]">;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const manga = await getManga(id);
+  if (!manga) return { title: "Truyện chưa khả dụng", robots: { index: false } };
   const url = absoluteUrl(`/manga/${encodeURIComponent(manga.id)}`);
   const description = manga.description?.trim()
     ? truncate(manga.description, 155)
@@ -47,11 +50,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function MangaDetailPage({ params }: Props) {
-  const { id } = await params;
+export default async function MangaDetailPage({ params, searchParams }: Props) {
+  const [{ id }, { lang }] = await Promise.all([params, searchParams]);
+  const language = normalizeChapterLanguage(typeof lang === "string" ? lang : null);
   const manga = await getManga(id);
+  if (!manga) notFound();
+  const mangaHref = `/manga/${encodeURIComponent(manga.id)}`;
   const [chapters, supabase, userResult] = await Promise.all([
-    getChapters(manga.id),
+    getChapters(manga.id, language),
     createServerSupabaseClient(),
     getVerifiedUser(),
   ]);
@@ -86,19 +92,25 @@ export default async function MangaDetailPage({ params }: Props) {
         .limit(80)
     : { data: [], error: null };
 
-  const firstChapter = chapters.at(-1) ?? chapters[0];
-  const latestChapter = chapters[0];
+  const ordered = orderChapters(chapters);
+  const firstChapter = ordered[0];
+  const latestChapter = ordered.at(-1);
+  const languages = Array.from(new Set([
+    ...(manga.languages?.filter((code) => normalizeChapterLanguage(code)) ?? (manga.source === "mangadex" ? ["vi", "en"] : [])),
+    ...chapters.map((chapter) => chapter.language),
+    ...(language ? [language] : []),
+  ]));
 
   // "Continue reading" target: pick the chapter with the most recent
   // in-progress entry, not just the first one in the chapter list (chapters
   // may be returned in arbitrary order from the source).
-  let continueTarget: { id: string; chapter: typeof latestChapter; progress: number } | null = null;
+  let continueTarget: { id: string; progress: number } | null = null;
   for (const ch of chapters) {
     const p = progressByChapter.get(ch.id);
     if (!p) continue;
     if (p.scrollPercent <= 1 || p.scrollPercent >= 95) continue;
     if (!continueTarget || new Date(p.updatedAt) > new Date(progressByChapter.get(continueTarget.id)!.updatedAt)) {
-      continueTarget = { id: ch.id, chapter: ch, progress: p.scrollPercent };
+      continueTarget = { id: ch.id, progress: p.scrollPercent };
     }
   }
 
@@ -124,14 +136,21 @@ export default async function MangaDetailPage({ params }: Props) {
 
   return (
     <main>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
 
       {/* Hero — mobile-first editorial. Cover lớn 50vw mobile, info wrap.
           Desktop: 2-col với cover sticky bên trái. */}
-      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative grid grid-cols-1 gap-5 py-5 sm:py-8 md:grid-cols-[minmax(260px,300px)_1fr] md:items-start md:gap-10 md:py-12">
+      <section className="relative isolate overflow-hidden border-b border-border">
+        {manga.cover && (
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={manga.cover} alt="" className="h-full w-full scale-110 object-cover opacity-15 blur-3xl" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background" />
+          </div>
+        )}
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-7 sm:px-6 md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10 md:py-11">
           {/* Cover — mobile centered ~140px, desktop sticky */}
-          <div className="mx-auto w-[140px] sm:w-[180px] md:sticky md:top-24 md:mx-0 md:w-auto">
+          <div className="mx-auto w-[172px] sm:w-[192px] md:mx-0 md:w-full">
             <MangaCover manga={manga} priority className="hairline rounded-[var(--radius-card)] shadow-[0_24px_60px_-24px_rgba(60,28,8,0.4)]" />
           </div>
 
@@ -139,14 +158,16 @@ export default async function MangaDetailPage({ params }: Props) {
           <div className="min-w-0">
             {/* Source eyebrow */}
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-code text-[11px] uppercase tracking-[1.5px] text-muted-foreground">
-              <span>{manga.source}</span>
+              <span>{manga.source === "mangadex" ? "MangaDex" : manga.source === "otruyen" ? "OTruyen" : "Mẫu"}</span>
+              {manga.format && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{mangaFormatLabels[manga.format]}</span>}
+              {manga.releaseYear && <span>{manga.releaseYear}</span>}
               <span className="text-muted-foreground/40">·</span>
-              <span className="text-foreground">{manga.status}</span>
+              <span className="text-foreground">{statusLabels[manga.status]}</span>
               {manga.rating ? (<><span className="text-muted-foreground/40">·</span><span className="text-primary font-semibold">★ {manga.rating.toFixed(1)}</span></>) : null}
             </p>
 
             {/* Title */}
-            <h1 className="mt-2 break-words font-display text-[28px] font-medium leading-[1.05] text-foreground sm:text-4xl md:text-5xl md:leading-[0.98] lg:text-6xl">
+            <h1 className="mt-2 break-words font-display text-[28px] font-medium leading-[1.05] text-foreground sm:text-4xl md:text-5xl md:leading-[0.98] lg:text-5xl">
               {manga.title}
             </h1>
 
@@ -164,7 +185,9 @@ export default async function MangaDetailPage({ params }: Props) {
             {manga.genres.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4">
                 {manga.genres.slice(0, 8).map((genre) => (
-                  <Badge key={genre}>{genre}</Badge>
+                  <Link key={genre} href={`/discover?genres=${encodeURIComponent(genre.toLowerCase())}`} className="rounded-md hover:outline hover:outline-primary/40">
+                    <Badge>{genre}</Badge>
+                  </Link>
                 ))}
               </div>
             )}
@@ -173,7 +196,7 @@ export default async function MangaDetailPage({ params }: Props) {
             <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:flex sm:flex-wrap sm:gap-2.5">
               {continueTarget ? (
                 <AppLinkButton
-                  href={`/read/${encodeURIComponent(continueTarget.id)}`}
+                  href={`/read/${encodeURIComponent(continueTarget.id)}?resume=1`}
                   size="lg"
                   className="ink-cta rounded-full sm:px-6"
                 >
@@ -205,21 +228,21 @@ export default async function MangaDetailPage({ params }: Props) {
 
             {/* Stats row — 3 cột gọn */}
             <dl className="mt-5 grid grid-cols-3 gap-x-2 border-y border-border py-3 sm:mt-6 sm:gap-x-4 sm:py-4">
-              <Meta icon={<Radio size={12} />} label="Tác giả" value={manga.author ?? "—"} />
+              {manga.author && <Meta icon={<Radio size={12} />} label="Tác giả" value={manga.author} />}
+              {manga.artist && manga.artist !== manga.author && <Meta icon={<Radio size={12} />} label="Họa sĩ" value={manga.artist} />}
               <Meta icon={<Info size={12} />} label="Cập nhật" value={formatDate(manga.updatedAt)} />
-              <Meta icon={<ListOrdered size={12} />} label="Số chương" value={String(chapters.length)} />
+              {chapters.length > 0 && <Meta icon={<ListOrdered size={12} />} label="Chương có thể mở" value={String(chapters.length)} />}
             </dl>
           </div>
         </div>
       </section>
 
       {/* Chapter list + sidebar */}
-      <section className="mx-auto max-w-7xl px-4 pb-24 sm:px-6 md:pb-16 lg:px-8">
+      <section className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 md:pb-16">
         <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          <div>
+          <div id="chapters" className="scroll-mt-24">
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <p className="eyebrow">Chapters</p>
                 <h2 className="mt-2 break-words text-2xl font-display font-medium leading-tight text-foreground md:text-3xl">
                   Danh sách chương
                 </h2>
@@ -237,20 +260,28 @@ export default async function MangaDetailPage({ params }: Props) {
               </div>
             </div>
 
+            {languages.length > 1 && (
+              <nav aria-label="Ngôn ngữ chương" className="mb-4 flex flex-wrap gap-2">
+                {[["", "Ưu tiên tiếng Việt"], ...languages.map((code) => [code, chapterLanguageLabel(code)])].map(([code, label]) => (
+                  <Link
+                    key={code}
+                    href={code ? `${mangaHref}?lang=${encodeURIComponent(code)}#chapters` : `${mangaHref}#chapters`}
+                    aria-current={(language ?? "") === code ? "true" : undefined}
+                    prefetch={false}
+                    className={`rounded-lg border px-2.5 py-1.5 text-sm ${(language ?? "") === code ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-card hover:bg-secondary"}`}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </nav>
+            )}
             {chapters.length === 0 ? (
-              <div className="rounded-[var(--radius-card)] border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-                Chưa có chương nào cho truyện này.
-              </div>
-            ) : chapters.every((chapter) => chapter.source === "sample") ? (
-              <div className="rounded-[var(--radius-card)] border border-dashed border-border bg-secondary/40 p-5 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">Chưa tìm thấy chương từ nguồn chính thức.</p>
-                <p className="mt-1.5 leading-6">
-                  Truyện này hiện chưa có bản tiếng Việt hoặc tiếng Anh trên MangaDex/OTruyen, hoặc API tạm thời không phản hồi.
-                  Bên dưới là <span className="font-medium text-foreground">dữ liệu mẫu</span> để bạn xem trước giao diện đọc — bấm vào sẽ mở trang đọc demo.
-                </p>
+              <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+                {language ? "Chưa tải được chương bằng ngôn ngữ này." : "Chưa có chương nào khả dụng từ nguồn truyện."}
               </div>
             ) : (
               <ChapterList
+                key={language ?? "default"}
                 chapters={chapters}
                 progressByChapter={new Map(
                   Array.from(progressByChapter.entries()).map(([k, v]) => [
@@ -272,7 +303,7 @@ export default async function MangaDetailPage({ params }: Props) {
               </div>
               <div className="flex justify-between gap-4 border-b border-border pb-3">
                 <dt className="text-muted-foreground">Trạng thái</dt>
-                <dd className="font-medium capitalize">{manga.status}</dd>
+                <dd className="font-medium">{statusLabels[manga.status]}</dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-border pb-3">
                 <dt className="text-muted-foreground">Chương cuối</dt>
@@ -302,14 +333,19 @@ export default async function MangaDetailPage({ params }: Props) {
   );
 }
 
+const statusLabels = {
+  ongoing: "Đang ra", completed: "Hoàn thành", hiatus: "Tạm nghỉ", cancelled: "Đã hủy", unknown: "Chưa rõ",
+};
+
 function chapterLanguageLabel(lang?: string) {
   if (!lang) return "—";
-  if (lang.startsWith("en")) return "EN";
-  if (lang.startsWith("vi")) return "VI";
-  if (lang.startsWith("ja")) return "JA";
-  if (lang.startsWith("ko")) return "KO";
-  if (lang.startsWith("zh")) return "ZH";
-  return lang.slice(0, 2).toUpperCase();
+  if (lang === "en") return "Tiếng Anh";
+  if (lang === "vi") return "Tiếng Việt";
+  if (lang === "ja") return "Tiếng Nhật";
+  if (lang === "ko") return "Tiếng Hàn";
+  if (lang === "zh") return "Tiếng Trung";
+  if (lang === "zh-hk") return "Tiếng Trung phồn thể";
+  return lang.toUpperCase();
 }
 
 function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

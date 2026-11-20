@@ -93,12 +93,30 @@ export const sampleManga: Manga[] = [
     updatedAt: now,
     rating: 9.0,
   },
+  {
+    id: makeScopedId("sample", "inkrail-demo"),
+    source: "sample",
+    sourceId: "inkrail-demo",
+    slug: "inkrail-demo",
+    title: "Bản xem thử InkRail",
+    altTitles: [],
+    cover: "/sample-pages/page-1.svg",
+    author: null,
+    status: "completed",
+    genres: [],
+    description: "Thử lật trang, đổi bố cục và lưu vị trí với các trang minh họa mẫu.",
+    lastChapter: "1",
+    updatedAt: now,
+    rating: null,
+    format: "manga",
+    languages: ["vi"],
+  },
 ];
 
 export const sampleChapters: Chapter[] = [
   {
     id: makeScopedId("sample", "solo-leveling-001"),
-    mangaId: sampleManga[0].id,
+    mangaId: makeScopedId("sample", "inkrail-demo"),
     source: "sample",
     sourceId: "solo-leveling-001",
     number: "1",
@@ -113,17 +131,3 @@ export const sampleChapters: Chapter[] = [
     })),
   },
 ];
-
-export function getSampleManga(id?: string) {
-  if (!id) return sampleManga[0];
-  return sampleManga.find((manga) => manga.id === id || manga.sourceId === id) ?? sampleManga[0];
-}
-
-export function getSampleChapters(mangaId: string) {
-  return sampleChapters.map((chapter) => ({ ...chapter, mangaId }));
-}
-
-export function getSampleChapter(id?: string) {
-  const chapter = sampleChapters.find((item) => item.id === id || item.sourceId === id);
-  return chapter ?? sampleChapters[0];
-}

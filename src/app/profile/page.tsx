@@ -56,7 +56,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   const [profile, prefs, bookmarks, history, follows] = await Promise.all([
     supabase.from("profiles").select("display_name, avatar_url, created_at").eq("id", user.id).maybeSingle(),
-    supabase.from("reading_prefs").select("theme, direction, fit").eq("user_id", user.id).maybeSingle(),
+    supabase.from("reading_prefs").select("theme, direction, layout, fit").eq("user_id", user.id).maybeSingle(),
     supabase.from("bookmarks").select("id", { count: "exact", head: true }),
     supabase.from("reading_history").select("id", { count: "exact", head: true }),
     supabase.from("follows").select("id", { count: "exact", head: true }),
@@ -144,7 +144,10 @@ export default async function ProfilePage({ searchParams }: Props) {
               <p className="mt-2 text-sm leading-6 text-muted-foreground">Áp dụng cho các phiên đọc sau khi đồng bộ Supabase.</p>
               <div className="mt-5 grid gap-3">
                 <Select name="theme" label="Theme" value={prefs.data?.theme ?? "warm-light"} options={["warm-light", "paper", "sepia", "graphite-dark", "pure-black"]} />
-                <Select name="direction" label="Kiểu đọc" value={prefs.data?.direction ?? "vertical"} options={["vertical", "horizontal-ltr", "horizontal-rtl"]} />
+                <Select name="layout" label="Bố cục" value={prefs.data?.layout ?? (prefs.data ? (prefs.data.direction === "vertical" ? "strip" : "double") : "auto")}
+                  options={["auto", "single", "double", "strip"]} labels={{ auto: "Tự động", single: "Một trang", double: "Hai trang", strip: "Cuộn dọc" }} />
+                <Select name="direction" label="Hướng lật trang" value={prefs.data?.direction ?? "vertical"}
+                  options={["vertical", "horizontal-ltr", "horizontal-rtl"]} labels={{ vertical: "Tự động", "horizontal-ltr": "Trái sang phải", "horizontal-rtl": "Phải sang trái" }} />
                 <Select name="fit" label="Fit ảnh" value={prefs.data?.fit ?? "width"} options={["width", "height", "original", "smart"]} />
               </div>
               <AppButton className="mt-4">
@@ -176,10 +179,10 @@ function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; va
   );
 }
 
-function Select({ name, label, value, options }: { name: string; label: string; value: string; options: string[] }) {
+function Select({ name, label, value, options, labels = {} }: { name: string; label: string; value: string; options: string[]; labels?: Record<string, string> }) {
   return (
     <SelectField name={name} label={label} defaultValue={value}>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => <option key={option} value={option}>{labels[option] ?? option}</option>)}
     </SelectField>
   );
 }

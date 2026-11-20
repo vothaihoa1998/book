@@ -7,12 +7,14 @@ export function MangaCover({
   manga,
   priority = false,
   eager = false,
+  decorative = false,
   className,
   topBadgeContent,
 }: {
   manga: Manga;
   priority?: boolean;
   eager?: boolean;
+  decorative?: boolean;
   className?: string;
   topBadgeContent?: { left: string; right: string };
 }) {
@@ -21,7 +23,7 @@ export function MangaCover({
       {manga.cover ? (
         <Image
           src={manga.cover}
-          alt={`Bìa truyện ${manga.title}`}
+          alt={decorative ? "" : `Bìa truyện ${manga.title}`}
           fill
           preload={priority}
           loading={priority ? undefined : eager ? "eager" : "lazy"}
@@ -29,7 +31,7 @@ export function MangaCover({
           className="object-cover transition duration-300 group-hover:scale-[1.025]"
         />
       ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
+        <div aria-hidden={decorative || undefined} className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-muted-foreground">
           <BookOpen size={36} strokeWidth={1.4} />
           <span className="font-display text-2xl font-medium text-foreground">{manga.title}</span>
         </div>
@@ -37,12 +39,12 @@ export function MangaCover({
       <div className="pointer-events-none absolute inset-0 border border-foreground/10" />
       {topBadgeContent && (
         <div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between gap-2">
-          <span className="meta-mono min-w-0 rounded-[var(--radius-control)] bg-background/88 px-2.5 py-1 text-foreground backdrop-blur">
+          {topBadgeContent.left && <span className="meta-mono min-w-0 rounded-[var(--radius-control)] bg-background/88 px-2.5 py-1 text-foreground backdrop-blur">
             {topBadgeContent.left}
-          </span>
-          <span className="meta-mono min-w-0 rounded-[var(--radius-control)] bg-background/88 px-2.5 py-1 text-foreground backdrop-blur text-right">
+          </span>}
+          {topBadgeContent.right && <span className="meta-mono ml-auto min-w-0 rounded-[var(--radius-control)] bg-background/88 px-2.5 py-1 text-foreground backdrop-blur text-right">
             {topBadgeContent.right}
-          </span>
+          </span>}
         </div>
       )}
     </div>

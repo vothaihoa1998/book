@@ -1,8 +1,8 @@
-const VERSION = "inkrail-v1";
+const VERSION = "inkrail-v2";
 const SHELL_CACHE = `${VERSION}-shell`;
 const IMAGE_CACHE = "inkrail-chapter-pages-v1";
 const API_CACHE = `${VERSION}-api`;
-const SHELL_ASSETS = ["/", "/offline.html", "/icon.svg"];
+const SHELL_ASSETS = ["/offline.html", "/icon.svg"];
 const MAX_IMAGE_ENTRIES = 220;
 
 self.addEventListener("install", (event) => {
@@ -31,7 +31,9 @@ async function networkFirst(request) {
   const cache = await caches.open(SHELL_CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
+    if (response.ok && !/private|no-store/i.test(response.headers.get("cache-control") ?? "")) {
+      await cache.put(request, response.clone());
+    }
     return response;
   } catch {
     return (await cache.match(request)) || (await cache.match("/offline.html"));
@@ -73,7 +75,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/api/")) {
+  if (url.pathname === "/api/search") {
     event.respondWith(staleWhileRevalidate(request));
     return;
   }

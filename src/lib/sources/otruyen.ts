@@ -2,7 +2,7 @@ import "server-only";
 
 import { type Chapter, type Manga, makeScopedId, type PageImage, slugify } from "../types";
 import { fetchJson, unique } from "./http";
-import { applySearchFilters, type NormalizedSearchParams } from "./search-utils";
+import { foldText, type NormalizedSearchParams } from "./search-utils";
 
 const API = "https://otruyenapi.com/v1/api";
 const CDN = "https://img.otruyenapi.com/uploads/comics";
@@ -28,7 +28,7 @@ function categories(item: OTruyenItem) {
 }
 
 function mapStatus(value: unknown): Manga["status"] {
-  const text = asString(value).toLowerCase();
+  const text = foldText(asString(value));
   if (text.includes("hoan") || text.includes("complete")) return "completed";
   if (text.includes("tam") || text.includes("hiatus")) return "hiatus";
   if (text.includes("drop") || text.includes("cancel")) return "cancelled";
@@ -43,6 +43,9 @@ function mapManga(item: OTruyenItem): Manga {
   const author = Array.isArray(item.author)
     ? (item.author as unknown[]).map(asString).filter(Boolean).join(", ")
     : asString(item.author);
+  const genres = categories(item);
+  const format = genres.map(foldText).find((genre) => genre === "manga" || genre === "manhwa" || genre === "manhua");
+  const year = Number(item.release_year ?? item.year);
 
   return {
     id: makeScopedId("otruyen", slug),
@@ -54,7 +57,10 @@ function mapManga(item: OTruyenItem): Manga {
     cover: coverUrl(item),
     author: author || null,
     status: mapStatus(item.status),
-    genres: categories(item),
+    genres,
+    format: format === "manga" || format === "manhwa" || format === "manhua" ? format : undefined,
+    languages: ["vi"],
+    releaseYear: Number.isInteger(year) && year >= 1900 ? year : undefined,
     description: asString(item.content || item.description).replace(/<[^>]*>/g, "").trim() || "Chưa có mô tả.",
     lastChapter: asString(latest?.chapter_name) || null,
     updatedAt: asString(item.updatedAt || item.updated_at) || new Date().toISOString(),
@@ -76,6 +82,7 @@ function itemsFromResponse(response: Record<string, unknown>) {
   const pagination = (params.pagination || {}) as Record<string, unknown>;
   return {
     items: ((data.items || response.items || []) as OTruyenItem[]).filter(Boolean),
+    perPage: typeof pagination.totalItemsPerPage === "number" ? pagination.totalItemsPerPage : 24,
     total:
       typeof pagination.totalItems === "number"
         ? pagination.totalItems
@@ -85,48 +92,36 @@ function itemsFromResponse(response: Record<string, unknown>) {
   };
 }
 
-export async function searchOTruyen(query: string, options: Partial<Pick<NormalizedSearchParams, "page" | "status" | "sort" | "genres" | "year">> = {}) {
+export async function searchOTruyen(query: string, options: Partial<NormalizedSearchParams> = {}) {
   const page = options.page ?? 1;
+  if (options.language && options.language !== "all" && options.language !== "vi") {
+    return { results: [], total: 0, hasMore: false };
+  }
+  const path = query ? "/tim-kiem" : "/danh-sach/truyen-moi";
+  const params = new URLSearchParams({ page: String(page) });
+  if (query) params.set("keyword", query);
   const response = await fetchJson<Record<string, unknown>>(
-    `${API}/tim-kiem?keyword=${encodeURIComponent(query)}&page=${page}`,
+    `${API}${path}?${params}`,
   );
-  const { items, total } = itemsFromResponse(response);
-  const results = applySearchFilters(items.map(mapManga), {
-    q: query,
-    source: "otruyen",
-    status: options.status ?? "all",
-    sort: options.sort ?? "relevance",
-    year: options.year ?? "all",
-    page,
-    genres: options.genres ?? [],
-  });
-  return { results, total };
+  const { items, total, perPage } = itemsFromResponse(response);
+  return { results: items.map(mapManga), total, hasMore: total ? page * perPage < total : items.length >= perPage };
 }
 
 export async function getRecentOTruyen(limit = 24) {
   // Fetch nhiều trang song song để có feed dày hơn (VN-first content).
   const pageCount = Math.ceil(limit / 24) || 1;
-  const responses = await Promise.all(
-    Array.from({ length: pageCount }, (_, index) =>
-      fetchJson<Record<string, unknown>>(`${API}/danh-sach/truyen-moi?page=${index + 1}`).catch(() => null),
-    ),
-  );
-  const merged = responses
-    .filter((response): response is Record<string, unknown> => Boolean(response))
-    .map((response) => itemsFromResponse(response));
-  const items = merged.flatMap((parsed) => parsed.items);
-  const maxTotal = merged.reduce((acc, parsed) => Math.max(acc, parsed.total), 0);
-  return { results: items.slice(0, limit).map(mapManga), total: maxTotal };
+  const pages = await Promise.all(Array.from({ length: pageCount }, (_, index) => searchOTruyen("", { page: index + 1 })));
+  return { results: pages.flatMap((page) => page.results).slice(0, limit), total: pages[0].total };
 }
 
 export async function getOTruyenManga(slug: string) {
-  const response = await fetchJson<Record<string, unknown>>(`${API}/truyen-tranh/${slug}`);
+  const response = await fetchJson<Record<string, unknown>>(`${API}/truyen-tranh/${encodeURIComponent(slug)}`);
   const item = ((response.data || {}) as Record<string, unknown>).item as OTruyenItem | undefined;
   return item ? mapManga(item) : null;
 }
 
 export async function getOTruyenChapters(slug: string) {
-  const response = await fetchJson<Record<string, unknown>>(`${API}/truyen-tranh/${slug}`);
+  const response = await fetchJson<Record<string, unknown>>(`${API}/truyen-tranh/${encodeURIComponent(slug)}`);
   const item = ((response.data || {}) as Record<string, unknown>).item as OTruyenItem | undefined;
   const chapters = ((item?.chapters as Array<Record<string, unknown>> | undefined) ?? [])
     .flatMap((server) => (server.server_data as Array<Record<string, unknown>> | undefined) ?? [])
@@ -167,8 +162,10 @@ export async function getOTruyenChapter(scopedSourceId: string) {
   const colonIndex = scopedSourceId.indexOf(":");
   const slug = colonIndex === -1 ? "" : scopedSourceId.slice(0, colonIndex);
   const encodedApi = colonIndex === -1 ? scopedSourceId : scopedSourceId.slice(colonIndex + 1);
-  const api = decodeChapterApi(encodedApi);
-  const response = await fetchJson<Record<string, unknown>>(api);
+  const api = new URL(decodeChapterApi(encodedApi));
+  const officialHost = api.hostname === "otruyenapi.com" || /^[a-z0-9-]+\.otruyencdn\.com$/.test(api.hostname);
+  if (api.protocol !== "https:" || api.port || api.username || api.password || !officialHost) return null;
+  const response = await fetchJson<Record<string, unknown>>(api.href, { redirect: "error" });
   const data = (response.data || {}) as Record<string, unknown>;
   const item = (data.item || {}) as Record<string, unknown>;
   const domain = asString(data.domain_cdn || response.domain_cdn);

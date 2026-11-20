@@ -12,6 +12,7 @@ const ProfileSchema = z.object({
 const PrefsSchema = z.object({
   theme: z.enum(["warm-light", "paper", "sepia", "graphite-dark", "pure-black"]),
   direction: z.enum(["vertical", "horizontal-ltr", "horizontal-rtl"]),
+  layout: z.enum(["auto", "single", "double", "strip"]),
   fit: z.enum(["width", "height", "original", "smart"]),
 });
 
@@ -55,6 +56,7 @@ export async function updateProfilePrefs(formData: FormData) {
   const parsed = PrefsSchema.safeParse({
     theme: formData.get("theme"),
     direction: formData.get("direction"),
+    layout: formData.get("layout"),
     fit: formData.get("fit"),
   });
   if (!parsed.success) redirect("/profile?status=invalid-prefs");
@@ -64,6 +66,7 @@ export async function updateProfilePrefs(formData: FormData) {
       user_id: userData.user.id,
       theme: parsed.data.theme,
       direction: parsed.data.direction,
+      layout: parsed.data.layout,
       fit: parsed.data.fit,
       updated_at: new Date().toISOString(),
     },

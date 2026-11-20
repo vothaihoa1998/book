@@ -2,7 +2,7 @@
 
 import { ChevronDown, Filter, Plus, Search, X } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChapterFilterSheet } from "@/components/chapter-filter-sheet";
 import { imageProxyUrl, type Chapter } from "@/lib/types";
 import {
@@ -51,6 +51,8 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
   const [filterOpen, setFilterOpen] = useState(false);
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
+  const [jumpError, setJumpError] = useState(false);
+  const [jumpTarget, setJumpTarget] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(50);
 
   // 1. Collect distinct languages
@@ -154,15 +156,31 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
 
   const activeFilterCount = filter.langs.length + (filter.hideRead ? 1 : 0) + (filter.sort !== "latest" ? 1 : 0);
 
-  function jumpToChapter(e: React.FormEvent) {
-    e.preventDefault();
-    const target = filtered.find((ch) => ch.number === jumpValue.trim());
-    if (target) {
-      const el = document.getElementById(`chapter-row-${target.id}`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setJumpOpen(false);
-      setJumpValue("");
+  useEffect(() => {
+    if (!jumpTarget) return;
+    const frame = requestAnimationFrame(() => {
+      const row = document.getElementById(`chapter-row-${jumpTarget}`);
+      row?.scrollIntoView({ block: "center" });
+      row?.querySelector("a")?.focus({ preventScroll: true });
+      setJumpTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [jumpTarget]);
+
+  function jumpToChapter(event: React.FormEvent) {
+    event.preventDefault();
+    const displayedOrder = grouped.flatMap((group) => group.items);
+    const index = displayedOrder.findIndex((chapter) => chapter.number === jumpValue.trim());
+    if (index < 0) {
+      setJumpError(true);
+      return;
     }
+
+    setPageSize((size) => Math.max(size, index + 1));
+    setJumpTarget(displayedOrder[index].id);
+    setJumpOpen(false);
+    setJumpValue("");
+    setJumpError(false);
   }
 
   return (
@@ -223,7 +241,7 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
             inputMode="numeric"
             placeholder="123"
             value={jumpValue}
-            onChange={(e) => setJumpValue(e.target.value)}
+            onChange={(e) => { setJumpValue(e.target.value); setJumpError(false); }}
             autoFocus
             className="flex-1 rounded-full border border-border bg-background px-3 py-1 text-[13px] text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
           />
@@ -244,6 +262,8 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
           </button>
         </form>
       )}
+
+      {jumpOpen && jumpError && <p role="status" className="text-xs text-muted-foreground">Không có số chương này trong bộ lọc hiện tại.</p>}
 
       {/* Active filter chips */}
       {(filter.langs.length > 0 || filter.hideRead || filter.sort !== "latest") && (
@@ -321,6 +341,7 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
                   <li key={chapter.id} id={`chapter-row-${chapter.id}`}>
                     <Link
                       href={`/read/${encodeURIComponent(chapter.id)}`}
+                      prefetch={false}
                       className={`group grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-2.5 px-2.5 py-2 transition hover:bg-secondary/50 sm:grid-cols-[48px_minmax(0,1fr)_auto] sm:gap-3 sm:px-3 ${isCurrent ? "bg-primary/8" : ""}`}
                     >
                       <span
@@ -377,8 +398,11 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
                           )}
                         </div>
                         <p className={`mt-0.5 line-clamp-1 break-words text-[13px] font-medium ${badge === "read" ? "text-muted-foreground" : "text-foreground"}`}>
-                          {chapter.title || `Chương ${chapter.number}`}
+                          {chapter.title || `Chương ${chapter.number}`}{chapter.externalUrl && " ↗"}
                         </p>
+                        {(chapter.group || chapter.externalUrl) && (
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{[chapter.group, chapter.externalUrl && "Trang phát hành"].filter(Boolean).join(" · ")}</p>
+                        )}
                         {progress && progress.scrollPercent > 5 && progress.scrollPercent < 95 && (
                           <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-secondary">
                             <div

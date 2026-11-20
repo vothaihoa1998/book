@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type SheetProps = {
@@ -29,21 +30,47 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
   const dragStartY = useRef(0);
   const dragActive = useRef(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const closeRef = useRef(onClose);
 
-  // Lock body scroll + Esc close
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const originalFocus = document.activeElement;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    sheet.focus({ preventScroll: true });
+
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeRef.current();
+      if (e.key !== "Tab") return;
+      const focusable = Array.from(sheet!.querySelectorAll<HTMLElement>(
+        "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']",
+      )).filter((element) => element.tabIndex >= 0 && element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      const active = document.activeElement;
+      if (!first || !last) {
+        e.preventDefault();
+      } else if (e.shiftKey && (active === first || active === sheet)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || active === sheet)) {
+        e.preventDefault();
+        first.focus();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      if (originalFocus instanceof HTMLElement && originalFocus.isConnected) originalFocus.focus({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   // Drag-down to dismiss
   function onPointerDown(e: React.PointerEvent) {
@@ -76,7 +103,8 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
       {/* Click-outside scrim */}
       <button
         type="button"
-        aria-label="Đóng"
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={onClose}
         className="absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm transition-opacity"
       />
@@ -86,8 +114,9 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
+        tabIndex={-1}
         className={cn(
-          "absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-3xl border-t border-border bg-background shadow-[0_-12px_40px_rgba(0,0,0,0.18)] transition-transform duration-200 ease-out",
+          "absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-3xl border-t border-border bg-background shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none transition-transform duration-200 ease-out",
           maxHeightClass,
         )}
       >
@@ -102,6 +131,9 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
         >
           <span className="block h-1 w-9 rounded-full bg-muted-foreground/40" />
         </div>
+        <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-3 top-2 grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+          <X size={16} />
+        </button>
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-4 pb-2 pt-1">{children}</div>

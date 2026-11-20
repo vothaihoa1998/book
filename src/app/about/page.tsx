@@ -3,7 +3,7 @@ import { AlertState } from "@/components/ui/primitives";
 
 export const metadata: Metadata = {
   title: "Pháp lý và nguồn dữ liệu",
-  description: "Thông tin nguồn MangaDex, OTruyen, image proxy và quy trình DMCA của InkRail.",
+  description: "Thông tin nguồn MangaDex, image proxy và quy trình DMCA của InkRail.",
 };
 
 export default function AboutPage() {
@@ -13,7 +13,7 @@ export default function AboutPage() {
       <h1 className="mt-3 editorial-title text-5xl md:text-7xl">Nguồn dữ liệu và quyền nội dung</h1>
       <div className="mt-10 space-y-8 font-display text-xl leading-9 text-muted-foreground">
         <p>
-          InkRail là client tổng hợp metadata và đường dẫn đọc từ các nguồn công khai như MangaDex và OTruyen. Nội dung được chuẩn hoá để người đọc có trải nghiệm nhất quán hơn trên web.
+          InkRail là client tổng hợp metadata và đường dẫn đọc từ MangaDex. Nội dung được chuẩn hoá để người đọc có trải nghiệm nhất quán hơn trên web.
         </p>
         <p>
           Ảnh trang truyện được proxy có cache nhằm giảm hotlink và cải thiện tốc độ đọc cá nhân. Ứng dụng không lưu ảnh manga/chapter của bên thứ ba vào Supabase Storage; Storage chỉ dành cho avatar và tệp người dùng.
@@ -26,8 +26,6 @@ export default function AboutPage() {
         <h2 className="section-title">Nguồn ưu tiên</h2>
         <ul className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">
           <li>MangaDex API: metadata, chapter feed, cover art và at-home image server.</li>
-          <li>OTruyen API: danh sách tiếng Việt, tìm kiếm và chapter image CDN.</li>
-          <li>Firecrawl fallback: chỉ nên bật khi cần tìm truyện không có ở hai nguồn chính, kèm cache aggressive.</li>
         </ul>
       </AlertState>
     </main>

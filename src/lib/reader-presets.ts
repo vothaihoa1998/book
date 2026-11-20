@@ -1,47 +1,38 @@
-import type { Chapter, Manga, ReaderDirection } from "./types";
+import type { Chapter, Manga, ReaderLayout, ReaderPrefs } from "./types";
 
-/**
- * Phase F2: auto-detect reading direction cho từng chapter dựa trên:
- * - Chapter.direction (override nếu có)
- * - Manga.genres chứa "manhwa" / "manhua" / "webtoon"
- * - MangaDex group name (nếu có trong title/chapter): "manhwa" / "manhua"
- *
- * Mobile-first override: trên viewport < 768px ưu tiên `vertical` (webtoon,
- * dễ vuốt dọc). User có thể override bằng settings sheet (lưu per-chapter).
- */
-export function pickReaderDirection(
-  manga: Pick<Manga, "genres" | "title">,
-  chapter: Pick<Chapter, "direction" | "title"> | null,
-  viewport: { width: number } = { width: 1024 },
-): ReaderDirection {
-  // 1. Chapter-level override (ưu tiên cao nhất)
-  if (chapter?.direction) {
-    if (viewport.width < 768) return "vertical";
-    return chapter.direction;
-  }
+export function defaultReaderPrefs(dark: boolean): ReaderPrefs {
+  return {
+    theme: dark ? "graphite-dark" : "warm-light",
+    layout: "auto",
+    direction: "vertical",
+    fit: "width",
+    brightness: 0,
+    fontSize: 18,
+    gap: 8,
+  };
+}
 
-  const genres = (manga.genres ?? []).map((t) => t.toLowerCase());
-  const title = (manga.title ?? "").toLowerCase();
-  const chapterTitle = (chapter?.title ?? "").toLowerCase();
+export function resolveReaderLayout(
+  prefs: ReaderPrefs,
+  manga: Manga,
+  chapter: Chapter,
+  narrow: boolean,
+): Exclude<ReaderLayout, "auto"> {
+  if (!prefs.layout) return prefs.direction === "vertical" ? "strip" : "double";
+  if (prefs.layout !== "auto") return prefs.layout;
+  const vertical = manga.format === "manhwa" || manga.format === "manhua" ||
+    manga.genres.some((genre) => /webtoon|manhwa|manhua/i.test(genre)) || chapter.direction === "horizontal-ltr";
+  if (vertical) return "strip";
+  if (manga.format === "manga" || manga.source === "sample") return narrow ? "single" : "double";
+  return "strip";
+}
 
-  // 2. Manhwa (KR) — đọc trái sang phải
-  const isManhwa =
-    genres.some((t) => t.includes("manhwa") || t.includes("manhua") || t.includes("webtoon")) ||
-    title.includes("manhwa") ||
-    title.includes("manhua") ||
-    title.includes("webtoon") ||
-    chapterTitle.includes("manhwa") ||
-    chapterTitle.includes("manhua") ||
-    chapterTitle.includes("webtoon");
-
-  if (isManhwa) {
-    return viewport.width < 768 ? "vertical" : "horizontal-ltr";
-  }
-
-  // 3. Mobile default = vertical (webtoon-style, dễ vuốt dọc)
-  if (viewport.width < 768) return "vertical";
-
-  // 4. Desktop default = vertical (user yêu cầu ưu tiên dọc trên mọi thiết bị).
-  // Manhwa/manhua đã được xử lý ở trên (horizontal-ltr).
-  return "vertical";
+export function orderChapters(chapters: Chapter[]) {
+  return [...chapters].sort((a, b) => {
+    const left = Number(a.number);
+    const right = Number(b.number);
+    if (Number.isFinite(left) && Number.isFinite(right)) return left - right;
+    if (Number.isFinite(left) !== Number.isFinite(right)) return Number.isFinite(left) ? -1 : 1;
+    return a.number.localeCompare(b.number, "vi", { numeric: true });
+  });
 }

@@ -1,4 +1,12 @@
 export type MangaSource = "mangadex" | "otruyen" | "sample" | "firecrawl";
+export type MangaFormat = "manga" | "manhwa" | "manhua";
+export type ContentRating = "safe" | "suggestive";
+
+export const mangaFormatLabels: Record<MangaFormat, string> = {
+  manga: "Manga",
+  manhwa: "Manhwa",
+  manhua: "Manhua",
+};
 
 export type MangaStatus =
   | "ongoing"
@@ -22,17 +30,26 @@ export type Manga = {
   lastChapter: string | null;
   updatedAt: string;
   rating: number | null;
+  format?: MangaFormat;
+  releaseYear?: number;
+  languages?: string[];
+  contentRating?: ContentRating;
+  demographic?: string;
+  themes?: string[];
+  artist?: string;
 };
 
 export type ReaderTheme = "warm-light" | "paper" | "sepia" | "graphite-dark" | "pure-black";
 
 export type ReaderDirection = "vertical" | "horizontal-ltr" | "horizontal-rtl";
+export type ReaderLayout = "auto" | "single" | "double" | "strip";
 
 export type ReaderFit = "width" | "height" | "original" | "smart";
 
 export type ReaderPrefs = {
   theme: ReaderTheme;
   direction: ReaderDirection;
+  layout?: ReaderLayout;
   fit: ReaderFit;
   brightness: number;
   fontSize: number;
@@ -56,6 +73,8 @@ export type Chapter = {
   pages: PageImage[];
   language: string;
   updatedAt: string;
+  externalUrl?: string;
+  group?: string;
   /** Optional reading progress 0..1 for the current user. */
   progress?: number | null;
   /** Optional last read page index (0-based) for the current user. */
@@ -75,6 +94,9 @@ export type MangaSearchParams = {
   status?: MangaStatus | "all";
   sort?: MangaSearchSort;
   year?: string;
+  releaseYear?: string;
+  language?: string;
+  format?: string;
   page?: number;
 };
 
@@ -88,6 +110,9 @@ export type MangaSearchFilters = {
   status: MangaStatus | "all";
   sort: MangaSearchSort;
   year: string;
+  releaseYear: string;
+  language: string;
+  format: "all" | MangaFormat;
   page: number;
   genres: string[];
 };
@@ -111,10 +136,9 @@ export type MangaSearchResult = {
 };
 
 export type HomePayload = {
-  featured: Manga;
   trending: Manga[];
   recent: Manga[];
-  recommended: Manga[];
+  errors?: string[];
 };
 
 export function makeScopedId(source: MangaSource, id: string) {
@@ -122,7 +146,12 @@ export function makeScopedId(source: MangaSource, id: string) {
 }
 
 export function parseScopedId(id: string): { source: MangaSource; sourceId: string } {
-  const decoded = decodeURIComponent(id);
+  let decoded = id;
+  try {
+    decoded = decodeURIComponent(id);
+  } catch {
+    // Route params can already contain a decoded percent sign.
+  }
   const index = decoded.indexOf(":");
 
   if (index === -1) {

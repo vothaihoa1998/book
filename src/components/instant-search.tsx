@@ -4,6 +4,7 @@ import { Clock, Loader2, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { apiSearchHref, discoverSearchHref, type SearchFilterParams } from "@/lib/search-links";
+import { mangaFormatLabels, type MangaFormat } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const HISTORY_KEY = "inkrail-search-history";
@@ -15,7 +16,8 @@ type InstantResult = {
   title: string;
   cover?: string | null;
   author?: string | null;
-  lastChapter?: number | null;
+  lastChapter?: string | null;
+  format?: MangaFormat;
   source: string;
   status?: string;
 };
@@ -52,6 +54,7 @@ export function InstantSearch({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(Boolean(defaultQuery.trim()));
   const [results, setResults] = useState<InstantResult[]>([]);
+  const [sourceErrors, setSourceErrors] = useState(false);
   const [history, setHistory] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -67,11 +70,12 @@ export function InstantSearch({
   // "/" focuses search
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key !== "/") return;
+      const shortcut = event.key === "/" || (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey));
+      if (!shortcut || event.defaultPrevented) return;
       const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      if (event.key === "/" && target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
       const input = inputRef.current;
-      if (!input) return;
+      if (!input?.getClientRects().length) return;
       event.preventDefault();
       input.focus();
       input.select();
@@ -105,6 +109,7 @@ export function InstantSearch({
   // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    aborterRef.current?.abort();
     if (!query.trim()) {
       return;
     }
@@ -115,17 +120,22 @@ export function InstantSearch({
       try {
         const res = await fetch(apiSearchHref(query.trim(), filters, limit), { signal: aborter.signal });
         if (!res.ok) throw new Error("search failed");
-        const data = (await res.json()) as { results: InstantResult[] };
-        setResults(data.results);
+        const data = (await res.json()) as { results: InstantResult[]; errors?: string[] };
+        if (!aborter.signal.aborted) {
+          setResults(data.results);
+          setSourceErrors(Boolean(data.errors?.length));
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setResults([]);
+        setSourceErrors(true);
       } finally {
         if (!aborter.signal.aborted) setLoading(false);
       }
     }, 300);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      aborterRef.current?.abort();
     };
   }, [filters, limit, query]);
 
@@ -159,7 +169,7 @@ export function InstantSearch({
 
   const showHistory = !query.trim() && history.length > 0;
   const showPopular = !query.trim();
-  const showResults = query.trim() && (results.length > 0 || loading);
+  const showResults = Boolean(query.trim());
 
   return (
     <div className={cn("relative", className)}>
@@ -190,7 +200,7 @@ export function InstantSearch({
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
           aria-label={placeholder}
-          aria-keyshortcuts="/"
+          aria-keyshortcuts="Control+K Meta+K /"
           autoComplete="off"
           spellCheck={false}
           className={cn(
@@ -230,7 +240,7 @@ export function InstantSearch({
             "absolute inset-x-0 top-[calc(100%+6px)] z-50 max-h-[70vh] overflow-y-auto rounded-[var(--radius-card)] border border-border bg-popover p-1.5 shadow-[0_24px_60px_-20px_rgba(60,28,8,0.35)]",
             dropdownClassName,
           )}
-          role="listbox"
+          aria-label="Gợi ý tìm kiếm"
         >
           {/* Loading state */}
           {loading && (
@@ -269,7 +279,7 @@ export function InstantSearch({
                       </p>
                     </div>
                     <span className="rounded-full bg-secondary px-1.5 py-0.5 font-code text-[9px] uppercase tracking-wider text-muted-foreground">
-                      {m.source}
+                      {m.format ? mangaFormatLabels[m.format] : m.source}
                     </span>
                   </button>
                 </li>
@@ -289,7 +299,7 @@ export function InstantSearch({
           {/* No results */}
           {showResults && !loading && results.length === 0 && (
             <div className="px-3 py-4 text-center">
-              <p className="text-[12px] text-muted-foreground">Không tìm thấy cho <span className="font-medium text-foreground">{query}</span></p>
+              <p className="text-[12px] text-muted-foreground">{sourceErrors ? "Một số nguồn tìm kiếm chưa phản hồi." : <>Không tìm thấy truyện cho <span className="font-medium text-foreground">{query}</span>.</>}</p>
               <button
                 type="button"
                 onClick={() => goSearch(query)}

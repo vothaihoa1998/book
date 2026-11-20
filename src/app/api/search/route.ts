@@ -21,6 +21,9 @@ export async function GET(request: Request) {
     status: url.searchParams.get("status") as MangaSearchParams["status"],
     sort: url.searchParams.get("sort") as MangaSearchParams["sort"],
     year: url.searchParams.get("year") ?? "all",
+    releaseYear: url.searchParams.get("releaseYear") ?? "all",
+    language: url.searchParams.get("language") ?? "all",
+    format: url.searchParams.get("format") ?? "all",
     page: Number(url.searchParams.get("page") ?? "1"),
     genres: normalizeGenres(url.searchParams.getAll("genres").length ? url.searchParams.getAll("genres") : url.searchParams.get("genres")),
   };

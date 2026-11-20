@@ -5,6 +5,7 @@ const ProgressSchema = z.object({
   mangaId: z.string().min(1),
   chapterId: z.string().min(1),
   pageIndex: z.number().int().min(0).default(0),
+  pageOffset: z.number().min(0).max(1).optional(),
   scrollPercent: z.number().min(0).max(100).default(0),
 });
 
@@ -24,13 +25,14 @@ export async function POST(request: Request) {
     return Response.json({ ok: true, mode: "anonymous" });
   }
 
-  const { mangaId, chapterId, pageIndex, scrollPercent } = parsed.data;
+  const { mangaId, chapterId, pageIndex, pageOffset, scrollPercent } = parsed.data;
   const { error: writeError } = await supabase.from("reading_history").upsert(
     {
       user_id: userData.user.id,
       manga_id: mangaId,
       chapter_id: chapterId,
       page_index: pageIndex,
+      ...(pageOffset !== undefined ? { page_offset: pageOffset } : {}),
       scroll_percent: scrollPercent,
       updated_at: new Date().toISOString(),
     },

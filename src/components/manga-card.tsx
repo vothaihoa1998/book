@@ -3,9 +3,9 @@ import { type Manga } from "@/lib/types";
 import { MangaCover } from "./manga-cover";
 
 export function MangaCard({ manga, compact = false, eager = false }: { manga: Manga; compact?: boolean; eager?: boolean }) {
-  const year = new Date(manga.updatedAt).getFullYear();
+  const year = manga.releaseYear;
   const hasChapter = Boolean(manga.lastChapter && manga.lastChapter.trim());
-  const hasYear = Number.isFinite(year) && year > 1970;
+  const hasYear = typeof year === "number";
   // Only show the badge if we have at least one meaningful value; otherwise
   // the "? · ?" placeholder was visual noise on cards.
   const topBadgeContent = hasChapter || hasYear
@@ -18,6 +18,7 @@ export function MangaCard({ manga, compact = false, eager = false }: { manga: Ma
       className="group flex h-full min-w-0 flex-col rounded-[var(--radius-card)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
     >
       <MangaCover
+        decorative
         manga={manga}
         eager={eager}
         className="transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[var(--shadow-lift)]"

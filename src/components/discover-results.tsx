@@ -1,283 +1,119 @@
 "use client";
 
-import { Grid3x3, LayoutList, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Grid3x3, LayoutList, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { InstantSearch } from "@/components/instant-search";
 import { MangaCard } from "@/components/manga-card";
+import { MangaCover } from "@/components/manga-cover";
 import { Sheet } from "@/components/ui/sheet";
-import { FilterChip, RadioChip, Button } from "@/components/ui/primitives";
+import { relativeTime } from "@/lib/format-time";
+import { discoverSearchHref } from "@/lib/search-links";
 import { DISCOVER_GENRES } from "@/lib/sources/search-utils";
+import { mangaFormatLabels, type Manga, type MangaSearchFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const STATUSES = [
-  { value: "all", label: "Tất cả" },
-  { value: "ongoing", label: "Đang ra" },
-  { value: "completed", label: "Hoàn thành" },
-  { value: "hiatus", label: "Tạm nghỉ" },
-  { value: "cancelled", label: "Đã huỷ" },
+  ["all", "Mọi trạng thái"], ["ongoing", "Đang ra"], ["completed", "Hoàn thành"],
+  ["hiatus", "Tạm nghỉ"], ["cancelled", "Đã hủy"], ["unknown", "Chưa rõ"],
 ];
-
 const SORTS = [
-  { value: "latest", label: "Mới cập nhật" },
-  { value: "hot", label: "Hot" },
-  { value: "popular", label: "Phổ biến" },
-  { value: "rating", label: "Đánh giá" },
-  { value: "relevance", label: "Liên quan" },
+  ["latest", "Mới cập nhật"], ["hot", "Nổi bật gần đây"], ["popular", "Phổ biến"],
+  ["rating", "Đánh giá"], ["relevance", "Liên quan"],
 ];
+const SOURCES = [["all", "Mọi nguồn"], ["mangadex", "MangaDex"], ["otruyen", "OTruyen"]];
+const LANGUAGES = [["all", "Mọi ngôn ngữ"], ["vi", "Tiếng Việt"], ["en", "Tiếng Anh"], ["ja", "Tiếng Nhật"], ["ko", "Tiếng Hàn"], ["zh", "Tiếng Trung"]];
 
-const SOURCES = [
-  { value: "all", label: "Tất cả" },
-  { value: "mangadex", label: "MangaDex" },
-  { value: "otruyen", label: "OTruyen" },
-];
+export type DiscoverState = MangaSearchFilters & { view: "grid" | "list" };
 
-function years() {
-  const current = new Date().getFullYear();
-  return [
-    { value: "all", label: "Tất cả" },
-    { value: String(current), label: String(current) },
-    { value: String(current - 1), label: String(current - 1) },
-    { value: String(current - 2), label: String(current - 2) },
-    { value: String(current - 3), label: String(current - 3) },
-    { value: String(current - 4), label: String(current - 4) },
-    { value: String(current - 5), label: String(current - 5) },
-    { value: "older", label: `Trước ${current - 5}` },
-  ];
-}
-
-export type DiscoverState = {
-  q: string;
-  status: string;
-  sort: string;
-  year: string;
-  source: string;
-  genres: string[];
-  view: "grid" | "list";
-  page: number;
-};
-
-type MangaList = Array<Parameters<typeof MangaCard>[0]["manga"]>;
-
-export type DiscoverResultsProps = {
+export function DiscoverResults({ state, results, hasMore, total, limitations }: {
   state: DiscoverState;
-  results: MangaList;
+  results: Manga[];
   hasMore: boolean;
-  resultCount: number;
   total?: number;
-};
+  limitations: string[];
+}) {
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { q, source, status, year, releaseYear, sort, language, format, genres, view, page } = state;
+  const filters = useMemo(() => ({
+    source, status, year, releaseYear, sort, language, format, genres, view,
+  }), [source, status, year, releaseYear, sort, language, format, genres, view]);
 
-/**
- * Phase H3: Discover results client — render grid/list với view toggle,
- * filter sheet (Sheet primitive), search bar sticky, active filter chips.
- */
-export function DiscoverResults({ state, results, hasMore, resultCount, total }: DiscoverResultsProps) {
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [view, setView] = useState<DiscoverState["view"]>(state.view ?? "grid");
-  const searchFilters = useMemo(() => ({
-    source: state.source,
-    status: state.status,
-    sort: state.sort,
-    year: state.year,
-    view,
-    genres: state.genres,
-  }), [state.genres, state.source, state.status, state.sort, state.year, view]);
-
-  const activeFilterCount =
-    state.genres.length +
-    (state.status !== "all" ? 1 : 0) +
-    (state.year !== "all" ? 1 : 0) +
-    (state.source !== "all" ? 1 : 0) +
-    (state.sort !== "latest" ? 1 : 0) +
-    (state.q ? 1 : 0);
+  const activeCount = genres.length + [source, status, year, releaseYear, language, format].filter((value) => value !== "all").length +
+    Number(sort !== "latest");
 
   function hrefFor(overrides: Partial<DiscoverState>) {
     const next = { ...state, ...overrides };
-    const params = new URLSearchParams();
-    if (next.q) params.set("q", next.q);
-    if (next.status !== "all") params.set("status", next.status);
-    if (next.sort !== "latest") params.set("sort", next.sort);
-    if (next.year !== "all") params.set("year", next.year);
-    if (next.source !== "all") params.set("source", next.source);
-    if (next.page > 1) params.set("page", String(next.page));
-    if (next.view !== "grid") params.set("view", next.view);
-    next.genres.forEach((g) => params.append("genres", g));
-    const q = params.toString();
-    return q ? `/discover?${q}` : "/discover";
+    return discoverSearchHref(next.q, next);
   }
 
   return (
     <>
-      {/* Sticky filter bar */}
-      <div className="sticky top-0 z-20 -mx-4 flex items-center gap-2 bg-background/92 px-4 py-2.5 backdrop-blur-md sm:-mx-6 sm:px-6">
-        <InstantSearch
-          key={state.q}
-          className="flex-1"
-          defaultQuery={state.q}
-          filters={searchFilters}
-          placeholder="Tìm truyện, tác giả, thể loại..."
-          inputClassName="h-auto rounded-full py-1.5 pl-9 pr-9 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-          dropdownClassName="z-[70] rounded-[var(--radius-sheet)]"
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setFilterOpen(true)}
-          aria-label="Mở bộ lọc"
-          className="relative h-8 rounded-full px-2.5 text-[12px]"
+      <div id="search" className="mt-5 flex scroll-mt-20 items-center gap-2">
+        <InstantSearch key={q} className="min-w-0 flex-1" defaultQuery={q} filters={filters} placeholder="Tìm tên truyện" />
+        <button
+          type="button"
+          onClick={() => setFiltersOpen(true)}
+          className="flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium hover:bg-secondary"
         >
-          <SlidersHorizontal size={13} />
-          <span className="hidden sm:inline">Lọc</span>
-          {activeFilterCount > 0 && (
-            <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-              {activeFilterCount}
-            </span>
-          )}
-        </Button>
-        <div className="hidden items-center gap-0.5 rounded-full border border-border bg-card p-0.5 sm:flex">
-          <button
-            type="button"
-            onClick={() => setView("grid")}
-            aria-pressed={view === "grid"}
-            aria-label="Xem dạng lưới"
-            className={cn(
-              "inline-flex h-7 w-7 items-center justify-center rounded-full transition",
-              view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Grid3x3 size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("list")}
-            aria-pressed={view === "list"}
-            aria-label="Xem dạng danh sách"
-            className={cn(
-              "inline-flex h-7 w-7 items-center justify-center rounded-full transition",
-              view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <LayoutList size={13} />
-          </button>
-        </div>
+          <SlidersHorizontal size={15} /> Bộ lọc {activeCount > 0 && <span className="text-primary">({activeCount})</span>}
+        </button>
       </div>
 
-      {/* Active filter chips (clickable to remove) */}
-      {activeFilterCount > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Đang lọc:</span>
-          {state.q && (
-            <FilterChip active className="gap-1 pl-2 pr-1 text-[10px]">
-              <Link href={hrefFor({ q: "", page: 1 })} className="flex items-center gap-1">
-                Tìm: {state.q}
-                <span className="text-base leading-none">×</span>
-              </Link>
-            </FilterChip>
-          )}
-          {state.status !== "all" && (
-            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
-              <Link href={hrefFor({ status: "all", page: 1 })} className="flex items-center gap-1">
-                {STATUSES.find((s) => s.value === state.status)?.label}
-                <span className="text-base leading-none">×</span>
-              </Link>
-            </FilterChip>
-          )}
-          {state.sort !== "latest" && (
-            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
-              <Link href={hrefFor({ sort: "latest", page: 1 })} className="flex items-center gap-1">
-                {SORTS.find((s) => s.value === state.sort)?.label}
-                <span className="text-base leading-none">×</span>
-              </Link>
-            </FilterChip>
-          )}
-          {state.year !== "all" && (
-            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
-              <Link href={hrefFor({ year: "all", page: 1 })} className="flex items-center gap-1">
-                {state.year === "older" ? "Cũ hơn" : state.year}
-                <span className="text-base leading-none">×</span>
-              </Link>
-            </FilterChip>
-          )}
-          {state.source !== "all" && (
-            <FilterChip active className="gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
-              <Link href={hrefFor({ source: "all", page: 1 })} className="flex items-center gap-1">
-                {SOURCES.find((s) => s.value === state.source)?.label}
-                <span className="text-base leading-none">×</span>
-              </Link>
-            </FilterChip>
-          )}
-          {state.genres.map((g) => (
-            <FilterChip key={g} active className="h-8 min-h-0 gap-1 pl-2.5 pr-1 text-[11px] font-semibold normal-case">
-              <Link href={hrefFor({ genres: state.genres.filter((x) => x !== g), page: 1 })} className="flex items-center gap-1">
-                {DISCOVER_GENRES.find((d) => d.value === g)?.label ?? g}
-                <span className="text-base leading-none">×</span>
-              </Link>
-            </FilterChip>
+      {activeCount > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {format !== "all" && <FilterLink href={hrefFor({ format: "all", page: 1 })}>{mangaFormatLabels[format]}</FilterLink>}
+          {language !== "all" && <FilterLink href={hrefFor({ language: "all", page: 1 })}>{LANGUAGES.find(([value]) => value === language)?.[1] ?? language}</FilterLink>}
+          {source !== "all" && <FilterLink href={hrefFor({ source: "all", page: 1 })}>{SOURCES.find(([value]) => value === source)?.[1]}</FilterLink>}
+          {status !== "all" && <FilterLink href={hrefFor({ status: "all", page: 1 })}>{STATUSES.find(([value]) => value === status)?.[1] ?? status}</FilterLink>}
+          {sort !== "latest" && <FilterLink href={hrefFor({ sort: "latest", page: 1 })}>{SORTS.find(([value]) => value === sort)?.[1]}</FilterLink>}
+          {releaseYear !== "all" && <FilterLink href={hrefFor({ releaseYear: "all", page: 1 })}>Phát hành {releaseYear}</FilterLink>}
+          {year !== "all" && <FilterLink href={hrefFor({ year: "all", page: 1 })}>Cập nhật {year === "older" ? "trước đây" : year}</FilterLink>}
+          {genres.map((genre) => (
+            <FilterLink key={genre} href={hrefFor({ genres: genres.filter((value) => value !== genre), page: 1 })}>
+              {DISCOVER_GENRES.find((option) => option.value === genre)?.label ?? genre}
+            </FilterLink>
           ))}
-          <Link
-            href="/discover"
-            className="text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            Đặt lại
-          </Link>
+          <Link href={discoverSearchHref(q, { view })} className="p-1 text-muted-foreground hover:text-foreground hover:underline">Đặt lại bộ lọc</Link>
         </div>
       )}
 
-      {/* Result count */}
-      <p className="mt-3 text-[11px] tabular-nums text-muted-foreground">
-        {resultCount.toLocaleString("vi-VN")} truyện
-        {hasMore && " · còn trang sau"}
-      </p>
+      <div className="mt-6 flex items-center justify-between border-b border-border pb-3">
+        <p className="text-sm text-muted-foreground">
+          {results.length.toLocaleString("vi-VN")} truyện trên trang {page}
+          {total !== undefined && total > results.length && <> · {total.toLocaleString("vi-VN")} kết quả</>}
+        </p>
+        <div className="flex gap-1 rounded-lg border border-border bg-card p-0.5">
+          <Link href={hrefFor({ view: "grid" })} scroll={false} aria-label="Xem dạng lưới" aria-current={view === "grid" ? "true" : undefined}
+            className={cn("rounded-md p-2 text-muted-foreground hover:text-foreground", view === "grid" && "bg-secondary text-primary")}><Grid3x3 size={16} /></Link>
+          <Link href={hrefFor({ view: "list" })} scroll={false} aria-label="Xem dạng danh sách" aria-current={view === "list" ? "true" : undefined}
+            className={cn("rounded-md p-2 text-muted-foreground hover:text-foreground", view === "list" && "bg-secondary text-primary")}><LayoutList size={16} /></Link>
+        </div>
+      </div>
 
-      {/* Results: grid hoặc list */}
+      {limitations.length > 0 && <p className="mt-3 text-xs text-muted-foreground">{limitations.join(" ")}</p>}
+
       {results.length === 0 ? (
-        <div className="mt-8 flex flex-col items-center gap-3 rounded-[var(--radius-card)] border border-dashed border-border bg-card/50 p-10 text-center">
-          <p className="text-sm font-medium text-foreground">Không có truyện nào phù hợp</p>
-          <p className="text-[12px] text-muted-foreground">Thử bỏ bớt thể loại, đổi năm, hoặc đổi từ khoá.</p>
-          <Link href="/discover" className="mt-1 rounded-full bg-primary px-4 py-1.5 text-[12px] font-semibold text-primary-foreground transition hover:bg-primary/90">
-            Bỏ filter
-          </Link>
+        <div className="mt-4 rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
+          <p className="font-semibold">Chưa có truyện phù hợp trên trang này.</p>
+          <Link href={discoverSearchHref(q, { view })} className="mt-2 inline-block text-sm text-primary hover:underline">Bỏ bộ lọc</Link>
         </div>
       ) : view === "grid" ? (
-        <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {results.map((manga, index) => (
-            <MangaCard key={manga.id} manga={manga} compact eager={index < 6} />
-          ))}
+        <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {results.map((manga, index) => <MangaCard key={manga.id} manga={manga} compact eager={index < 6} />)}
         </div>
       ) : (
-        <ul className="mt-5 divide-y divide-border overflow-hidden rounded-[var(--radius-card)] border border-border bg-card">
+        <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((manga) => (
             <li key={manga.id}>
-              <Link
-                href={`/manga/${encodeURIComponent(manga.id)}`}
-                className="group grid grid-cols-[56px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 transition hover:bg-secondary/50 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:px-4"
-              >
-                <span className="relative block aspect-[2/3] w-full overflow-hidden rounded-[var(--radius-control)] bg-surface-strong ring-1 ring-border">
-                  {manga.cover && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={manga.cover} alt="" loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <h3 className="line-clamp-1 break-words text-[14px] font-semibold text-foreground sm:text-[15px]">{manga.title}</h3>
-                  <p className="mt-0.5 line-clamp-1 text-[12px] text-muted-foreground">
-                    {[manga.author, manga.lastChapter ? `Ch. ${manga.lastChapter}` : null].filter(Boolean).join(" · ")}
+              <Link href={`/manga/${encodeURIComponent(manga.id)}`} className="group grid h-full grid-cols-[56px_minmax(0,1fr)] items-center gap-3 rounded-xl border border-border bg-card p-2.5 hover:border-primary/40">
+                <MangaCover decorative manga={manga} className="rounded-md" />
+                <div className="min-w-0 space-y-1">
+                  <p className="meta-mono">{manga.format ? mangaFormatLabels[manga.format] : manga.source}</p>
+                  <h2 className="line-clamp-2 text-sm font-semibold">{manga.title}</h2>
+                  <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+                    {manga.lastChapter && <span className="text-primary">Ch. {manga.lastChapter}</span>}{relativeTime(manga.updatedAt)}
                   </p>
-                  {manga.genres.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {manga.genres.slice(0, 3).map((g) => (
-                        <span key={g} className="rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-                          {g}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right">
-                  <span className="meta-mono block">{manga.status}</span>
-                  {manga.rating && (
-                    <span className="mt-0.5 inline-block text-[10px] font-semibold text-primary">★ {manga.rating.toFixed(1)}</span>
-                  )}
                 </div>
               </Link>
             </li>
@@ -285,177 +121,67 @@ export function DiscoverResults({ state, results, hasMore, resultCount, total }:
         </ul>
       )}
 
-      {/* Filter sheet — dùng Sheet primitive (G2) */}
-      <Sheet
-        open={filterOpen}
-        onClose={() => setFilterOpen(false)}
-        ariaLabel="Bộ lọc khám phá"
-        footer={
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              href="/discover"
-              className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-            >
-              Đặt lại
-            </Link>
-            <Button
-              type="submit"
-              form="discover-filter-form"
-              className="flex-1 rounded-full text-[13px]"
-            >
-              Lọc kết quả ({resultCount})
-            </Button>
-          </div>
-        }
-      >
-        <form id="discover-filter-form" action="/discover" method="get" className="flex flex-col gap-5 pb-2">
-          <h2 className="text-[15px] font-semibold text-foreground">Bộ lọc</h2>
-
-          {/* Sort */}
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sắp xếp</p>
-            <div className="flex flex-wrap gap-1.5">
-              {SORTS.map((opt) => (
-                <label key={opt.value} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name="sort"
-                    value={opt.value}
-                    defaultChecked={state.sort === opt.value}
-                    className="peer sr-only"
-                  />
-                  <RadioChip className="text-[11px]">
-                    {opt.label}
-                  </RadioChip>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Status */}
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Trạng thái</p>
-            <div className="flex flex-wrap gap-1.5">
-              {STATUSES.map((opt) => (
-                <label key={opt.value} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name="status"
-                    value={opt.value}
-                    defaultChecked={state.status === opt.value}
-                    className="peer sr-only"
-                  />
-                  <RadioChip className="text-[11px]">
-                    {opt.label}
-                  </RadioChip>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Source */}
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Nguồn</p>
-            <div className="flex flex-wrap gap-1.5">
-              {SOURCES.map((opt) => (
-                <label key={opt.value} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name="source"
-                    value={opt.value}
-                    defaultChecked={state.source === opt.value}
-                    className="peer sr-only"
-                  />
-                  <RadioChip className="text-[11px]">
-                    {opt.label}
-                  </RadioChip>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Year */}
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Năm cập nhật</p>
-            <div className="flex flex-wrap gap-1.5">
-              {years().map((opt) => (
-                <label key={opt.value} className="cursor-pointer">
-                  <input
-                    type="radio"
-                    name="year"
-                    value={opt.value}
-                    defaultChecked={state.year === opt.value}
-                    className="peer sr-only"
-                  />
-                  <RadioChip className="text-[11px]">
-                    {opt.label}
-                  </RadioChip>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Genres */}
-          <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thể loại</p>
-            <div className="flex flex-wrap gap-1.5">
-              {DISCOVER_GENRES.map((opt) => (
-                <label key={opt.value} className="cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="genres"
-                    value={opt.value}
-                    defaultChecked={state.genres.includes(opt.value)}
-                    className="peer sr-only"
-                  />
-                  <RadioChip className="text-[11px]">
-                    {opt.label}
-                  </RadioChip>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Preserve other state */}
-          {state.q && <input type="hidden" name="q" value={state.q} />}
-          {state.view !== "grid" && <input type="hidden" name="view" value={state.view} />}
-        </form>
-      </Sheet>
-
-      {/* Pagination (footer) */}
-      {(state.page > 1 || hasMore) && (
-        <nav className="mt-8 flex items-center justify-between gap-2 border-t border-border pt-5" aria-label="Phân trang">
-          {state.page > 1 ? (
-            <Link
-              href={hrefFor({ page: state.page - 1 })}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-foreground transition hover:bg-secondary"
-            >
-              ← Trang {state.page - 1}
-            </Link>
-          ) : (
-            <span />
-          )}
-          <span className="text-[11px] tabular-nums text-muted-foreground">
-            Trang {state.page}
-            {total && total > 0 ? (
-              <>
-                {" / "}
-                <span className="text-foreground">{Math.max(state.page, Math.ceil(total / (results.length || 1)))}</span>
-              </>
-            ) : null}
-          </span>
-          {hasMore ? (
-            <Link
-              href={hrefFor({ page: state.page + 1 })}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[12px] font-medium text-foreground transition hover:bg-secondary"
-            >
-              Trang {state.page + 1} →
-            </Link>
-          ) : (
-            <span />
-          )}
+      {(page > 1 || hasMore) && (
+        <nav aria-label="Phân trang kết quả" className="mt-7 flex items-center justify-between gap-2 text-sm">
+          {page > 1 ? <Link href={hrefFor({ page: page - 1 })} className="flex items-center gap-2 rounded-lg border border-border p-2"><ArrowLeft size={15} /> Trang trước</Link> : <span />}
+          <span className="meta-mono">Trang {page}</span>
+          {hasMore ? <Link href={hrefFor({ page: page + 1 })} className="flex items-center gap-2 rounded-lg border border-border p-2">Trang sau <ArrowRight size={15} /></Link> : <span />}
         </nav>
       )}
+
+      <Sheet open={filtersOpen} onClose={() => setFiltersOpen(false)} ariaLabel="Bộ lọc truyện"
+        footer={<button form="discover-filters" className="ink-cta w-full rounded-lg p-2.5 text-sm font-semibold">Áp dụng bộ lọc</button>}>
+        <form id="discover-filters" action="/discover" method="get" className="space-y-4">
+          {q && <input type="hidden" name="q" value={q} />}
+          {view !== "grid" && <input type="hidden" name="view" value={view} />}
+          <h2 className="text-lg font-semibold">Bộ lọc truyện</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <FilterSelect label="Loại truyện" name="format" value={format} options={[["all", "Mọi loại"], ...Object.entries(mangaFormatLabels)]} />
+            <FilterSelect label="Ngôn ngữ bản dịch" name="language" value={language}
+              options={LANGUAGES.some(([code]) => code === language) ? LANGUAGES : [...LANGUAGES, [language, language]]} />
+            <FilterSelect label="Nguồn" name="source" value={source} options={SOURCES} />
+            <FilterSelect label="Trạng thái" name="status" value={status} options={STATUSES} />
+            <FilterSelect label="Năm cập nhật" name="year" value={year} options={[
+              ["all", "Mọi năm"],
+              ...Array.from({ length: 6 }, (_, index) => String(new Date().getFullYear() - index)).map((value) => [value, value]),
+              ...(year !== "all" && year !== "older" && Number(year) < new Date().getFullYear() - 5 ? [[year, year]] : []),
+              ["older", "Cũ hơn"],
+            ]} />
+            <FilterSelect label="Sắp xếp" name="sort" value={sort} options={SORTS} />
+            <label className="min-w-0 text-xs font-medium text-muted-foreground">
+              Năm phát hành
+              <input type="number" min="1900" max={new Date().getFullYear()} placeholder="Mọi năm" name="releaseYear" defaultValue={releaseYear === "all" ? "" : releaseYear}
+                className="mt-1 block h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground" />
+            </label>
+          </div>
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold">Thể loại</legend>
+            <div className="flex flex-wrap gap-2">
+              {[...DISCOVER_GENRES, ...genres.filter((value) => !DISCOVER_GENRES.some((genre) => genre.value === value)).map((value) => ({ value, label: value }))].map((genre) => (
+                <label key={genre.value} className="cursor-pointer">
+                  <input name="genres" type="checkbox" value={genre.value} defaultChecked={genres.includes(genre.value)} className="peer sr-only" />
+                  <span className="inline-block rounded-lg border border-border px-2.5 py-1.5 text-xs peer-checked:border-primary/60 peer-checked:bg-primary/10 peer-checked:text-primary peer-focus-visible:outline">{genre.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </form>
+      </Sheet>
     </>
+  );
+}
+
+function FilterLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return <Link href={href} className="rounded-md bg-primary/10 px-2 py-1.5 text-primary hover:bg-primary/20">{children} <span aria-hidden="true">×</span></Link>;
+}
+
+function FilterSelect({ label, name, value, options }: { label: string; name: string; value: string; options: string[][] }) {
+  return (
+    <label className="min-w-0 text-xs font-medium text-muted-foreground">
+      {label}
+      <select name={name} defaultValue={value} className="mt-1 block h-10 w-full rounded-lg border border-border bg-background px-2 text-sm text-foreground">
+        {options.map(([option, title]) => <option key={option} value={option}>{title}</option>)}
+      </select>
+    </label>
   );
 }

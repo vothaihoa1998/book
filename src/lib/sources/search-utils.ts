@@ -1,4 +1,4 @@
-import { type Manga, type MangaSearchFilters, type MangaSearchParams, type MangaSearchSort, type MangaSearchSource, type MangaStatus } from "../types";
+import { mangaFormatLabels, type Manga, type MangaFormat, type MangaSearchFilters, type MangaSearchParams, type MangaSearchSort, type MangaSearchSource, type MangaStatus } from "../types";
 
 const SEARCH_SOURCES: MangaSearchSource[] = ["all", "mangadex", "otruyen"];
 const SEARCH_SORTS: MangaSearchSort[] = ["relevance", "latest", "hot", "popular", "rating"];
@@ -42,19 +42,21 @@ export function normalizeGenres(value: unknown): string[] {
   return Array.from(new Set(raw.map((item) => String(item).trim().toLowerCase()).filter(Boolean))).slice(0, 8);
 }
 
-function asSearchYear(value: unknown) {
+function asSearchYear(value: unknown, lowerBound = 1970) {
   const text = typeof value === "string" ? value.trim().toLowerCase() : "";
   const currentYear = new Date().getFullYear();
   if (!text || text === "all") return "all";
   if (text === "older") return "older";
   const year = Number(text);
-  if (Number.isInteger(year) && year >= 1970 && year <= currentYear) return String(year);
+  if (Number.isInteger(year) && year >= lowerBound && year <= currentYear) return String(year);
   return "all";
 }
 
 export function normalizeSearchParams(params: MangaSearchParams = {}): NormalizedSearchParams {
   const page = Number(params.page);
-  const q = params.q?.trim() ?? "";
+  const q = params.q?.trim().slice(0, 200) ?? "";
+  const releaseYear = asSearchYear(params.releaseYear, 1900);
+  const language = normalizeChapterLanguage(params.language);
 
   return {
     q,
@@ -62,20 +64,31 @@ export function normalizeSearchParams(params: MangaSearchParams = {}): Normalize
     status: asSearchStatus(params.status),
     sort: asSearchSort(params.sort, Boolean(q)),
     year: asSearchYear(params.year),
-    page: Number.isInteger(page) && page > 0 ? page : 1,
+    releaseYear: releaseYear === "older" ? "all" : releaseYear,
+    language: language ?? "all",
+    format: params.format && Object.hasOwn(mangaFormatLabels, params.format) ? params.format as MangaFormat : "all",
+    page: Number.isSafeInteger(page) && page > 0 ? Math.min(page, 400) : 1,
     genres: normalizeGenres(params.genres),
   };
+}
+
+export function normalizeChapterLanguage(value: string | null | undefined) {
+  const code = value?.trim().toLowerCase();
+  return code && /^[a-z]{2,3}(?:-[a-z]{2,4})?$/.test(code) && code !== "all" ? code : undefined;
 }
 
 export function searchCacheKey(params: NormalizedSearchParams) {
   const genres = params.genres.map((genre) => genre.toLowerCase()).sort().join("+") || "all";
   return [
-    "search:v3",
+    "search:v4",
     params.q.toLowerCase() || "home",
     params.source,
     params.status,
     params.sort,
     params.year,
+    params.releaseYear,
+    params.language,
+    params.format,
     genres,
     params.page,
   ].join(":");
@@ -115,7 +128,7 @@ function itemYear(item: Manga) {
   return Number.isInteger(year) ? year : null;
 }
 
-function foldText(value: string) {
+export function foldText(value: string) {
   return value
     .replace(/[Đđ]/g, "d")
     .normalize("NFKD")
@@ -156,6 +169,16 @@ function hotScore(item: Manga) {
 
 export function applySearchFilters(items: Manga[], params: NormalizedSearchParams) {
   let results = items;
+
+  if (params.releaseYear !== "all") {
+    results = results.filter((item) => item.releaseYear === Number(params.releaseYear));
+  }
+  if (params.language !== "all") {
+    results = results.filter((item) => item.languages?.includes(params.language));
+  }
+  if (params.format !== "all") {
+    results = results.filter((item) => item.format === params.format);
+  }
 
   if (params.status !== "all") {
     results = results.filter((item) => item.status === params.status);
@@ -200,7 +223,10 @@ export function sourceLimitations(params: NormalizedSearchParams, sources: Manga
     limitations.add("OTruyen không có tín hiệu popularity/rating ổn định, kết quả được sắp theo dữ liệu normalize sau khi fetch.");
   }
   if (params.year !== "all") {
-    limitations.add("Year filter dùng updatedAt/source metadata hiện có, chưa phải năm phát hành chính thức cho mọi nguồn.");
+    limitations.add("Năm cập nhật và năm phát hành là hai bộ lọc riêng.");
+  }
+  if (sources.includes("otruyen") && (params.releaseYear !== "all" || params.format !== "all")) {
+    limitations.add("Kết quả OTruyen chỉ gồm truyện có đủ thông tin cho bộ lọc đã chọn.");
   }
   if (params.sort === "hot") {
     limitations.add("Hot là điểm best-effort từ độ mới, chapter mới và rating/follow nếu nguồn cung cấp.");

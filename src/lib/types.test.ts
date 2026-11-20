@@ -120,6 +120,9 @@ describe("search helpers", () => {
       status: "completed",
       sort: "latest",
       year: "all",
+      releaseYear: "all",
+      language: "all",
+      format: "all",
       page: 2,
       genres: ["action"],
     });
@@ -131,6 +134,14 @@ describe("search helpers", () => {
     expect(first).not.toBe(second);
     expect(second).toContain("mangadex");
     expect(second).toContain("older");
+  });
+
+  it("keeps release year separate from update year and matches the selected translation and format", () => {
+    const item: Manga = { ...manga[0], releaseYear: 2020, languages: ["vi", "en"], format: "manga" };
+    const filters = { releaseYear: "2020", year: "2026", language: "en", format: "manga" };
+    expect(applySearchFilters([item], normalizeSearchParams(filters))).toEqual([item]);
+    expect(applySearchFilters([item], normalizeSearchParams({ ...filters, releaseYear: "2026" }))).toEqual([]);
+    expect(discoverSearchHref("", { ...filters, page: 2 })).toContain("releaseYear=2020&language=en&format=manga&page=2");
   });
 
   it("selects all sources or one source explicitly", () => {

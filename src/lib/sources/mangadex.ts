@@ -37,7 +37,7 @@ type MangaDexAtHomeResponse = {
   };
 };
 
-type MangaDexSearchOptions = Partial<Pick<NormalizedSearchParams, "page" | "status" | "sort" | "genres" | "year">> & {
+type MangaDexSearchOptions = Partial<NormalizedSearchParams> & {
   limit?: number;
 };
 
@@ -101,6 +101,10 @@ function mapManga(entity: MangaDexEntity): Manga {
   const coverFile = coverRel?.attributes?.fileName as string | undefined;
   const authorRel = relationship(entity, "author") || relationship(entity, "artist");
   const tags = (entity.attributes.tags as MangaDexEntity[] | undefined) ?? [];
+  const originalLanguage = entity.attributes.originalLanguage;
+  const format = originalLanguage === "ja" ? "manga" : originalLanguage === "ko" ? "manhwa" : originalLanguage === "zh" || originalLanguage === "zh-hk" ? "manhua" : undefined;
+  const releaseYear = entity.attributes.year;
+  const contentRating = entity.attributes.contentRating;
   const altTitles = ((entity.attributes.altTitles as Array<Record<string, string>> | undefined) ?? [])
     .map((item) => pickLocalized(item))
     .filter(Boolean);
@@ -114,8 +118,17 @@ function mapManga(entity: MangaDexEntity): Manga {
     altTitles: unique(altTitles),
     cover: coverFile ? `https://uploads.mangadex.org/covers/${entity.id}/${coverFile}.512.jpg` : null,
     author: (authorRel?.attributes?.name as string | undefined) ?? null,
+    artist: relationship(entity, "artist")?.attributes?.name as string | undefined,
     status: mapStatus(entity.attributes.status),
     genres: tags.map((tag) => pickLocalized(tag.attributes.name as Record<string, string>)).filter(Boolean),
+    themes: tags.filter((tag) => tag.attributes.group === "theme").map((tag) => pickLocalized(tag.attributes.name as Record<string, string>)).filter(Boolean),
+    format,
+    releaseYear: typeof releaseYear === "number" && Number.isInteger(releaseYear) ? releaseYear : undefined,
+    languages: Array.isArray(entity.attributes.availableTranslatedLanguages)
+      ? entity.attributes.availableTranslatedLanguages.filter((language): language is string => typeof language === "string")
+      : undefined,
+    contentRating: contentRating === "safe" || contentRating === "suggestive" ? contentRating : undefined,
+    demographic: typeof entity.attributes.publicationDemographic === "string" ? entity.attributes.publicationDemographic : undefined,
     description:
       pickLocalized(entity.attributes.description as Record<string, string>) ||
       "Chưa có mô tả tiếng Việt cho truyện này.",
@@ -127,14 +140,8 @@ function mapManga(entity: MangaDexEntity): Manga {
 
 function mapChapter(entity: MangaDexEntity, mangaId: string): Chapter {
   const chapterNumber = (entity.attributes.chapter as string | undefined) ?? "?";
-  // Phase F2: detect direction from group name (MangaDex scanlation groups thường
-  // có prefix "Manhwa" / "Manhua" trong tên) — fallback Manga sẽ xử lý ở pickReaderDirection.
-  const groups = (entity as { relationships?: Array<{ type: string; attributes?: { name?: string } }> }).relationships ?? [];
-  const groupName = groups.find((r) => r.type === "scanlation_group")?.attributes?.name?.toLowerCase() ?? "";
-  let direction: Chapter["direction"];
-  if (groupName.includes("manhwa") || groupName.includes("manhua") || groupName.includes("webtoon")) {
-    direction = "horizontal-ltr";
-  }
+  const group = relationship(entity, "scanlation_group")?.attributes?.name;
+  const externalUrl = publisherUrl(entity.attributes.externalUrl);
   return {
     id: makeScopedId("mangadex", entity.id),
     mangaId,
@@ -145,8 +152,19 @@ function mapChapter(entity: MangaDexEntity, mangaId: string): Chapter {
     pages: [],
     language: (entity.attributes.translatedLanguage as string | undefined) ?? "vi",
     updatedAt: (entity.attributes.updatedAt as string | undefined) ?? new Date().toISOString(),
-    direction,
+    externalUrl,
+    group: typeof group === "string" ? group : undefined,
   };
+}
+
+function publisherUrl(value: unknown) {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    if ((url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password) return url.href;
+  } catch {
+    return undefined;
+  }
 }
 
 function searchOrder(sort: MangaDexSearchOptions["sort"]) {
@@ -187,7 +205,28 @@ export async function getRecentMangaDex(limit = 12) {
     "order[latestUploadedChapter]": "desc",
   });
   const response = await fetchJson<MangaDexListResponse>(`${API}/manga?${qs}`);
-  return (response.data ?? []).map(mapManga);
+  const manga = response.data ?? [];
+  const chapterIds = unique(manga.map((item) => latestChapterId(item)));
+  if (!chapterIds.length) return manga.map(mapManga);
+
+  const chapterQuery = queryString({ limit: chapterIds.length, "ids[]": chapterIds });
+  const chapters = await fetchJson<MangaDexListResponse>(`${API}/chapter?${chapterQuery}`).catch(() => null);
+  const byId = new Map(chapters?.data?.map((item) => [item.id, item.attributes]));
+  return manga.map((item) => {
+    const mapped = mapManga(item);
+    const latest = byId.get(latestChapterId(item) ?? "");
+    const date = latest?.readableAt ?? latest?.publishAt;
+    return {
+      ...mapped,
+      lastChapter: typeof latest?.chapter === "string" ? latest.chapter : mapped.lastChapter,
+      updatedAt: typeof date === "string" && Number.isFinite(Date.parse(date)) ? date : mapped.updatedAt,
+    };
+  });
+}
+
+function latestChapterId(item: MangaDexEntity) {
+  const id = item.attributes.latestUploadedChapter;
+  return typeof id === "string" ? id : undefined;
 }
 
 export async function searchMangaDex(query: string, options: number | MangaDexSearchOptions = 1, limit = 24) {
@@ -199,7 +238,11 @@ export async function searchMangaDex(query: string, options: number | MangaDexSe
     offset: Math.max(0, (normalized.page ?? 1) - 1) * (normalized.limit ?? limit),
     title: query,
     "includes[]": ["cover_art", "author", "artist"],
-    "availableTranslatedLanguage[]": "vi",
+    "availableTranslatedLanguage[]": normalized.language && normalized.language !== "all" ? normalized.language : undefined,
+    "originalLanguage[]": normalized.format === "manga" ? "ja"
+      : normalized.format === "manhwa" ? "ko"
+      : normalized.format === "manhua" ? ["zh", "zh-hk"] : undefined,
+    year: normalized.releaseYear && normalized.releaseYear !== "all" ? normalized.releaseYear : undefined,
     "contentRating[]": ["safe", "suggestive"],
     "status[]": normalized.status && normalized.status !== "all" ? normalized.status : undefined,
     "includedTags[]": tags.length ? tags : undefined,
@@ -209,61 +252,76 @@ export async function searchMangaDex(query: string, options: number | MangaDexSe
   });
   const response = await fetchJson<MangaDexListResponse>(`${API}/manga?${qs}`);
   return {
-    results: (response.data ?? []).map(mapManga),
+    results: (response.data ?? []).map((entity) => {
+      const manga = mapManga(entity);
+      const language = normalized.language;
+      if (language && language !== "all" && !manga.languages) manga.languages = [language];
+      return manga;
+    }),
     total: response.total ?? 0,
+    hasMore: (normalized.page ?? 1) * (normalized.limit ?? limit) < (response.total ?? 0),
   };
 }
 
 export async function getMangaDex(id: string) {
   const qs = queryString({ "includes[]": ["cover_art", "author", "artist"] });
-  const response = await fetchJson<MangaDexSingleResponse>(`${API}/manga/${id}?${qs}`);
+  const response = await fetchJson<MangaDexSingleResponse>(`${API}/manga/${encodeURIComponent(id)}?${qs}`);
   if (!response.data) return null;
   return mapManga(response.data);
 }
 
 async function fetchMangaDexChapterFeed(mangaId: string, language: string, limit: number) {
-  const qs = queryString({
-    limit,
-    "translatedLanguage[]": language,
-    "contentRating[]": ["safe", "suggestive"],
-    "order[chapter]": "desc",
-  });
-  const response = await fetchJson<MangaDexListResponse>(`${API}/manga/${mangaId}/feed?${qs}`);
-  return (response.data ?? [])
-    // Giữ chapter có pages > 0 HOẶC có externalUrl (bản exclusive bên thứ 3 vẫn đọc được).
-    .filter((chapter) => {
-      const pages = Number(chapter.attributes.pages ?? 0);
-      const externalUrl = typeof chapter.attributes.externalUrl === "string" && chapter.attributes.externalUrl.length > 0;
-      return pages > 0 || externalUrl;
-    })
-    .map((chapter) => mapChapter(chapter, makeScopedId("mangadex", mangaId)));
+  const chapters: Chapter[] = [];
+  const scopedId = makeScopedId("mangadex", mangaId);
+  for (let offset = 0; offset < 10000; offset += limit) {
+    const qs = queryString({
+      limit,
+      offset,
+      "translatedLanguage[]": language,
+      "contentRating[]": ["safe", "suggestive"],
+      "includes[]": "scanlation_group",
+      "order[chapter]": "desc",
+    });
+    const response = await fetchJson<MangaDexListResponse>(`${API}/manga/${encodeURIComponent(mangaId)}/feed?${qs}`);
+    const items = response.data ?? [];
+    chapters.push(...items.filter((item) => Number(item.attributes.pages ?? 0) > 0 || publisherUrl(item.attributes.externalUrl))
+      .map((item) => mapChapter(item, scopedId)));
+    if (items.length < limit || offset + limit >= (response.total ?? 0)) break;
+  }
+  return chapters;
 }
 
-export async function getMangaDexChapters(mangaId: string, limit = 80) {
+export async function getMangaDexChapters(mangaId: string, language?: string) {
+  const limit = 500;
+  if (language) return fetchMangaDexChapterFeed(mangaId, language, limit);
   const vietnamese = await fetchMangaDexChapterFeed(mangaId, "vi", limit);
   if (vietnamese.length) return vietnamese;
   return fetchMangaDexChapterFeed(mangaId, "en", limit);
 }
 
 export async function getMangaDexChapter(chapterId: string) {
-  const [chapterResponse, pagesResponse] = await Promise.all([
-    fetchJson<MangaDexSingleResponse>(`${API}/chapter/${chapterId}`),
-    fetchJson<MangaDexAtHomeResponse>(`${API}/at-home/server/${chapterId}`),
-  ]);
+  const chapterResponse = await fetchJson<MangaDexSingleResponse>(`${API}/chapter/${encodeURIComponent(chapterId)}?includes%5B%5D=scanlation_group`);
 
   if (!chapterResponse.data) return null;
   const mangaRel = relationship(chapterResponse.data, "manga");
-  const mangaId = mangaRel ? makeScopedId("mangadex", mangaRel.id) : makeScopedId("mangadex", "unknown");
+  if (!mangaRel) return null;
+  const mangaId = makeScopedId("mangadex", mangaRel.id);
   const chapter = mapChapter(chapterResponse.data, mangaId);
-  const pages = pagesResponse.chapter.data ?? pagesResponse.chapter.dataSaver ?? [];
+  if (chapter.externalUrl) return chapter;
 
-  if (!pages.length) return null;
+  const pagesResponse = await fetchJson<MangaDexAtHomeResponse>(`${API}/at-home/server/${encodeURIComponent(chapterId)}`).catch(() => null);
+  if (!pagesResponse?.chapter) return chapter;
+  const data = pagesResponse.chapter.data ?? [];
+  const pages = data.length ? data : pagesResponse.chapter.dataSaver ?? [];
+  const quality = data.length ? "data" : "data-saver";
+
+  if (!pages.length) return chapter;
 
   return {
     ...chapter,
     pages: pages.map((fileName, index) => ({
       index,
-      url: `${pagesResponse.baseUrl}/data/${pagesResponse.chapter.hash}/${fileName}`,
+      url: `${pagesResponse.baseUrl}/${quality}/${pagesResponse.chapter.hash}/${fileName}`,
     })),
   } satisfies Chapter;
 }

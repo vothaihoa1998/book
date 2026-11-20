@@ -143,8 +143,8 @@ export default async function LibraryPage({ searchParams }: Props) {
               return (
                 <ShelfCard
                   key={item.manga_id}
-                  manga={historyManga[index]}
-                  href={`/read/${encodeURIComponent(item.chapter_id)}`}
+                  manga={historyManga[index] ?? storedManga(item.manga_id, null)}
+                  href={`/read/${encodeURIComponent(item.chapter_id)}?resume=1`}
                   action={pct > 0 ? `Đọc tiếp · ${pct}%` : "Đọc tiếp"}
                   meta={`${chapterLabel} · cập nhật ${formatDate(item.updated_at)}`}
                   progress={Number(item.scroll_percent)}

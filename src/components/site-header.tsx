@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, Library, Rss } from "lucide-react";
+import { BookOpen, Library, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -59,11 +59,11 @@ export function SiteHeader({ className, supabaseEnv }: { className?: string; sup
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <MobileSearchButton className="md:hidden" />
           <IconLinkButton
-            href="/rss.xml"
-            className="hidden text-muted-foreground hover:text-foreground sm:inline-flex"
-            aria-label="RSS feed"
+            href="/preferences"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Tùy chọn nội dung"
           >
-            <Rss size={16} />
+            <SlidersHorizontal size={16} />
           </IconLinkButton>
           <IconLinkButton
             href="/library"
