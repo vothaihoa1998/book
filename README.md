@@ -51,6 +51,8 @@ Google OAuth setup lives in [docs/google-login-setup.md](docs/google-login-setup
 
 MangaDex traffic protection and Redis/queue behavior are documented in [docs/mangadex-traffic-management.md](docs/mangadex-traffic-management.md).
 
+The architecture guide includes every supported traffic environment variable, Redis fail-closed behavior, queue/P4 shedding, hashed identity and trusted-proxy rules, metrics authentication, AtHome and chapter-image expiry, and mocked test coverage.
+
 ## Supabase
 
 Migration files live in `supabase/migrations`. Apply them in order. The latest migrations create:

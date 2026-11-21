@@ -279,10 +279,9 @@ export const getChapter = cache(async (chapterId: string, requestIdentity?: stri
   let chapter: Chapter | null = null;
 
   if (parsed.source === "mangadex") {
-    chapter = await cachedMaybe("chapter_cache", `chapter:v3:mangadex:${parsed.sourceId}`, "mangadex", 5 * 60, () =>
-      withFallback(getMangaDexChapter(parsed.sourceId, requestIdentity), null),
-      (value) => Boolean(value.externalUrl || value.pages.length),
-    );
+    // MangaDex AtHome page URLs are short-lived and must never be persisted in
+    // Supabase or served after their upstream session expires.
+    chapter = await withFallback(getMangaDexChapter(parsed.sourceId, requestIdentity), null);
   }
   if (parsed.source === "otruyen") {
     chapter = await cachedMaybe("chapter_cache", `chapter:v3:otruyen:${parsed.sourceId}`, "otruyen", 5 * 60, () =>
