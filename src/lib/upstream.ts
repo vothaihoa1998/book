@@ -1,5 +1,3 @@
-import "server-only";
-
 import { createHash, randomUUID } from "node:crypto";
 import { Ratelimit } from "@upstash/ratelimit";
 import type { Duration } from "@upstash/ratelimit";
@@ -67,6 +65,7 @@ const metrics = {
   latencySamples: 0,
 };
 let breakerOpen = false;
+const activeUserHashes = new Set<string>();
 
 function drainQueue() {
   while (activeQueueRuns < positiveInt("MANGADEX_QUEUE_CONCURRENCY", 8, 32) && queue.length) {
@@ -316,7 +315,37 @@ export async function recordUpstreamResponse(source: UpstreamSource, status: num
   return null;
 }
 
-export async function cacheUpstreamResponse<T>(key: string, ttlSeconds: number, load: () => Promise<T>): Promise<T> {
+export class UpstreamHttpError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+    this.name = "UpstreamHttpError";
+  }
+}
+
+type CacheOptions = {
+  staleWhileRevalidateSeconds?: number;
+  staleIfErrorSeconds?: number;
+  negativeTtlSeconds?: number;
+};
+
+type CacheEnvelope<T> = {
+  inkrailCache: true;
+  value: T | null;
+  expiresAt: number;
+  staleUntil: number;
+  negative?: boolean;
+};
+
+function isEnvelope<T>(value: unknown): value is CacheEnvelope<T> {
+  return Boolean(value && typeof value === "object" && "inkrailCache" in value && (value as CacheEnvelope<T>).inkrailCache);
+}
+
+export async function cacheUpstreamResponse<T>(
+  key: string,
+  ttlSeconds: number,
+  load: () => Promise<T>,
+  options: CacheOptions = {},
+): Promise<T> {
   const digest = createHash("sha256").update(key).digest("hex");
   const cacheKey = `inkrail:upstream:v1:${digest}`;
   const active = inFlight.get(cacheKey);
@@ -326,29 +355,92 @@ export async function cacheUpstreamResponse<T>(key: string, ttlSeconds: number, 
   }
 
   const redis = requireRedis();
+  const staleWindow = Math.max(0, options.staleWhileRevalidateSeconds ?? options.staleIfErrorSeconds ?? 0);
   const request = (async () => {
+    let cachedEnvelope: CacheEnvelope<T> | null = null;
+    let cachedRaw: T | null = null;
+    const now = Date.now();
+
     if (redis) {
-      const cached = await redis.get<T>(cacheKey);
-      if (cached !== null) {
-        metrics.cacheHits++;
-        return cached;
+      const cached = await redis.get<CacheEnvelope<T> | T>(cacheKey);
+      if (isEnvelope<T>(cached)) cachedEnvelope = cached;
+      else if (cached !== null) {
+        cachedRaw = cached;
       }
-      metrics.cacheMisses++;
     } else {
       const cached = memoryCache.get(cacheKey);
-      if (cached && cached.expiresAt > Date.now()) {
-        metrics.cacheHits++;
-        return cached.value as T;
+      if (cached) {
+        if (isEnvelope<T>(cached.value)) cachedEnvelope = cached.value;
+        else if (cached.expiresAt > now) cachedRaw = cached.value as T;
       }
-      memoryCache.delete(cacheKey);
-      metrics.cacheMisses++;
     }
 
+    if (cachedRaw !== null) {
+      metrics.cacheHits++;
+      return cachedRaw;
+    }
+
+    if (cachedEnvelope) {
+      if (cachedEnvelope.negative) {
+        if (cachedEnvelope.expiresAt > now) {
+          metrics.cacheHits++;
+          throw new UpstreamHttpError(404, "Upstream resource was not found.");
+        }
+      } else if (cachedEnvelope.expiresAt > now) {
+        metrics.cacheHits++;
+        return cachedEnvelope.value as T;
+      } else if (cachedEnvelope.staleUntil > now && options.staleWhileRevalidateSeconds) {
+        metrics.cacheHits++;
+        if (options.staleWhileRevalidateSeconds) {
+          void (async () => {
+            try {
+              const value = await load();
+              const envelope: CacheEnvelope<T> = {
+                inkrailCache: true,
+                value,
+                expiresAt: Date.now() + ttlSeconds * 1000,
+                staleUntil: Date.now() + (ttlSeconds + staleWindow) * 1000,
+              };
+              if (redis) await redis.set(cacheKey, envelope, { ex: Math.max(1, ttlSeconds + staleWindow) });
+              else memoryCache.set(cacheKey, { value: envelope, expiresAt: envelope.staleUntil });
+            } catch {
+              // Keep the stale envelope until staleUntil.
+            }
+          })();
+        }
+        return cachedEnvelope.value as T;
+      }
+    }
+    metrics.cacheMisses++;
+
     if (!redis) {
-      const value = await load();
-      memoryCache.set(cacheKey, { value, expiresAt: Date.now() + ttlSeconds * 1_000 });
-      while (memoryCache.size > 500) memoryCache.delete(memoryCache.keys().next().value!);
-      return value;
+      try {
+        const value = await load();
+        const envelope: CacheEnvelope<T> = {
+          inkrailCache: true,
+          value,
+          expiresAt: Date.now() + ttlSeconds * 1000,
+          staleUntil: Date.now() + (ttlSeconds + staleWindow) * 1000,
+        };
+        memoryCache.set(cacheKey, { value: envelope, expiresAt: envelope.staleUntil });
+        while (memoryCache.size > 500) memoryCache.delete(memoryCache.keys().next().value!);
+        return value;
+      } catch (error) {
+        if (error instanceof UpstreamHttpError && error.status === 404 && options.negativeTtlSeconds) {
+          const envelope: CacheEnvelope<T> = {
+            inkrailCache: true,
+            value: null,
+            expiresAt: Date.now() + options.negativeTtlSeconds * 1000,
+            staleUntil: 0,
+            negative: true,
+          };
+          memoryCache.set(cacheKey, { value: envelope, expiresAt: envelope.expiresAt });
+        }
+        if (error && cachedEnvelope && cachedEnvelope.staleUntil > Date.now() && options.staleIfErrorSeconds) {
+          return cachedEnvelope.value as T;
+        }
+        throw error;
+      }
     }
 
     const lockKey = `${cacheKey}:lock`;
@@ -357,16 +449,42 @@ export async function cacheUpstreamResponse<T>(key: string, ttlSeconds: number, 
     if (acquired !== "OK") {
       for (let attempt = 0; attempt < 90; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 100));
-        const shared = await redis.get<T>(cacheKey);
-        if (shared !== null) return shared;
+        const shared = await redis.get<CacheEnvelope<T> | T>(cacheKey);
+        if (isEnvelope<T>(shared)) {
+          if (shared.negative && shared.expiresAt > Date.now()) throw new UpstreamHttpError(404, "Upstream resource was not found.");
+          if (shared.value !== null) return shared.value;
+        } else if (shared !== null) return shared;
       }
       throw new Error("Timed out waiting for the shared upstream request.");
     }
 
     try {
-      const value = await load();
-      await redis.set(cacheKey, value, { ex: ttlSeconds });
-      return value;
+      try {
+        const value = await load();
+        const envelope: CacheEnvelope<T> = {
+          inkrailCache: true,
+          value,
+          expiresAt: Date.now() + ttlSeconds * 1000,
+          staleUntil: Date.now() + (ttlSeconds + staleWindow) * 1000,
+        };
+        await redis.set(cacheKey, envelope, { ex: Math.max(1, ttlSeconds + staleWindow) });
+        return value;
+      } catch (error) {
+        if (error instanceof UpstreamHttpError && error.status === 404 && options.negativeTtlSeconds) {
+          const envelope: CacheEnvelope<T> = {
+            inkrailCache: true,
+            value: null,
+            expiresAt: Date.now() + options.negativeTtlSeconds * 1000,
+            staleUntil: 0,
+            negative: true,
+          };
+          await redis.set(cacheKey, envelope, { ex: options.negativeTtlSeconds });
+        }
+        if (cachedEnvelope?.staleUntil && cachedEnvelope.staleUntil > Date.now() && options.staleIfErrorSeconds) {
+          return cachedEnvelope.value as T;
+        }
+        throw error;
+      }
     } finally {
       const currentToken = await redis.get<string>(lockKey);
       if (currentToken === lockToken) await redis.del(lockKey);
@@ -386,6 +504,10 @@ export function hashIdentifier(value: string) {
 }
 
 export function trustedRequestIp(request: Request) {
+  return trustedHeadersIp(request.headers);
+}
+
+export function trustedHeadersIp(headers: Headers) {
   if (process.env.TRUSTED_PROXY !== "1") return null;
   const candidates = [
     process.env.TRUSTED_PROXY_IP_HEADER,
@@ -393,13 +515,14 @@ export function trustedRequestIp(request: Request) {
     "x-vercel-forwarded-for",
   ].filter((value): value is string => Boolean(value));
   for (const name of candidates) {
-    const value = request.headers.get(name)?.trim();
+    const value = headers.get(name)?.trim();
     if (value) return value.split(",")[0].trim();
   }
   return null;
 }
 
 export async function assertMangaDexUserLimit(identity: string, kind: "api" | "search") {
+  activeUserHashes.add(identity);
   if (kind === "search") {
     await assertRateLimit("mangadex-user-search", identity, policy.userSearchPerMinute(), 60_000);
   } else {
@@ -410,10 +533,32 @@ export async function assertMangaDexUserLimit(identity: string, kind: "api" | "s
 export function getUpstreamMetrics() {
   return {
     ...metrics,
+    activeUsers: activeUserHashes.size,
     queueSize: queue.length,
     activeRequests: activeQueueRuns,
     averageQueueWaitMs: metrics.queueSamples ? Math.round(metrics.queueWaitMs / metrics.queueSamples) : 0,
     averageLatencyMs: metrics.latencySamples ? Math.round(metrics.latencyMs / metrics.latencySamples) : 0,
     breakerOpen,
   };
+}
+
+export function recordUpstreamLatency(durationMs: number) {
+  metrics.latencyMs += Math.max(0, Math.round(durationMs));
+  metrics.latencySamples++;
+}
+
+export function __resetUpstreamTestState() {
+  redisClient = undefined;
+  limiters.clear();
+  memoryCache.clear();
+  inFlight.clear();
+  localRateWindows.clear();
+  localCooldowns.clear();
+  localFailures.clear();
+  activeUserHashes.clear();
+  breakerOpen = false;
+  while (queue.length) {
+    const entry = queue.shift();
+    if (entry) clearTimeout(entry.timer);
+  }
 }

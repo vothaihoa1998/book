@@ -7,6 +7,9 @@ import { searchMangaWithMeta } from "@/lib/sources";
 import { normalizeGenres, normalizeSearchParams } from "@/lib/sources/search-utils";
 import type { MangaSearchParams } from "@/lib/types";
 import { absoluteUrl } from "@/lib/utils";
+import { headers } from "next/headers";
+import { hashIdentifier, trustedHeadersIp } from "@/lib/upstream";
+import { getVerifiedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +48,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function DiscoverPage({ searchParams }: Props) {
   const state = parseDiscoverState(await searchParams);
-  const { results, meta } = await searchMangaWithMeta(state);
+  const [headerList, user] = await Promise.all([headers(), getVerifiedUser()]);
+  const identity = hashIdentifier(user?.id ?? trustedHeadersIp(headerList) ?? "anonymous");
+  const { results, meta } = await searchMangaWithMeta({ ...state, requestIdentity: identity });
   const failed = meta.errors.map((source) => ({ mangadex: "MangaDex", otruyen: "OTruyen", firecrawl: "Firecrawl" })[source] ?? source);
 
   return (

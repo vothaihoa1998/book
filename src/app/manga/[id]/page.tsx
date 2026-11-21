@@ -15,6 +15,8 @@ import { imageProxyUrl, mangaFormatLabels } from "@/lib/types";
 import { normalizeChapterLanguage } from "@/lib/sources/search-utils";
 import { orderChapters } from "@/lib/reader-presets";
 import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
+import { headers } from "next/headers";
+import { hashIdentifier, trustedHeadersIp } from "@/lib/upstream";
 
 export const dynamic = "force-dynamic";
 
@@ -53,14 +55,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function MangaDetailPage({ params, searchParams }: Props) {
   const [{ id }, { lang }] = await Promise.all([params, searchParams]);
   const language = normalizeChapterLanguage(typeof lang === "string" ? lang : null);
-  const manga = await getManga(id);
+  const [headerList, userResult, supabase] = await Promise.all([headers(), getVerifiedUser(), createServerSupabaseClient()]);
+  const ip = trustedHeadersIp(headerList);
+  const identity = hashIdentifier(userResult?.id ?? ip ?? "anonymous");
+  const manga = await getManga(id, identity);
   if (!manga) notFound();
   const mangaHref = `/manga/${encodeURIComponent(manga.id)}`;
-  const [chapters, supabase, userResult] = await Promise.all([
-    getChapters(manga.id, language),
-    createServerSupabaseClient(),
-    getVerifiedUser(),
-  ]);
+  const [chapters] = await Promise.all([getChapters(manga.id, language, identity)]);
 
   // Pull reading history to mark which chapters the user has visited + sticky CTA
   const progressByChapter = new Map<string, { pageIndex: number; scrollPercent: number; updatedAt: string }>();

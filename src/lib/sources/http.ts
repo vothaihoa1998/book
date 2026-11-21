@@ -1,12 +1,12 @@
-import "server-only";
-
 import {
   assertUpstreamAvailable,
   assertMangaDexUserLimit,
   cacheUpstreamResponse,
   enqueueMangaDexRequest,
   parseRetryAfter,
+  recordUpstreamLatency,
   recordUpstreamResponse,
+  UpstreamHttpError,
 } from "../upstream";
 
 type JsonValue = Record<string, unknown> | unknown[];
@@ -36,7 +36,9 @@ function requestCacheKey(url: string, method: string | undefined, body: BodyInit
 
 function cacheTtlForUrl(value: string) {
   const url = new URL(value);
-  if (url.pathname.startsWith("/at-home/server/")) return 5 * 60;
+  // AtHome responses and chapter page locations are not eligible for persistent
+  // or stale cache; use the upstream response only for this request.
+  if (url.pathname.startsWith("/at-home/server/")) return 0;
   if (/\/manga\/[0-9a-f-]+\/feed$/i.test(url.pathname)) return 10 * 60;
   if (/\/manga\/[0-9a-f-]+$/i.test(url.pathname) || /\/chapter\/[0-9a-f-]+$/i.test(url.pathname)) {
     return 12 * 60 * 60;
@@ -46,7 +48,7 @@ function cacheTtlForUrl(value: string) {
 
 export async function fetchJson<T extends JsonValue>(
   url: string,
-  init: RequestInit & {
+  init: Omit<RequestInit, "priority"> & {
     timeoutMs?: number;
     cacheTtlSeconds?: number;
     identity?: string;
@@ -100,6 +102,9 @@ export async function fetchJson<T extends JsonValue>(
             continue;
           }
           const detailRetry = parseRetryAfter(response.headers);
+          if (response.status === 404) {
+            throw new UpstreamHttpError(404, `Upstream resource was not found.`);
+          }
           throw new Error(`Upstream request failed with HTTP ${response.status}${detailRetry ? `; retry after ${Math.ceil(detailRetry / 1000)} seconds` : ""}.`);
         }
         throw new Error("Upstream request exhausted bounded retries.");
@@ -107,13 +112,18 @@ export async function fetchJson<T extends JsonValue>(
     } finally {
       clearTimeout(timeout);
       const duration = Date.now() - startedAt;
-      void duration;
+      recordUpstreamLatency(duration);
     }
   };
   const key = requestCacheKey(url, rest.method, rest.body);
   if (!key || revalidate <= 0) return load();
   const jitteredTtl = revalidate + Math.floor(Math.random() * Math.max(1, Math.floor(revalidate * 0.1)));
-  return cacheUpstreamResponse(key, jitteredTtl, load);
+  const isAtHome = upstreamUrl.pathname.startsWith("/at-home/server/");
+  return cacheUpstreamResponse(key, jitteredTtl, load, isAtHome ? {} : {
+    staleWhileRevalidateSeconds: Math.min(300, Math.max(30, Math.floor(jitteredTtl / 2))),
+    staleIfErrorSeconds: 300,
+    negativeTtlSeconds: 120,
+  });
 }
 
 export function pickLocalized(value: Record<string, string> | undefined | null) {

@@ -8,6 +8,7 @@ import { getChapter, getChapters, getManga } from "@/lib/sources";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { langShortLabel } from "@/lib/format-time";
 import { absoluteUrl } from "@/lib/utils";
+import { hashIdentifier, trustedHeadersIp } from "@/lib/upstream";
 
 type Props = PageProps<"/read/[chapterId]">;
 
@@ -24,12 +25,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ReadPage({ params, searchParams }: Props) {
   const [{ chapterId }, { resume }] = await Promise.all([params, searchParams]);
-  const chapter = await getChapter(chapterId);
+  const [headerList, user, supabase] = await Promise.all([headers(), getVerifiedUser(), createServerSupabaseClient()]);
+  const ip = trustedHeadersIp(headerList);
+  const identity = hashIdentifier(user?.id ?? ip ?? "anonymous");
+  const chapter = await getChapter(chapterId, identity);
   if (!chapter) {
     return <ChapterStatus title="Chương chưa khả dụng">Nguồn truyện chưa cung cấp chương này hoặc đang tạm gián đoạn.</ChapterStatus>;
   }
 
-  const manga = await getManga(chapter.mangaId);
+  const manga = await getManga(chapter.mangaId, identity);
   if (chapter.externalUrl) {
     return (
       <ChapterStatus title={manga?.title ?? `Chương ${chapter.number}`} mangaId={chapter.mangaId}>
@@ -46,11 +50,8 @@ export default async function ReadPage({ params, searchParams }: Props) {
     return <ChapterStatus title="Chương chưa khả dụng" mangaId={chapter.mangaId}>Chưa tải được ảnh của chương {chapter.number}.</ChapterStatus>;
   }
 
-  const [chapters, headerList, user, supabase] = await Promise.all([
-    getChapters(manga.id, chapter.language),
-    headers(),
-    getVerifiedUser(),
-    createServerSupabaseClient(),
+  const [chapters] = await Promise.all([
+    getChapters(manga.id, chapter.language, identity),
   ]);
   const [prefs, progress] = await Promise.all([
     user ? getReaderPreferences(user.id) : null,

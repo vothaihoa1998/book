@@ -147,7 +147,7 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
   const target = normalized.q ? `search:${normalized.q}` : "catalog";
   const sourceResults = await Promise.all(sources.map((source) =>
     runSearchSource(source, target, () => source === "mangadex"
-      ? searchMangaDex(normalized.q, normalized)
+      ? searchMangaDex(normalized.q, normalized, 24, params.requestIdentity)
       : searchOTruyen(normalized.q, normalized)),
   ));
   const errors = sourceResults.filter((source) => source.error).map((source) => source.source as string);
@@ -220,13 +220,13 @@ async function tryOtruyenFallbackByTitle(title: string): Promise<Manga | null> {
   }
 }
 
-export const getManga = cache(async (id: string) => {
+export const getManga = cache(async (id: string, requestIdentity?: string) => {
   const parsed = parseScopedId(id);
   let manga: Manga | null = null;
 
   if (parsed.source === "mangadex") {
     manga = await cachedMaybe("manga_cache", `manga:v2:mangadex:${parsed.sourceId}`, "mangadex", 60 * 60 * 24, () =>
-      withFallback(getMangaDex(parsed.sourceId), null),
+      withFallback(getMangaDex(parsed.sourceId, requestIdentity), null),
     );
   }
   if (parsed.source === "otruyen") {
@@ -241,13 +241,13 @@ export const getManga = cache(async (id: string) => {
   return withMangaImageToken(resolved);
 });
 
-export const getChapters = cache(async (mangaId: string, language?: string) => {
+export const getChapters = cache(async (mangaId: string, language?: string, requestIdentity?: string) => {
   const parsed = parseScopedId(mangaId);
   let chapters: Chapter[] = [];
 
   if (parsed.source === "mangadex") {
     chapters = await cachedList("chapter_cache", `chapters:v3:mangadex:${parsed.sourceId}:${language ?? "default"}`, "mangadex", 10 * 60, () =>
-      withFallback(getMangaDexChapters(parsed.sourceId, language), []),
+      withFallback(getMangaDexChapters(parsed.sourceId, language, requestIdentity), []),
     );
   }
   if (parsed.source === "otruyen" && (!language || language === "vi")) {
@@ -274,13 +274,13 @@ export const getChapters = cache(async (mangaId: string, language?: string) => {
   return filterRemovedChapters(chapters);
 });
 
-export const getChapter = cache(async (chapterId: string) => {
+export const getChapter = cache(async (chapterId: string, requestIdentity?: string) => {
   const parsed = parseScopedId(chapterId);
   let chapter: Chapter | null = null;
 
   if (parsed.source === "mangadex") {
     chapter = await cachedMaybe("chapter_cache", `chapter:v3:mangadex:${parsed.sourceId}`, "mangadex", 5 * 60, () =>
-      withFallback(getMangaDexChapter(parsed.sourceId), null),
+      withFallback(getMangaDexChapter(parsed.sourceId, requestIdentity), null),
       (value) => Boolean(value.externalUrl || value.pages.length),
     );
   }

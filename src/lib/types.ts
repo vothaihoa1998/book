@@ -112,6 +112,8 @@ export type MangaSearchParams = {
   language?: string;
   format?: string;
   page?: number;
+  /** Hashed, server-derived identity. Never populated from a client. */
+  requestIdentity?: string;
 };
 
 export type MangaSearchSource = "all" | "mangadex" | "otruyen";

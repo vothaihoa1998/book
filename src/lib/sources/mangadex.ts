@@ -231,7 +231,7 @@ function latestChapterId(item: MangaDexEntity) {
   return typeof id === "string" ? id : undefined;
 }
 
-export async function searchMangaDex(query: string, options: number | MangaDexSearchOptions = 1, limit = 24) {
+export async function searchMangaDex(query: string, options: number | MangaDexSearchOptions = 1, limit = 24, requestIdentity?: string) {
   const normalized = typeof options === "number" ? { page: options, limit } : options;
   const tags = genreTags(normalized.genres);
   const demographicFilters = demographics(normalized.genres);
@@ -252,7 +252,7 @@ export async function searchMangaDex(query: string, options: number | MangaDexSe
     includedTagsMode: tags.length ? "AND" : undefined,
     ...searchOrder(normalized.sort),
   });
-  const response = await fetchJson<MangaDexListResponse>(`${API}/manga?${qs}`);
+  const response = await fetchJson<MangaDexListResponse>(`${API}/manga?${qs}`, { identity: requestIdentity, priority: 2 });
   return {
     results: (response.data ?? []).map((entity) => {
       const manga = mapManga(entity);
@@ -265,14 +265,14 @@ export async function searchMangaDex(query: string, options: number | MangaDexSe
   };
 }
 
-export async function getMangaDex(id: string) {
+export async function getMangaDex(id: string, requestIdentity?: string) {
   const qs = queryString({ "includes[]": ["cover_art", "author", "artist"] });
-  const response = await fetchJson<MangaDexSingleResponse>(`${API}/manga/${encodeURIComponent(id)}?${qs}`);
+  const response = await fetchJson<MangaDexSingleResponse>(`${API}/manga/${encodeURIComponent(id)}?${qs}`, { identity: requestIdentity, priority: 1 });
   if (!response.data) return null;
   return mapManga(response.data);
 }
 
-async function fetchMangaDexChapterFeed(mangaId: string, language: string, limit: number) {
+async function fetchMangaDexChapterFeed(mangaId: string, language: string, limit: number, requestIdentity?: string) {
   const chapters: Chapter[] = [];
   const scopedId = makeScopedId("mangadex", mangaId);
   for (let offset = 0; offset < 10000; offset += limit) {
@@ -284,7 +284,7 @@ async function fetchMangaDexChapterFeed(mangaId: string, language: string, limit
       "includes[]": "scanlation_group",
       "order[chapter]": "desc",
     });
-    const response = await fetchJson<MangaDexListResponse>(`${API}/manga/${encodeURIComponent(mangaId)}/feed?${qs}`);
+    const response = await fetchJson<MangaDexListResponse>(`${API}/manga/${encodeURIComponent(mangaId)}/feed?${qs}`, { identity: requestIdentity, priority: 1 });
     const items = response.data ?? [];
     chapters.push(...items.filter((item) => Number(item.attributes.pages ?? 0) > 0 || publisherUrl(item.attributes.externalUrl))
       .map((item) => mapChapter(item, scopedId)));
@@ -293,16 +293,16 @@ async function fetchMangaDexChapterFeed(mangaId: string, language: string, limit
   return chapters;
 }
 
-export async function getMangaDexChapters(mangaId: string, language?: string) {
+export async function getMangaDexChapters(mangaId: string, language?: string, requestIdentity?: string) {
   const limit = 500;
-  if (language) return fetchMangaDexChapterFeed(mangaId, language, limit);
-  const vietnamese = await fetchMangaDexChapterFeed(mangaId, "vi", limit);
+  if (language) return fetchMangaDexChapterFeed(mangaId, language, limit, requestIdentity);
+  const vietnamese = await fetchMangaDexChapterFeed(mangaId, "vi", limit, requestIdentity);
   if (vietnamese.length) return vietnamese;
-  return fetchMangaDexChapterFeed(mangaId, "en", limit);
+  return fetchMangaDexChapterFeed(mangaId, "en", limit, requestIdentity);
 }
 
-export async function getMangaDexChapter(chapterId: string) {
-  const chapterResponse = await fetchJson<MangaDexSingleResponse>(`${API}/chapter/${encodeURIComponent(chapterId)}?includes%5B%5D=scanlation_group`);
+export async function getMangaDexChapter(chapterId: string, requestIdentity?: string) {
+  const chapterResponse = await fetchJson<MangaDexSingleResponse>(`${API}/chapter/${encodeURIComponent(chapterId)}?includes%5B%5D=scanlation_group`, { identity: requestIdentity, priority: 0 });
 
   if (!chapterResponse.data) return null;
   const mangaRel = relationship(chapterResponse.data, "manga");
@@ -311,7 +311,7 @@ export async function getMangaDexChapter(chapterId: string) {
   const chapter = mapChapter(chapterResponse.data, mangaId);
   if (chapter.externalUrl) return chapter;
 
-  const pagesResponse = await fetchJson<MangaDexAtHomeResponse>(`${API}/at-home/server/${encodeURIComponent(chapterId)}`).catch(() => null);
+  const pagesResponse = await fetchJson<MangaDexAtHomeResponse>(`${API}/at-home/server/${encodeURIComponent(chapterId)}`, { identity: requestIdentity, priority: 0 }).catch(() => null);
   if (!pagesResponse?.chapter) return chapter;
   const data = pagesResponse.chapter.data ?? [];
   const pages = data.length ? data : pagesResponse.chapter.dataSaver ?? [];
