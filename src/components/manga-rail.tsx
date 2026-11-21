@@ -3,15 +3,15 @@ import Link from "next/link";
 import { type Manga } from "@/lib/types";
 import { MangaCard } from "./manga-card";
 
-export function MangaRail({ label, title, items, href }: { label: string; title: string; items: Manga[]; href?: string }) {
+export function MangaRail({ label, title, items, href }: { label?: string; title: string; items: Manga[]; href?: string }) {
   if (!items.length) return null;
 
   return (
-    <section className="py-7 md:py-10">
+    <section aria-label={title} className="py-7 md:py-10">
       <div className="mb-4 flex items-end justify-between gap-4 md:mb-5">
         <div className="min-w-0">
-          <p className="eyebrow">{label}</p>
-          <h2 className="mt-2 break-words text-2xl font-display font-medium leading-tight text-foreground md:text-3xl">
+          {label && <p className="eyebrow">{label}</p>}
+          <h2 className="break-words text-2xl font-display font-medium leading-tight text-foreground md:text-3xl">
             {title}
           </h2>
         </div>

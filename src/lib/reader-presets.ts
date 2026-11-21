@@ -1,4 +1,11 @@
-import type { Chapter, Manga, ReaderLayout, ReaderPrefs } from "./types";
+import type {
+  Chapter,
+  Manga,
+  ReaderDeviceClass,
+  ReaderFormatProfile,
+  ReaderLayout,
+  ReaderPrefs,
+} from "./types";
 
 export function defaultReaderPrefs(dark: boolean): ReaderPrefs {
   return {
@@ -9,7 +16,21 @@ export function defaultReaderPrefs(dark: boolean): ReaderPrefs {
     brightness: 0,
     fontSize: 18,
     gap: 8,
+    tapEdges: true,
+    swipe: true,
+    autoHide: true,
+    hideDelay: 3,
+    reduceMotion: false,
+    dataSaver: false,
+    prefetch: "auto",
   };
+}
+
+export function resolveReaderFormat(manga: Manga, chapter: Chapter): ReaderFormatProfile {
+  const isWebtoon = manga.format === "manhwa" || manga.format === "manhua" ||
+    manga.genres.some((genre) => /webtoon|manhwa|manhua/i.test(genre)) ||
+    chapter.direction === "horizontal-ltr";
+  return isWebtoon ? "webtoon" : "manga";
 }
 
 export function resolveReaderLayout(
@@ -17,17 +38,27 @@ export function resolveReaderLayout(
   manga: Manga,
   chapter: Chapter,
   narrow: boolean,
+  format = resolveReaderFormat(manga, chapter),
 ): Exclude<ReaderLayout, "auto"> {
-  if (!prefs.layout) {
-    if (narrow || prefs.direction === "vertical") return "strip";
-    return "double";
+  if (prefs.layout && prefs.layout !== "auto") return prefs.layout;
+  if (format === "webtoon") return "strip";
+  return narrow ? "single" : "double";
+}
+
+export function resolvePrefetchCount(
+  prefs: ReaderPrefs,
+  device: ReaderDeviceClass,
+  network: { saveData?: boolean; effectiveType?: string; deviceMemory?: number } = {},
+) {
+  if (prefs.dataSaver || network.saveData) return 0;
+  const requested = prefs.prefetch === "auto"
+    ? device === "mobile" ? 1 : 3
+    : Number(prefs.prefetch);
+  if (network.effectiveType === "slow-2g" || network.effectiveType === "2g") return 0;
+  if (network.effectiveType === "3g" || (network.deviceMemory !== undefined && network.deviceMemory <= 2)) {
+    return Math.min(requested, 1);
   }
-  if (prefs.layout !== "auto") return prefs.layout;
-  const vertical = manga.format === "manhwa" || manga.format === "manhua" ||
-    manga.genres.some((genre) => /webtoon|manhwa|manhua/i.test(genre)) || chapter.direction === "horizontal-ltr";
-  if (narrow || vertical) return "strip";
-  if (manga.format === "manga" || manga.source === "sample") return "double";
-  return "strip";
+  return requested;
 }
 
 export function orderChapters(chapters: Chapter[]) {

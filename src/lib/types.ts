@@ -45,15 +45,26 @@ export type ReaderDirection = "vertical" | "horizontal-ltr" | "horizontal-rtl";
 export type ReaderLayout = "auto" | "single" | "double" | "strip";
 
 export type ReaderFit = "width" | "height" | "original" | "smart";
+export type ReaderFormatProfile = "manga" | "webtoon";
+export type ReaderDeviceClass = "mobile" | "desktop";
+export type ReaderPrefetch = "auto" | "1" | "3";
 
 export type ReaderPrefs = {
   theme: ReaderTheme;
   direction: ReaderDirection;
   layout?: ReaderLayout;
   fit: ReaderFit;
+  /** Image dim amount, 0..35 percent. */
   brightness: number;
   fontSize: number;
   gap: number;
+  tapEdges: boolean;
+  swipe: boolean;
+  autoHide: boolean;
+  hideDelay: number;
+  reduceMotion: boolean;
+  dataSaver: boolean;
+  prefetch: ReaderPrefetch;
 };
 
 export type PageImage = {

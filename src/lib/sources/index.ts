@@ -83,6 +83,26 @@ export const getHome = cache(async (): Promise<HomePayload> => {
 
 type SearchSource = "mangadex" | "otruyen" | "firecrawl";
 
+export const getHomeCollections = cache(async () => {
+  const collections = [
+    { id: "completed", title: "Đã hoàn thành", href: "/discover?source=mangadex&language=vi&status=completed&sort=popular", status: "completed" as const, genres: [] as string[] },
+    { id: "romance", title: "Tình cảm", href: "/discover?source=mangadex&language=vi&genres=romance&sort=popular", status: "all" as const, genres: ["romance"] },
+  ];
+  return Promise.all(collections.map(async (collection) => {
+    const items = await cachedList("manga_cache", `home:collection:v1:${collection.id}`, "mangadex", 1800, async () => {
+      const result = await searchMangaDex("", {
+        status: collection.status,
+        genres: collection.genres,
+        language: "vi",
+        sort: "popular",
+        limit: 12,
+      });
+      return dedupeManga(result.results);
+    }).catch(() => []);
+    return { id: collection.id, title: collection.title, href: collection.href, items };
+  }));
+});
+
 async function runSearchSource(
   source: SearchSource,
   target: string,

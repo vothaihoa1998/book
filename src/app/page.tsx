@@ -2,16 +2,17 @@ import { Compass } from "lucide-react";
 import Link from "next/link";
 import { ContinueReadingPill } from "@/components/continue-reading-pill";
 import { HomeCatalog } from "@/components/home-catalog";
+import { MangaRail } from "@/components/manga-rail";
 import { filterHomeFeed, getContentPreferences } from "@/lib/content-preferences";
 import { latestHistoryByManga } from "@/lib/library";
-import { getHome, getManga } from "@/lib/sources";
+import { getHome, getHomeCollections, getManga } from "@/lib/sources";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [home, prefs, user, supabase] = await Promise.all([
-    getHome(), getContentPreferences(), getVerifiedUser(), createServerSupabaseClient(),
+  const [home, collections, prefs, user, supabase] = await Promise.all([
+    getHome(), getHomeCollections(), getContentPreferences(), getVerifiedUser(), createServerSupabaseClient(),
   ]);
   const history = user && supabase
     ? await supabase.from("reading_history").select("manga_id, chapter_id, page_index, scroll_percent, updated_at")
@@ -33,7 +34,24 @@ export default async function HomePage() {
       </header>
 
       <ContinueReadingPill key={user?.id ?? "guest"} userId={user?.id ?? null} history={reading} />
+      <nav aria-label="Khám phá theo thể loại" className="mt-6 flex flex-wrap gap-2">
+        {[
+          ["action", "Hành động"],
+          ["fantasy", "Fantasy"],
+          ["romance", "Tình cảm"],
+          ["comedy", "Hài hước"],
+          ["isekai", "Isekai"],
+          ["horror", "Kinh dị"],
+        ].map(([genre, label]) => (
+          <Link key={genre} href={`/discover?genres=${genre}`} className="rounded-full border border-border bg-card px-3.5 py-2 text-sm font-medium transition hover:border-primary/50 hover:text-primary">
+            {label}
+          </Link>
+        ))}
+      </nav>
       <HomeCatalog recent={filterHomeFeed(home.recent, prefs)} trending={filterHomeFeed(home.trending, prefs)} />
+      {collections.map((collection) => (
+        <MangaRail key={collection.id} title={collection.title} href={collection.href} items={filterHomeFeed(collection.items, prefs)} />
+      ))}
 
     </main>
   );

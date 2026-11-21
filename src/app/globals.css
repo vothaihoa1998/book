@@ -329,6 +329,19 @@ html[data-theme="dark"] .grain::after {
   animation: reader-page-turn-backward 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
+.reader-reduce-motion,
+.reader-reduce-motion * {
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+.reader-reduce-motion .reader-page-turn-forward,
+.reader-reduce-motion .reader-page-turn-backward {
+  animation: none !important;
+}
+
 @keyframes reader-page-turn-forward {
   from {
     opacity: 0.7;

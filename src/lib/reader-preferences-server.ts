@@ -11,6 +11,13 @@ export const readerPreferencesSchema = z.object({
   brightness: z.number().int().min(0).max(60).default(0),
   gap: z.number().int().min(0).max(32).default(8),
   fontSize: z.number().int().min(14).max(24).default(18),
+  tapEdges: z.boolean().default(true),
+  swipe: z.boolean().default(true),
+  autoHide: z.boolean().default(true),
+  hideDelay: z.number().int().min(2).max(8).default(3),
+  reduceMotion: z.boolean().default(false),
+  dataSaver: z.boolean().default(false),
+  prefetch: z.enum(["auto", "1", "3"]).default("auto"),
 });
 
 export async function getReaderPreferences(userId: string) {

@@ -4,27 +4,27 @@
 
 import {
   ArrowLeft, ArrowRight, Bookmark, ChevronLeft, ChevronRight, Download, List,
-  Maximize, Settings2,
+  Maximize, MoreHorizontal, Settings2,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ReaderSettings } from "@/components/reader-settings";
 import { Sheet } from "@/components/ui/sheet";
-import { SelectField } from "@/components/ui/select-field";
-import { defaultReaderPrefs, orderChapters, resolveReaderLayout } from "@/lib/reader-presets";
+import {
+  defaultReaderPrefs, orderChapters, resolvePrefetchCount, resolveReaderFormat, resolveReaderLayout,
+} from "@/lib/reader-presets";
+import {
+  emptyReaderPreferenceStore, getReaderFormatOverride, getReaderProfile, normalizeReaderPrefs,
+  parseReaderPreferenceStore, readerPreferencesStorageKey, setReaderFormatOverride, setReaderProfile,
+} from "@/lib/reader-preferences";
 import { readPosition, savePosition, type ReaderPosition } from "@/lib/reading-progress";
-import { imageProxyUrl, type Chapter, type Manga, type ReaderPrefs } from "@/lib/types";
+import {
+  imageProxyUrl, type Chapter, type Manga, type ReaderDeviceClass, type ReaderFormatProfile,
+  type ReaderPrefs,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const themes = {
-  "warm-light": "Sáng dịu",
-  paper: "Giấy",
-  sepia: "Sepia",
-  "graphite-dark": "Graphite",
-  "pure-black": "OLED",
-};
-const layouts = { auto: "Tự động", single: "Một trang", double: "Hai trang", strip: "Cuộn dọc" };
 const directions = { vertical: "Tự động", "horizontal-ltr": "Trái sang phải", "horizontal-rtl": "Phải sang trái" };
-const fits = { width: "Vừa chiều rộng", height: "Vừa chiều cao", smart: "Vừa màn hình", original: "Kích thước gốc" };
 
 type ReaderProps = {
   manga: Manga;
@@ -45,19 +45,17 @@ function storedPrefs(key: string, legacyKey: string, fallback: ReaderPrefs) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return fallback;
-    const saved = JSON.parse(raw) as ReaderPrefs;
+    const saved: unknown = JSON.parse(raw);
     const legacyDirection = localStorage.getItem(legacyKey);
-    const direction = Object.hasOwn(directions, legacyDirection ?? "") && !saved.layout
-      ? legacyDirection as ReaderPrefs["direction"] : saved.direction;
-    return {
-      theme: Object.hasOwn(themes, saved.theme) ? saved.theme : fallback.theme,
-      direction: Object.hasOwn(directions, direction) ? direction : fallback.direction,
-      layout: Object.hasOwn(layouts, saved.layout ?? "") ? saved.layout : undefined,
-      fit: Object.hasOwn(fits, saved.fit) ? saved.fit : fallback.fit,
-      brightness: Number.isFinite(saved.brightness) ? saved.brightness : fallback.brightness,
-      gap: Number.isFinite(saved.gap) ? saved.gap : fallback.gap,
-      fontSize: Number.isFinite(saved.fontSize) ? saved.fontSize : fallback.fontSize,
-    };
+    const direction = legacyDirection && Object.hasOwn(directions, legacyDirection) &&
+      typeof saved === "object" && saved !== null && !("layout" in saved)
+      ? legacyDirection : undefined;
+    return normalizeReaderPrefs(
+      typeof saved === "object" && saved !== null && direction
+        ? { ...saved, direction }
+        : saved,
+      fallback,
+    );
   } catch {
     return fallback;
   }
@@ -67,19 +65,26 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const total = chapter.pages.length;
   const prefsKey = userId ? `inkrail-reader-prefs:${userId}` : "inkrail-reader-prefs";
   const [prefs, setPrefs] = useState(() => syncedPrefs ?? defaultReaderPrefs(initialAppTheme === "dark"));
+  const [basePrefs, setBasePrefs] = useState(() => syncedPrefs ?? defaultReaderPrefs(initialAppTheme === "dark"));
+  const [profileStore, setProfileStore] = useState(emptyReaderPreferenceStore);
+  const [profileFormat, setProfileFormat] = useState<ReaderFormatProfile>(() => resolveReaderFormat(manga, chapter));
+  const [prefsSaved, setPrefsSaved] = useState(true);
   const [ready, setReady] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [page, setPage] = useState(0);
   const [pageTurn, setPageTurn] = useState<"forward" | "backward" | null>(null);
   const [showControls, setShowControls] = useState(true);
-  const [panel, setPanel] = useState<"chapters" | "settings" | null>(null);
+  const [panel, setPanel] = useState<"chapters" | "settings" | "actions" | null>(null);
   const [endReached, setEndReached] = useState(false);
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState<"bookmark" | "offline" | null>(null);
   const [failedPage, setFailedPage] = useState<number[]>([]);
   const [attempts, setAttempts] = useState<Record<number, number>>({});
+  const [activityTick, setActivityTick] = useState(0);
+  const [networkHints, setNetworkHints] = useState<{ saveData?: boolean; effectiveType?: string; deviceMemory?: number }>({});
   const controlsVisible = useRef(true);
   const controlsShownAt = useRef(Number.NEGATIVE_INFINITY);
+  const lastActivityAt = useRef(0);
   const pageRefs = useRef<Array<HTMLElement | null>>([]);
   const pendingJump = useRef<ReaderPosition | null>(null);
   const restoring = useRef(true);
@@ -89,6 +94,17 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const preferencesQueue = useRef(Promise.resolve());
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
+  const registerPage = useCallback((index: number, node: HTMLElement | null) => {
+    pageRefs.current[index] = node;
+  }, []);
+  const markPageFailed = useCallback((index: number) => {
+    setFailedPage((items) => items.includes(index) ? items : [...items, index]);
+  }, []);
+  const retryPage = useCallback((index: number) => {
+    setFailedPage((items) => items.filter((item) => item !== index));
+    setAttempts((items) => ({ ...items, [index]: (items[index] ?? 0) + 1 }));
+  }, []);
+
   const updateControlsVisibility = useCallback((visible: boolean) => {
     if (controlsVisible.current === visible) return;
     controlsVisible.current = visible;
@@ -96,13 +112,23 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
     setShowControls(visible);
   }, []);
 
-  const layout = resolveReaderLayout(prefs, manga, chapter, narrow);
+  const deviceClass: ReaderDeviceClass = narrow ? "mobile" : "desktop";
+  const markControlsActivity = useCallback(() => {
+    if (!prefs.autoHide || !controlsVisible.current || panel) return;
+    const now = performance.now();
+    if (now - lastActivityAt.current < 400) return;
+    lastActivityAt.current = now;
+    setActivityTick((tick) => tick + 1);
+  }, [panel, prefs.autoHide]);
+  const layout = resolveReaderLayout(prefs, manga, chapter, narrow, profileFormat);
   const strip = layout === "strip";
   const fitSpread = !strip && prefs.fit !== "width";
   const step = layout === "double" ? 2 : 1;
   const start = Math.floor(page / step) * step;
   const end = Math.min(total, start + step);
-  const rtl = prefs.direction === "horizontal-rtl";
+  const rtl = prefs.direction === "horizontal-rtl" ||
+    (prefs.direction === "vertical" && chapter.direction === "horizontal-rtl");
+  const prefetchCount = resolvePrefetchCount(prefs, deviceClass, networkHints);
   const { sequence, prev, next } = useMemo(() => {
     const available = chapters.filter((item) => item.language === chapter.language && item.id !== chapter.id);
     const sequence = orderChapters([...available, chapter]);
@@ -118,10 +144,77 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const pagesToShow = strip ? chapter.pages : chapter.pages.slice(start, end);
 
   useEffect(() => {
+    type Connection = {
+      saveData?: boolean;
+      effectiveType?: string;
+      addEventListener?: (type: "change", listener: () => void) => void;
+      removeEventListener?: (type: "change", listener: () => void) => void;
+    };
+    const extendedNavigator = navigator as Navigator & { connection?: Connection; deviceMemory?: number };
+    const connection = extendedNavigator.connection;
+    const updateHints = () => setNetworkHints({
+      saveData: connection?.saveData,
+      effectiveType: connection?.effectiveType,
+      deviceMemory: extendedNavigator.deviceMemory,
+    });
+    updateHints();
+    connection?.addEventListener?.("change", updateHints);
+    return () => connection?.removeEventListener?.("change", updateHints);
+  }, []);
+
+  useEffect(() => {
+    if (!ready || strip || prefetchCount === 0) return;
+    const preloaded: HTMLImageElement[] = [];
+    for (let index = end; index < Math.min(total, end + prefetchCount); index += 1) {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = pageUrls[index];
+      preloaded.push(image);
+    }
+    return () => {
+      for (const image of preloaded) image.removeAttribute("src");
+    };
+  }, [end, pageUrls, prefetchCount, ready, strip, total]);
+
+  useEffect(() => {
     const viewport = window.matchMedia("(max-width: 767px)");
     const frame = requestAnimationFrame(() => {
+      const device = viewport.matches ? "mobile" : "desktop";
+      const fallback = defaultReaderPrefs(initialAppTheme === "dark");
+      let localStore = emptyReaderPreferenceStore();
+      let legacyPrefs = fallback;
+      let storageAvailable = true;
+      try {
+        localStore = parseReaderPreferenceStore(localStorage.getItem(readerPreferencesStorageKey));
+        legacyPrefs = storedPrefs(prefsKey, `inkrail-reader-direction:${chapter.id}`, fallback);
+      } catch {
+        storageAvailable = false;
+      }
+      const base = normalizeReaderPrefs(syncedPrefs ?? legacyPrefs, fallback);
+      const format = getReaderFormatOverride(localStore, manga.id) ?? resolveReaderFormat(manga, chapter);
+      const savedProfile = localStore.byDeviceClass[device]?.[format];
+      const current = savedProfile ? normalizeReaderPrefs(savedProfile, base) : base;
+      const migratedStore = !savedProfile
+        ? setReaderProfile(localStore, device, format, current)
+        : localStore;
+
       setNarrow(viewport.matches);
-      if (!syncedPrefs) setPrefs(storedPrefs(prefsKey, `inkrail-reader-direction:${chapter.id}`, defaultReaderPrefs(initialAppTheme === "dark")));
+      setBasePrefs(base);
+      setProfileStore(migratedStore);
+      setProfileFormat(format);
+      setPrefs(current);
+      if (!storageAvailable) {
+        setPrefsSaved(false);
+        setNotice("Cài đặt đang áp dụng nhưng trình duyệt không cho phép lưu trên thiết bị.");
+      } else if (migratedStore !== localStore) {
+        try {
+          localStorage.setItem(readerPreferencesStorageKey, JSON.stringify(migratedStore));
+        } catch {
+          setPrefsSaved(false);
+          setNotice("Cài đặt cũ đã được áp dụng nhưng chưa lưu được trên thiết bị.");
+        }
+      }
+
       const local = readPosition(chapter.id, userId);
       const localTime = Date.parse(local?.updatedAt ?? "") || 0;
       const serverTime = Date.parse(syncedPosition?.updatedAt ?? "") || 0;
@@ -143,7 +236,46 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
       cancelAnimationFrame(frame);
       viewport.removeEventListener("change", onResize);
     };
-  }, [chapter.id, initialAppTheme, prefsKey, resume, syncedPosition, syncedPrefs, total, userId]);
+  }, [chapter, initialAppTheme, manga, prefsKey, resume, syncedPosition, syncedPrefs, total, userId]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const frame = requestAnimationFrame(() => {
+      const nextPrefs = getReaderProfile(profileStore, deviceClass, profileFormat, basePrefs);
+      if (JSON.stringify(nextPrefs) === JSON.stringify(prefs)) return;
+      if (resolveReaderLayout(nextPrefs, manga, chapter, narrow, profileFormat) !== layout) {
+        pendingJump.current = lastPosition.current ?? {
+          pageIndex: page,
+          pageOffset: 0,
+          scrollPercent: 0,
+        };
+        restoring.current = true;
+        setEndReached(false);
+      }
+      setPrefs(nextPrefs);
+      if (nextPrefs.reduceMotion) setPageTurn(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [basePrefs, chapter, deviceClass, layout, manga, narrow, page, prefs, profileFormat, profileStore, ready]);
+
+  useEffect(() => {
+    if (!ready || !prefs.autoHide || !showControls || panel) return;
+    const timeout = window.setTimeout(() => updateControlsVisibility(false), prefs.hideDelay * 1000);
+    return () => window.clearTimeout(timeout);
+  }, [activityTick, panel, prefs.autoHide, prefs.hideDelay, ready, showControls, updateControlsVisibility]);
+
+  useEffect(() => {
+    window.addEventListener("pointermove", markControlsActivity, { passive: true });
+    window.addEventListener("pointerdown", markControlsActivity, { passive: true });
+    window.addEventListener("touchstart", markControlsActivity, { passive: true });
+    window.addEventListener("keydown", markControlsActivity);
+    return () => {
+      window.removeEventListener("pointermove", markControlsActivity);
+      window.removeEventListener("pointerdown", markControlsActivity);
+      window.removeEventListener("touchstart", markControlsActivity);
+      window.removeEventListener("keydown", markControlsActivity);
+    };
+  }, [markControlsActivity]);
 
   const jumpToStripPage = useCallback((position: ReaderPosition) => {
     const figure = pageRefs.current[position.pageIndex];
@@ -251,7 +383,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   }, [ready, record, strip, total]);
 
   useEffect(() => {
-    if (!narrow || !ready) return;
+    if (!narrow || !ready || !prefs.autoHide) return;
 
     let previousY = window.scrollY;
     let previousDirection = 0;
@@ -260,6 +392,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
     let frame = 0;
 
     const onScroll = () => {
+      markControlsActivity();
       if (frame) return;
       frame = requestAnimationFrame(() => {
         frame = 0;
@@ -296,7 +429,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
         previousDirection = direction;
 
         if (direction > 0 && distance >= 36 &&
-          now - controlsShownAt.current >= 800) {
+          now - controlsShownAt.current >= prefs.hideDelay * 1000) {
           updateControlsVisibility(false);
           previousDirection = 0;
           distance = 0;
@@ -313,12 +446,12 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
       window.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(frame);
     };
-  }, [narrow, ready, updateControlsVisibility]);
+  }, [markControlsActivity, narrow, prefs.autoHide, prefs.hideDelay, ready, updateControlsVisibility]);
 
   const goToPage = useCallback((target: number) => {
     if (!ready) return;
     const destination = Math.max(0, Math.min(total - 1, target));
-    if (!strip && Math.floor(destination / step) !== Math.floor(page / step)) {
+    if (!strip && !prefs.reduceMotion && Math.floor(destination / step) !== Math.floor(page / step)) {
       setPageTurn(destination > page ? "forward" : "backward");
     }
     setPage(destination);
@@ -334,7 +467,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
       window.scrollTo({ top: 0, behavior: "instant" });
     }
     record(position);
-  }, [jumpToStripPage, page, ready, record, step, strip, total]);
+  }, [jumpToStripPage, page, prefs.reduceMotion, ready, record, step, strip, total]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -354,27 +487,72 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
     return () => window.removeEventListener("keydown", onKey);
   }, [goToPage, panel, start, step, strip, total, updateControlsVisibility]);
 
-  function updatePrefs(patch: Partial<ReaderPrefs>) {
-    const updated = { ...prefs, ...patch };
-    if (patch.layout && resolveReaderLayout(updated, manga, chapter, narrow) !== layout) {
-      pendingJump.current = { pageIndex: page, scrollPercent: lastPosition.current?.scrollPercent ?? 0 };
-      restoring.current = true;
-      setEndReached(false);
-    }
-    setPrefs(updated);
+  function persistProfileStore(nextStore: ReturnType<typeof setReaderProfile>) {
+    setProfileStore(nextStore);
     try {
-      localStorage.setItem(prefsKey, JSON.stringify(updated));
+      localStorage.setItem(readerPreferencesStorageKey, JSON.stringify(nextStore));
+      setPrefsSaved(true);
     } catch {
-      // The current settings still apply when storage is unavailable.
+      setPrefsSaved(false);
+      setNotice("Cài đặt áp dụng nhưng không lưu được trên thiết bị.");
     }
+  }
+
+  function preserveReadingAnchor() {
+    pendingJump.current = lastPosition.current ?? {
+      pageIndex: page,
+      pageOffset: 0,
+      scrollPercent: 0,
+    };
+    restoring.current = true;
+    setEndReached(false);
+  }
+
+  function updatePrefs(patch: Partial<ReaderPrefs>) {
+    const updated = normalizeReaderPrefs({ ...prefs, ...patch }, defaultReaderPrefs(initialAppTheme === "dark"));
+    if (resolveReaderLayout(updated, manga, chapter, narrow, profileFormat) !== layout) {
+      preserveReadingAnchor();
+    }
+    if (updated.reduceMotion) setPageTurn(null);
+    setPrefs(updated);
+    persistProfileStore(setReaderProfile(profileStore, deviceClass, profileFormat, updated));
     if (userId) {
+      const { theme, direction, layout: savedLayout, fit, brightness, gap, fontSize } = updated;
       preferencesQueue.current = preferencesQueue.current.then(async () => {
         const response = await fetch("/api/preferences", {
-          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updated), keepalive: true,
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ theme, direction, layout: savedLayout, fit, brightness, gap, fontSize }),
+          keepalive: true,
         });
-        if (!response.ok) setNotice("Chưa đồng bộ được cài đặt đọc.");
-      }).catch(() => setNotice("Chưa đồng bộ được cài đặt đọc."));
+        if (!response.ok) setNotice("Chưa đồng bộ được cài đặt cơ bản.");
+      }).catch(() => setNotice("Chưa đồng bộ được cài đặt cơ bản."));
     }
+  }
+
+  function changeProfileFormat(format: ReaderFormatProfile) {
+    if (format === profileFormat) return;
+    const nextPrefs = getReaderProfile(profileStore, deviceClass, format, basePrefs);
+    if (resolveReaderLayout(nextPrefs, manga, chapter, narrow, format) !== layout) preserveReadingAnchor();
+    setProfileFormat(format);
+    setPrefs(nextPrefs);
+    const nextStore = setReaderProfile(
+      setReaderFormatOverride(profileStore, manga.id, format),
+      deviceClass,
+      format,
+      nextPrefs,
+    );
+    persistProfileStore(nextStore);
+  }
+
+  function resetProfile() {
+    updatePrefs(defaultReaderPrefs(initialAppTheme === "dark"));
+  }
+
+  function toggleFullscreen() {
+    const toggle = document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.();
+    if (!toggle) setNotice("Thiết bị chưa hỗ trợ toàn màn hình.");
+    else void toggle.catch(() => setNotice("Không mở được toàn màn hình."));
   }
 
   async function saveOffline() {
@@ -411,7 +589,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const pageTurnZoneWidth = "max(1rem, calc(50vw - 66.667dvh + 7rem))";
 
   return (
-    <div className={cn("min-h-dvh bg-background pb-12 text-foreground", `reader-theme-${prefs.theme}`)}>
+    <div className={cn("min-h-dvh bg-background pb-12 text-foreground", prefs.reduceMotion && "reader-reduce-motion")}>
       {(showControls || narrow) && (
         <header
           aria-hidden={!showControls}
@@ -428,25 +606,39 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
             <button type="button" onClick={() => setPanel("chapters")} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-2 text-sm hover:bg-secondary">
               <List size={15} /> <span>Ch. {chapter.number}</span>
             </button>
-            <IconButton label="Cài đặt đọc" onClick={() => setPanel("settings")}><Settings2 size={17} /></IconButton>
+            <IconButton label="Cài đặt đọc" onClick={() => setPanel("settings")} disabled={!ready}><Settings2 size={17} /></IconButton>
+            <IconButton label="Thao tác khác" onClick={() => setPanel("actions")}><MoreHorizontal size={17} /></IconButton>
           </div>
         </header>
       )}
 
-      <main className={cn("pt-3", strip ? "mx-auto w-full max-w-5xl px-2 sm:px-4" : "w-full px-0")}
+      <main className={cn("pt-3 bg-background text-foreground", `reader-theme-${prefs.theme}`, strip ? "mx-auto w-full max-w-5xl px-2 sm:px-4" : "w-full px-0")}
+        onClick={(event) => {
+          if (event.target instanceof Element && event.target.closest("button, a, input, textarea, select, [contenteditable]")) return;
+          if (narrow && !showControls) {
+            updateControlsVisibility(true);
+            return;
+          }
+          if (!narrow || !prefs.tapEdges || strip || !showControls) return;
+          const edge = window.innerWidth * 0.18;
+          const forward = rtl ? event.clientX <= edge : event.clientX >= window.innerWidth - edge;
+          const backward = rtl ? event.clientX >= window.innerWidth - edge : event.clientX <= edge;
+          if (forward) goToPage(start + step);
+          else if (backward) goToPage(start - step);
+        }}
         onDoubleClick={(event) => {
           if (narrow || (event.target instanceof HTMLElement && event.target.closest("button, a, input, textarea, select, [contenteditable]"))) return;
           updateControlsVisibility(!controlsVisible.current);
         }}
         onTouchStart={(event) => {
           const point = event.touches[0];
-          swipe.current = event.touches.length === 1 ? { x: point.clientX, y: point.clientY } : null;
+          swipe.current = prefs.swipe && event.touches.length === 1 ? { x: point.clientX, y: point.clientY } : null;
         }}
         onTouchCancel={() => { swipe.current = null; }}
         onTouchEnd={(event) => {
           const first = swipe.current;
           swipe.current = null;
-          if (!first || strip || event.touches.length || !event.changedTouches.length) return;
+          if (!first || !prefs.swipe || strip || event.touches.length || !event.changedTouches.length) return;
           const last = event.changedTouches[0];
           const dx = last.clientX - first.x;
           if (Math.abs(dx) < 55 || Math.abs(dx) < 1.5 * Math.abs(last.clientY - first.y)) return;
@@ -463,51 +655,31 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
               strip ? "flex max-w-[820px] flex-col items-center" :
                 fitSpread ? "flex w-fit max-w-full items-start justify-center" : "grid w-full items-start",
               !strip && !fitSpread && step === 2 && end - start === 2 && "grid-cols-2",
-              !strip && pageTurn && `reader-page-turn-${pageTurn}`,
+              !strip && !prefs.reduceMotion && pageTurn && `reader-page-turn-${pageTurn}`,
             )}
-            dir={!strip && rtl ? "rtl" : "ltr"} style={{ gap: layout === "double" ? 0 : prefs.gap }}>
+            dir={!strip && rtl ? "rtl" : "ltr"} style={{ gap: layout === "single" ? 0 : prefs.gap }}>
             {pagesToShow.map((image, offset) => {
-              const i = strip ? offset : start + offset;
-              const url = pageUrls[i];
-              const attempt = attempts[i] ?? 0;
+              const index = strip ? offset : start + offset;
               return (
-                <figure
-                  key={i}
-                  ref={(node) => { pageRefs.current[i] = node; }}
-                  className={cn(
-                    "relative min-w-0",
-                    (strip || !fitSpread) && "w-full",
-                    fitSpread && layout === "double" && end - start === 2 && "max-w-[50vw]",
-                    fitSpread && (layout !== "double" || end - start === 1) && "max-w-full",
-                  )}
-                  data-page={i + 1}
-                >
-                  {failedPage.includes(i) ? (
-                    <div className="grid min-h-40 place-content-center bg-card p-4 text-center text-sm text-foreground">
-                      <p>Không tải được trang {i + 1}.</p>
-                      <button type="button" className="mt-2 text-primary underline" onClick={() => {
-                        setFailedPage((items) => items.filter((item) => item !== i));
-                        setAttempts((items) => ({ ...items, [i]: attempt + 1 }));
-                      }}>Tải lại ảnh</button>
-                    </div>
-                  ) : (
-                    <img
-                      src={attempt && url.startsWith("/api/") ? `${url}&retry=${attempt}` : url}
-                      key={attempt}
-                      width={image.width ?? 800}
-                      height={image.height ?? 1200}
-                      alt={`Trang ${i + 1}`}
-                      loading={!strip || i === page || i < 2 ? "eager" : "lazy"}
-                      decoding="async"
-                      onError={() => setFailedPage((items) => items.includes(i) ? items : [...items, i])}
-                      className={cn("mx-auto block h-auto max-w-full object-contain",
-                        prefs.fit === "width" && "w-full",
-                        prefs.fit === "smart" && cn("max-h-[calc(100dvh-9rem)]", fitSpread ? "w-auto" : "w-full"),
-                        prefs.fit === "height" && "max-h-[calc(100dvh-9rem)] w-auto")}
-                      style={{ filter: prefs.brightness ? `brightness(${1 - prefs.brightness / 100})` : undefined }}
-                    />
-                  )}
-                </figure>
+                <ReaderImagePage
+                  key={index}
+                  index={index}
+                  image={image}
+                  url={pageUrls[index]}
+                  attempt={attempts[index] ?? 0}
+                  failed={failedPage.includes(index)}
+                  isStrip={strip}
+                  isCurrent={index === page}
+                  eager={!strip || index === page || (index > page && index <= page + prefetchCount)}
+                  fitSpread={fitSpread}
+                  doubleSpread={layout === "double" && end - start === 2}
+                  fit={prefs.fit}
+                  brightness={prefs.brightness}
+                  gap={layout === "double" && end - start === 2 ? prefs.gap : 0}
+                  registerPage={registerPage}
+                  onFailure={markPageFailed}
+                  onRetry={retryPage}
+                />
               );
             })}
           </div>
@@ -530,7 +702,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
         )}
       </main>
 
-      {!strip && (
+      {!strip && prefs.tapEdges && (
         <>
           <button
             type="button"
@@ -558,15 +730,15 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
           aria-hidden={!showControls}
           inert={!showControls}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-foreground backdrop-blur transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none",
+            "fixed inset-x-0 bottom-0 z-30 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-foreground transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-none",
             !showControls && "pointer-events-none translate-y-full opacity-0",
           )}
           aria-label="Điều hướng đọc"
         >
-          <div className="mx-auto flex max-w-5xl items-center gap-1.5 sm:gap-3">
+          <div className="mx-auto flex max-w-4xl items-center gap-1.5 rounded-2xl border border-border bg-background/90 px-2 py-2 shadow-xl backdrop-blur-xl sm:gap-3 sm:rounded-full sm:px-4">
             {prev && <Link href={chapterHref(prev)} aria-label="Chương trước" className="shrink-0 rounded-lg border border-border p-2"><ArrowLeft size={16} /></Link>}
             {!strip && <IconButton label="Trang trước" disabled={start === 0} onClick={() => goToPage(start - step)}><ChevronLeft size={17} /></IconButton>}
-            <input aria-label="Đi đến trang" type="range" min={1} max={total} value={page + 1} onChange={(event) => goToPage(Number(event.target.value) - 1)} className="min-w-0 flex-1 accent-primary" />
+            <input aria-label="Đi đến trang" aria-valuetext={`Trang ${page + 1} trên ${total}`} type="range" min={1} max={total} value={page + 1} onChange={(event) => goToPage(Number(event.target.value) - 1)} className="min-w-0 flex-1 accent-primary" />
             <span className="shrink-0 font-code text-xs tabular-nums" aria-live="polite">
               {strip ? page + 1 : end - start > 1 ? `${start + 1}–${end}` : end}/{total}
             </span>
@@ -600,24 +772,32 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
         </ul>
       </Sheet>
 
-      <Sheet open={panel === "settings"} onClose={() => setPanel(null)} ariaLabel="Cài đặt đọc" maxHeightClass="max-h-[80dvh]">
-        <h2 className="mb-3 text-lg font-semibold">Cài đặt đọc</h2>
-        <div className="grid max-w-4xl grid-cols-2 gap-3 pb-4 md:grid-cols-4">
-          <ReaderSelect label="Bố cục" value={prefs.layout ?? layout} options={layouts} onChange={(value) => updatePrefs({ layout: value })} />
-          <ReaderSelect label="Hướng lật trang" value={prefs.direction} options={directions} onChange={(value) => updatePrefs({ direction: value })} />
-          <ReaderSelect label="Kích thước ảnh" value={prefs.fit} options={fits} onChange={(value) => updatePrefs({ fit: value })} />
-          <ReaderSelect label="Màu nền" value={prefs.theme} options={themes} onChange={(value) => updatePrefs({ theme: value })} />
-        </div>
-        <div className="flex flex-wrap gap-2 border-t border-border py-3 text-sm">
-          <button type="button" onClick={saveBookmark} disabled={saving !== null} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2"><Bookmark size={15} /> Lưu truyện</button>
-          <button type="button" onClick={saveOffline} disabled={saving !== null} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2"><Download size={15} /> Lưu ảnh chương</button>
-          <button type="button" onClick={() => {
-            const toggle = document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.();
-            if (!toggle) setNotice("Thiết bị chưa hỗ trợ toàn màn hình.");
-            else void toggle.catch(() => setNotice("Không mở được toàn màn hình."));
-          }} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2"><Maximize size={15} /> Toàn màn hình</button>
+      <Sheet open={panel === "actions"} onClose={() => setPanel(null)} ariaLabel="Thao tác đọc" maxHeightClass="max-h-[60dvh]">
+        <h2 className="text-lg font-semibold">Thao tác đọc</h2>
+        <div className="mt-4 grid gap-2">
+          <ActionButton icon={<Bookmark size={16} />} onClick={() => { setPanel(null); void saveBookmark(); }} disabled={saving !== null}>
+            Lưu truyện vào thư viện
+          </ActionButton>
+          <ActionButton icon={<Download size={16} />} onClick={() => { setPanel(null); void saveOffline(); }} disabled={saving !== null}>
+            Tải ảnh chương về thiết bị
+          </ActionButton>
+          <ActionButton icon={<Maximize size={16} />} onClick={() => { setPanel(null); toggleFullscreen(); }}>
+            Toàn màn hình
+          </ActionButton>
         </div>
       </Sheet>
+
+      <ReaderSettings
+        open={panel === "settings"}
+        onClose={() => setPanel(null)}
+        prefs={prefs}
+        layout={layout}
+        format={profileFormat}
+        saved={prefsSaved}
+        onFormatChange={changeProfileFormat}
+        onChange={updatePrefs}
+        onReset={resetProfile}
+      />
     </div>
   );
 }
@@ -626,17 +806,102 @@ function IconButton({ children, label, onClick, disabled = false }: { children: 
   return <button title={label} aria-label={label} type="button" onClick={onClick} disabled={disabled} className="grid size-9 shrink-0 place-items-center rounded-lg border border-border hover:bg-secondary disabled:opacity-35">{children}</button>;
 }
 
-function ReaderSelect<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: Record<T, string>; onChange: (value: T) => void }) {
+function ActionButton({
+  icon,
+  children,
+  onClick,
+  disabled = false,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <SelectField
-      label={label}
-      value={value}
-      className="min-w-0"
-      triggerClassName="mt-1 h-10 w-full bg-card px-2"
-      options={Object.entries(options).map(([key, text]) => ({ value: key, label: String(text) }))}
-      onValueChange={(selected) => {
-        if (selected !== null && Object.hasOwn(options, selected)) onChange(selected as T);
-      }}
-    />
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-3 text-left text-sm font-medium hover:bg-secondary disabled:opacity-50"
+    >
+      {icon}<span>{children}</span>
+    </button>
   );
 }
+
+const ReaderImagePage = memo(function ReaderImagePage({
+  index,
+  image,
+  url,
+  attempt,
+  failed,
+  isStrip,
+  isCurrent,
+  eager,
+  fitSpread,
+  doubleSpread,
+  fit,
+  brightness,
+  gap,
+  registerPage,
+  onFailure,
+  onRetry,
+}: {
+  index: number;
+  image: Chapter["pages"][number];
+  url: string;
+  attempt: number;
+  failed: boolean;
+  isStrip: boolean;
+  isCurrent: boolean;
+  eager: boolean;
+  fitSpread: boolean;
+  doubleSpread: boolean;
+  fit: ReaderPrefs["fit"];
+  brightness: number;
+  gap: number;
+  registerPage: (index: number, node: HTMLElement | null) => void;
+  onFailure: (index: number) => void;
+  onRetry: (index: number) => void;
+}) {
+  const maxWidth = fitSpread && doubleSpread ? `calc((100vw - ${gap}px) / 2)` : undefined;
+  return (
+    <figure
+      ref={(node) => registerPage(index, node)}
+      className={cn(
+        "relative min-w-0",
+        (isStrip || !fitSpread) && "w-full",
+        fitSpread && doubleSpread && "max-w-[50vw]",
+        fitSpread && !doubleSpread && "max-w-full",
+      )}
+      style={maxWidth ? { maxWidth } : undefined}
+      data-page={index + 1}
+    >
+      {failed ? (
+        <div className="grid min-h-40 place-content-center bg-card p-4 text-center text-sm text-foreground">
+          <p>Không tải được trang {index + 1}.</p>
+          <button type="button" className="mt-2 text-primary underline" onClick={() => onRetry(index)}>Tải lại ảnh</button>
+        </div>
+      ) : (
+        <img
+          src={attempt && url.startsWith("/api/") ? `${url}&retry=${attempt}` : url}
+          key={attempt}
+          width={image.width ?? 800}
+          height={image.height ?? 1200}
+          alt={`Trang ${index + 1}`}
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={isCurrent ? "high" : undefined}
+          decoding="async"
+          onError={() => onFailure(index)}
+          className={cn(
+            "mx-auto block h-auto max-w-full object-contain",
+            fit === "width" && "w-full",
+            fit === "smart" && cn("max-h-[calc(100dvh-9rem)]", fitSpread ? "w-auto" : "w-full"),
+            fit === "height" && "max-h-[calc(100dvh-9rem)] w-auto",
+          )}
+          style={{ filter: brightness ? `brightness(${1 - brightness / 100})` : undefined }}
+        />
+      )}
+    </figure>
+  );
+});

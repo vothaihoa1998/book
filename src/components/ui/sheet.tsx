@@ -10,12 +10,19 @@ export type SheetProps = {
   onClose: () => void;
   /** Title for accessibility (rendered as <h2> by caller). */
   ariaLabel?: string;
+  ariaLabelledBy?: string;
   /** Called when drag-down dismisses the sheet. */
   children: React.ReactNode;
+  header?: React.ReactNode;
+  overlay?: React.ReactNode;
   /** Footer area (e.g. action buttons). Stays fixed at bottom of sheet. */
   footer?: React.ReactNode;
   /** Max height class. Default h-[60vh] — bỏ toggle snap, đơn giản hoá UI. */
   maxHeightClass?: string;
+  /** Optional positioning and sizing styles for a specific sheet. */
+  panelClassName?: string;
+  /** Whether the decorative handle can dismiss the sheet by dragging. */
+  draggable?: boolean;
 };
 
 /**
@@ -25,7 +32,19 @@ export type SheetProps = {
  * Phase G2: dùng cho chapter filter, discover filter, mobile search.
  * Phase R-feedback: bỏ snap toggle 60/90% — mặc định 60vh.
  */
-export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightClass = "max-h-[60vh]" }: SheetProps) {
+export function Sheet({
+  open,
+  onClose,
+  ariaLabel,
+  ariaLabelledBy,
+  children,
+  header,
+  overlay,
+  footer,
+  maxHeightClass = "max-h-[60vh]",
+  panelClassName,
+  draggable = true,
+}: SheetProps) {
   const dragYRef = useRef(0);
   const dragStartY = useRef(0);
   const dragActive = useRef(false);
@@ -46,7 +65,10 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
     sheet.focus({ preventScroll: true });
 
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") closeRef.current();
+      if (document.querySelector("[data-reader-reset-dialog]")) return;
+      if (e.key === "Escape") {
+        closeRef.current();
+      }
       if (e.key !== "Tab") return;
       const focusable = Array.from(sheet!.querySelectorAll<HTMLElement>(
         "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']",
@@ -114,29 +136,33 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
         tabIndex={-1}
         className={cn(
           "absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-3xl border-t border-border bg-background shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none transition-transform duration-200 ease-out",
           maxHeightClass,
+          panelClassName,
         )}
       >
         {/* Drag handle (only area you can drag from) */}
         <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          className="flex shrink-0 cursor-grab touch-none items-center justify-center py-2.5 active:cursor-grabbing"
-          aria-label="Kéo xuống để đóng"
+          className={cn("flex shrink-0 items-center justify-center py-2.5", draggable && "cursor-grab touch-none active:cursor-grabbing")}
+          aria-hidden="true"
+          onPointerDown={draggable ? onPointerDown : undefined}
+          onPointerMove={draggable ? onPointerMove : undefined}
+          onPointerUp={draggable ? onPointerUp : undefined}
+          onPointerCancel={draggable ? onPointerUp : undefined}
         >
           <span className="block h-1 w-9 rounded-full bg-muted-foreground/40" />
         </div>
-        <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-3 top-2 grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground">
+        <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-3 top-2 grid size-11 place-items-center rounded-xl text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
           <X size={16} />
         </button>
 
+        {header}
+
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-2 pt-1">{children}</div>
+        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-4 pt-1">{children}</div>
 
         {/* Footer (action buttons) */}
         {footer && (
@@ -144,6 +170,7 @@ export function Sheet({ open, onClose, ariaLabel, children, footer, maxHeightCla
             {footer}
           </div>
         )}
+        {overlay}
       </div>
     </div>,
     document.body,
