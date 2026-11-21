@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = manga.description?.trim()
     ? truncate(manga.description, 155)
     : `Đọc ${manga.title} trên InkRail với reader tối giản, giao diện tối dễ chịu và đồng bộ thư viện.`;
-  const cover = manga.cover ? absoluteUrl(imageProxyUrl(manga.cover, manga.source)) : siteConfig.ogImage;
+  const cover = manga.cover ? absoluteUrl(imageProxyUrl(manga.cover, manga.source, manga.coverProxyToken)) : siteConfig.ogImage;
 
   return {
     title: manga.title,
@@ -144,7 +144,7 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
         {manga.cover && (
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={manga.cover} alt="" className="h-full w-full scale-110 object-cover opacity-15 blur-3xl" />
+            <img src={imageProxyUrl(manga.cover, manga.source, manga.coverProxyToken)} alt="" className="h-full w-full scale-110 object-cover opacity-15 blur-3xl" />
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background" />
           </div>
         )}
@@ -158,7 +158,13 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
           <div className="min-w-0">
             {/* Source eyebrow */}
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-code text-[11px] uppercase tracking-[1.5px] text-muted-foreground">
-              <span>{manga.source === "mangadex" ? "MangaDex" : manga.source === "otruyen" ? "OTruyen" : "Mẫu"}</span>
+              {manga.source === "mangadex" ? (
+                <a href={`https://mangadex.org/title/${encodeURIComponent(manga.sourceId)}`} target="_blank" rel="noreferrer" className="hover:text-primary">
+                  MangaDex
+                </a>
+              ) : (
+                <span>{manga.source === "otruyen" ? "OTruyen" : "Mẫu"}</span>
+              )}
               {manga.format && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{mangaFormatLabels[manga.format]}</span>}
               {manga.releaseYear && <span>{manga.releaseYear}</span>}
               <span className="text-muted-foreground/40">·</span>
@@ -299,7 +305,13 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
             <dl className="mt-5 space-y-4 text-sm">
               <div className="flex justify-between gap-4 border-b border-border pb-3">
                 <dt className="text-muted-foreground">Nguồn</dt>
-                <dd className="font-medium">{manga.source}</dd>
+                <dd className="font-medium">
+                  {manga.source === "mangadex" ? (
+                    <a href={`https://mangadex.org/title/${encodeURIComponent(manga.sourceId)}`} target="_blank" rel="noreferrer" className="hover:text-primary">
+                      MangaDex
+                    </a>
+                  ) : manga.source === "otruyen" ? "OTruyen" : "InkRail"}
+                </dd>
               </div>
               <div className="flex justify-between gap-4 border-b border-border pb-3">
                 <dt className="text-muted-foreground">Trạng thái</dt>

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { BookOpen } from "lucide-react";
-import { type Manga } from "@/lib/types";
+import { imageProxyUrl, type Manga } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function MangaCover({
@@ -22,9 +22,10 @@ export function MangaCover({
     <div className={cn("grain relative aspect-[2/3] overflow-hidden rounded-[2px] bg-surface-strong", className)}>
       {manga.cover ? (
         <Image
-          src={manga.cover}
+          src={imageProxyUrl(manga.cover, manga.source, manga.coverProxyToken)}
           alt={decorative ? "" : `Bìa truyện ${manga.title}`}
           fill
+          unoptimized
           preload={priority}
           loading={priority ? undefined : eager ? "eager" : "lazy"}
           sizes={priority ? "(min-width: 1024px) 420px, 72vw" : "(min-width: 1024px) 220px, 45vw"}

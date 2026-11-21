@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import {
-  ArrowLeft, ArrowRight, Bookmark, ChevronLeft, ChevronRight, Download, List,
+  ArrowLeft, ArrowRight, Bookmark, ChevronLeft, ChevronRight, List,
   Maximize, MoreHorizontal, Settings2,
 } from "lucide-react";
 import Link from "next/link";
@@ -77,7 +77,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
   const [panel, setPanel] = useState<"chapters" | "settings" | "actions" | null>(null);
   const [endReached, setEndReached] = useState(false);
   const [notice, setNotice] = useState("");
-  const [saving, setSaving] = useState<"bookmark" | "offline" | null>(null);
+  const [saving, setSaving] = useState<"bookmark" | null>(null);
   const [failedPage, setFailedPage] = useState<number[]>([]);
   const [attempts, setAttempts] = useState<Record<number, number>>({});
   const [activityTick, setActivityTick] = useState(0);
@@ -139,7 +139,7 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
       next: sequence.slice(index + 1).find((item) => item.number !== chapter.number),
     };
   }, [chapter, chapters]);
-  const pageUrls = useMemo(() => chapter.pages.map((image) => imageProxyUrl(image.url, chapter.source)), [chapter]);
+  const pageUrls = useMemo(() => chapter.pages.map((image) => imageProxyUrl(image.url, chapter.source, image.proxyToken)), [chapter]);
   const seriesHref = `/manga/${encodeURIComponent(manga.id)}?lang=${encodeURIComponent(chapter.language)}#chapters`;
   const pagesToShow = strip ? chapter.pages : chapter.pages.slice(start, end);
 
@@ -555,19 +555,6 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
     else void toggle.catch(() => setNotice("Không mở được toàn màn hình."));
   }
 
-  async function saveOffline() {
-    setSaving("offline");
-    try {
-      const cache = await caches.open("inkrail-chapter-pages-v1");
-      await cache.addAll(pageUrls);
-      setNotice("Đã lưu ảnh chương trên thiết bị.");
-    } catch {
-      setNotice("Không lưu được ảnh chương.");
-    } finally {
-      setSaving(null);
-    }
-  }
-
   async function saveBookmark() {
     if (!userId) {
       setNotice("Đăng nhập để lưu truyện vào thư viện.");
@@ -690,9 +677,18 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
             <p className="font-semibold">Hết chương {chapter.number}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {chapter.source === "mangadex" ? (
-                <a href={`https://mangadex.org/chapter/${encodeURIComponent(chapter.sourceId)}`} className="underline hover:text-primary">MangaDex</a>
+                <a href={`https://mangadex.org/chapter/${encodeURIComponent(chapter.sourceId)}`} target="_blank" rel="noreferrer" className="underline hover:text-primary">MangaDex</a>
               ) : chapter.source === "otruyen" ? "OTruyen" : "Trang mẫu InkRail"}
-              {chapter.group && ` · ${chapter.group}`}
+              {chapter.group && (
+                <>
+                  {" · Nhóm dịch: "}
+                  {chapter.groupId ? (
+                    <a href={`https://mangadex.org/group/${encodeURIComponent(chapter.groupId)}`} target="_blank" rel="noreferrer" className="underline hover:text-primary">
+                      {chapter.group}
+                    </a>
+                  ) : chapter.group}
+                </>
+              )}
             </p>
             <div className="mt-3 flex flex-wrap justify-center gap-2 text-sm">
               {prev && <Link href={chapterHref(prev)} className="rounded-lg border border-border px-3 py-2">Chương trước</Link>}
@@ -756,7 +752,16 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
 
       <Sheet open={panel === "chapters"} onClose={() => setPanel(null)} ariaLabel="Chọn chương" maxHeightClass="max-h-[75dvh]">
         <h2 className="text-lg font-semibold">Chọn chương · {chapter.language.toUpperCase()}</h2>
-        {chapter.group && <p className="mt-1 text-xs text-muted-foreground">Nhóm dịch: {chapter.group}</p>}
+        {chapter.group && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Nhóm dịch:{" "}
+            {chapter.groupId ? (
+              <a href={`https://mangadex.org/group/${encodeURIComponent(chapter.groupId)}`} target="_blank" rel="noreferrer" className="hover:text-primary">
+                {chapter.group}
+              </a>
+            ) : chapter.group}
+          </p>
+        )}
         <ul className="mt-3 grid gap-1.5 pb-4 sm:grid-cols-2 lg:grid-cols-3">
           {sequence.map((item) => (
             <li key={item.id}>
@@ -774,12 +779,30 @@ export function ReaderClient({ manga, chapter, chapters, userId, syncedPosition,
 
       <Sheet open={panel === "actions"} onClose={() => setPanel(null)} ariaLabel="Thao tác đọc" maxHeightClass="max-h-[60dvh]">
         <h2 className="text-lg font-semibold">Thao tác đọc</h2>
+        <div className="mt-3 rounded-xl border border-border bg-card px-3 py-2 text-sm">
+          <p>
+            Nguồn:{" "}
+            {chapter.source === "mangadex" ? (
+              <a href={`https://mangadex.org/chapter/${encodeURIComponent(chapter.sourceId)}`} target="_blank" rel="noreferrer" className="font-medium text-primary underline-offset-2 hover:underline">
+                MangaDex
+              </a>
+            ) : chapter.source === "otruyen" ? "OTruyen" : "InkRail"}
+          </p>
+          {chapter.group && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Nhóm dịch:{" "}
+              {chapter.groupId ? (
+                <a href={`https://mangadex.org/group/${encodeURIComponent(chapter.groupId)}`} target="_blank" rel="noreferrer" className="hover:text-primary">
+                  {chapter.group}
+                </a>
+              ) : chapter.group}
+            </p>
+          )}
+          <p className="mt-1 text-[11px] text-muted-foreground">InkRail độc lập, không liên kết với MangaDex.</p>
+        </div>
         <div className="mt-4 grid gap-2">
           <ActionButton icon={<Bookmark size={16} />} onClick={() => { setPanel(null); void saveBookmark(); }} disabled={saving !== null}>
             Lưu truyện vào thư viện
-          </ActionButton>
-          <ActionButton icon={<Download size={16} />} onClick={() => { setPanel(null); void saveOffline(); }} disabled={saving !== null}>
-            Tải ảnh chương về thiết bị
           </ActionButton>
           <ActionButton icon={<Maximize size={16} />} onClick={() => { setPanel(null); toggleFullscreen(); }}>
             Toàn màn hình

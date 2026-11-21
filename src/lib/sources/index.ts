@@ -5,6 +5,8 @@ import { sampleChapters, sampleManga } from "../sample-data";
 import { logSourceFetch, readCache, readCacheWithStatus, writeCache, writeCacheWithStatus } from "../supabase/cache";
 import { type Json } from "../supabase/types";
 import { type Chapter, type HomePayload, makeScopedId, type Manga, type MangaSearchParams, type MangaSearchResult, parseScopedId } from "../types";
+import { withChapterImageTokens, withMangaImageToken } from "../image-proxy-token";
+import { filterRemovedChapters, filterRemovedManga, isChapterRemoved, isMangaRemoved } from "../content-removals";
 import { searchFirecrawlManga } from "./firecrawl";
 import {
   getMangaDex,
@@ -56,7 +58,7 @@ async function cachedList<T>(
 export const getHome = cache(async (): Promise<HomePayload> => {
   const key = "home:v2";
   const cached = await readCache<HomePayload>("manga_cache", key);
-  if (cached) return cached;
+  if (cached) return withHomeImageTokens(cached);
 
   const [popular, recent, oRecent] = await Promise.allSettled([
     getPopularMangaDex(24),
@@ -78,8 +80,20 @@ export const getHome = cache(async (): Promise<HomePayload> => {
     errors,
   };
   if (!errors.length) await writeCache("manga_cache", key, "mixed", payload as unknown as Json, 60 * 30);
-  return payload;
+  return withHomeImageTokens(payload);
 });
+
+async function withHomeImageTokens(payload: HomePayload): Promise<HomePayload> {
+  const [trending, recent] = await Promise.all([
+    filterRemovedManga(payload.trending),
+    filterRemovedManga(payload.recent),
+  ]);
+  return {
+    ...payload,
+    trending: trending.map(withMangaImageToken),
+    recent: recent.map(withMangaImageToken),
+  };
+}
 
 type SearchSource = "mangadex" | "otruyen" | "firecrawl";
 
@@ -99,7 +113,8 @@ export const getHomeCollections = cache(async () => {
       });
       return dedupeManga(result.results);
     }).catch(() => []);
-    return { id: collection.id, title: collection.title, href: collection.href, items };
+    const visibleItems = await filterRemovedManga(items);
+    return { id: collection.id, title: collection.title, href: collection.href, items: visibleItems.map(withMangaImageToken) };
   }));
 });
 
@@ -123,7 +138,10 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
   const normalized = normalizeSearchParams(params);
   const cacheKey = searchCacheKey(normalized);
   const { value: cached, error: cacheError } = await readCacheWithStatus<MangaSearchResult>("manga_cache", cacheKey);
-  if (cached) return cached;
+  if (cached) {
+    const results = await filterRemovedManga(cached.results);
+    return { ...cached, results: results.map(withMangaImageToken) };
+  }
 
   const sources = selectedSearchSources(normalized.source);
   const target = normalized.q ? `search:${normalized.q}` : "catalog";
@@ -164,7 +182,8 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
   if (!errors.length && !cacheError) {
     await writeCacheWithStatus("manga_cache", cacheKey, normalized.source, payload as unknown as Json, 60 * 10);
   }
-  return payload;
+  const visibleResults = await filterRemovedManga(payload.results);
+  return { ...payload, results: visibleResults.map(withMangaImageToken) };
 });
 
 export const searchManga = cache(async (params: MangaSearchParams = {}) => {
@@ -217,7 +236,9 @@ export const getManga = cache(async (id: string) => {
   }
 
   const scopedId = makeScopedId(parsed.source, parsed.sourceId);
-  return manga ?? sampleManga.find((item) => item.id === scopedId || item.sourceId === id) ?? null;
+  const resolved = manga ?? sampleManga.find((item) => item.id === scopedId || item.sourceId === id) ?? null;
+  if (!resolved || await isMangaRemoved(resolved)) return null;
+  return withMangaImageToken(resolved);
 });
 
 export const getChapters = cache(async (mangaId: string, language?: string) => {
@@ -225,12 +246,12 @@ export const getChapters = cache(async (mangaId: string, language?: string) => {
   let chapters: Chapter[] = [];
 
   if (parsed.source === "mangadex") {
-    chapters = await cachedList("chapter_cache", `chapters:v2:mangadex:${parsed.sourceId}:${language ?? "default"}`, "mangadex", 60 * 60, () =>
+    chapters = await cachedList("chapter_cache", `chapters:v3:mangadex:${parsed.sourceId}:${language ?? "default"}`, "mangadex", 10 * 60, () =>
       withFallback(getMangaDexChapters(parsed.sourceId, language), []),
     );
   }
   if (parsed.source === "otruyen" && (!language || language === "vi")) {
-    chapters = await cachedList("chapter_cache", `chapters:otruyen:${parsed.sourceId}`, "otruyen", 60 * 60, () =>
+    chapters = await cachedList("chapter_cache", `chapters:v3:otruyen:${parsed.sourceId}`, "otruyen", 10 * 60, () =>
       withFallback(getOTruyenChapters(parsed.sourceId), []),
     );
   }
@@ -240,17 +261,17 @@ export const getChapters = cache(async (mangaId: string, language?: string) => {
     const manga = await getManga(mangaId);
     const fallback = manga ? await tryOtruyenFallbackByTitle(manga.title) : null;
     if (fallback && fallback.source === "otruyen") {
-      const otChapters = await cachedList("chapter_cache", `chapters:otruyen:${fallback.sourceId}`, "otruyen", 60 * 60, () =>
+      const otChapters = await cachedList("chapter_cache", `chapters:v3:otruyen:${fallback.sourceId}`, "otruyen", 10 * 60, () =>
         withFallback(getOTruyenChapters(fallback.sourceId), []),
       );
-      if (otChapters.length) return otChapters;
+      if (otChapters.length) chapters = otChapters;
     }
   }
 
   if (parsed.source === "sample" && (!language || language === "vi") && mangaId === sampleChapters[0].mangaId) {
-    return sampleChapters;
+    chapters = sampleChapters;
   }
-  return chapters;
+  return filterRemovedChapters(chapters);
 });
 
 export const getChapter = cache(async (chapterId: string) => {
@@ -258,18 +279,20 @@ export const getChapter = cache(async (chapterId: string) => {
   let chapter: Chapter | null = null;
 
   if (parsed.source === "mangadex") {
-    chapter = await cachedMaybe("chapter_cache", `chapter:v2:mangadex:${parsed.sourceId}`, "mangadex", 60 * 60 * 24 * 30, () =>
+    chapter = await cachedMaybe("chapter_cache", `chapter:v3:mangadex:${parsed.sourceId}`, "mangadex", 5 * 60, () =>
       withFallback(getMangaDexChapter(parsed.sourceId), null),
       (value) => Boolean(value.externalUrl || value.pages.length),
     );
   }
   if (parsed.source === "otruyen") {
-    chapter = await cachedMaybe("chapter_cache", `chapter:otruyen:${parsed.sourceId}`, "otruyen", 60 * 60 * 24 * 30, () =>
+    chapter = await cachedMaybe("chapter_cache", `chapter:v3:otruyen:${parsed.sourceId}`, "otruyen", 5 * 60, () =>
       withFallback(getOTruyenChapter(parsed.sourceId), null),
       (value) => value.pages.length > 0,
     );
   }
 
   const scopedId = makeScopedId(parsed.source, parsed.sourceId);
-  return chapter ?? sampleChapters.find((item) => item.id === scopedId || item.sourceId === chapterId) ?? null;
+  const resolved = chapter ?? sampleChapters.find((item) => item.id === scopedId || item.sourceId === chapterId) ?? null;
+  if (!resolved || await isChapterRemoved(resolved)) return null;
+  return withChapterImageTokens(resolved);
 });

@@ -1,6 +1,8 @@
 import { searchMangaWithMeta } from "@/lib/sources";
 import { normalizeGenres } from "@/lib/sources/search-utils";
 import { type MangaSearchParams } from "@/lib/types";
+import { getVerifiedUser } from "@/lib/supabase/server";
+import { assertMangaDexUserLimit, hashIdentifier, trustedRequestIp, UpstreamRateLimitError } from "@/lib/upstream";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,20 @@ export const dynamic = "force-dynamic";
  * - source/status/sort/year/genres: filter params
  */
 export async function GET(request: Request) {
+  const user = await getVerifiedUser();
+  const ip = trustedRequestIp(request);
+  const identity = hashIdentifier(user?.id ?? ip ?? request.headers.get("host") ?? "anonymous");
+  try {
+    await assertMangaDexUserLimit(identity, "search");
+  } catch (error) {
+    if (error instanceof UpstreamRateLimitError) {
+      return Response.json({ error: "Search rate limit reached", results: [] }, {
+        status: 429,
+        headers: { "retry-after": String(error.retryAfterSeconds) },
+      });
+    }
+    throw error;
+  }
   const url = new URL(request.url);
   const limitParam = url.searchParams.get("limit");
   const limit = Math.max(1, Math.min(10, Number(limitParam) || 24));

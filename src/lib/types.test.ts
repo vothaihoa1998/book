@@ -24,6 +24,11 @@ describe("source identity helpers", () => {
       "/api/public/image?src=https%3A%2F%2Fexample.com%2Fa+b.jpg&source=mangadex",
     );
   });
+
+  it("includes signed proxy tokens without changing the source URL", () => {
+    expect(imageProxyUrl("https://uploads.mangadex.org/a.jpg", "mangadex", "signed"))
+      .toBe("/api/public/image?src=https%3A%2F%2Fuploads.mangadex.org%2Fa.jpg&source=mangadex&token=signed");
+  });
 });
 
 describe("library helpers", () => {

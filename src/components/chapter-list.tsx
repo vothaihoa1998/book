@@ -351,7 +351,7 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
                         {thumb ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={imageProxyUrl(thumb, chapter.source)}
+                            src={imageProxyUrl(thumb, chapter.source, chapter.pages[0]?.proxyToken)}
                             alt=""
                             loading="lazy"
                             className="h-full w-full object-cover transition group-hover:scale-105"
@@ -401,7 +401,9 @@ export function ChapterList({ chapters, progressByChapter, currentChapterId }: C
                           {chapter.title || `Chương ${chapter.number}`}{chapter.externalUrl && " ↗"}
                         </p>
                         {(chapter.group || chapter.externalUrl) && (
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{[chapter.group, chapter.externalUrl && "Trang phát hành"].filter(Boolean).join(" · ")}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            {[chapter.group && `Nhóm dịch: ${chapter.group}`, chapter.externalUrl && "Trang phát hành"].filter(Boolean).join(" · ")}
+                          </p>
                         )}
                         {progress && progress.scrollPercent > 5 && progress.scrollPercent < 95 && (
                           <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-secondary">

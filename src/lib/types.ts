@@ -37,6 +37,7 @@ export type Manga = {
   demographic?: string;
   themes?: string[];
   artist?: string;
+  coverProxyToken?: string;
 };
 
 export type ReaderTheme = "warm-light" | "paper" | "sepia" | "graphite-dark" | "pure-black";
@@ -70,6 +71,7 @@ export type ReaderPrefs = {
 export type PageImage = {
   index: number;
   url: string;
+  proxyToken?: string;
   width?: number;
   height?: number;
 };
@@ -86,6 +88,7 @@ export type Chapter = {
   updatedAt: string;
   externalUrl?: string;
   group?: string;
+  groupId?: string;
   /** Optional reading progress 0..1 for the current user. */
   progress?: number | null;
   /** Optional last read page index (0-based) for the current user. */
@@ -190,10 +193,11 @@ export function slugify(value: string) {
     .slice(0, 80);
 }
 
-export function imageProxyUrl(src: string | null | undefined, source?: MangaSource) {
+export function imageProxyUrl(src: string | null | undefined, source?: MangaSource, token?: string) {
   if (!src) return "";
   if (src.startsWith("/")) return src;
   const params = new URLSearchParams({ src });
   if (source) params.set("source", source);
+  if (token) params.set("token", token);
   return `/api/public/image?${params.toString()}`;
 }

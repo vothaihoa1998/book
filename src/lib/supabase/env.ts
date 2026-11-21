@@ -7,7 +7,9 @@ export function getSupabasePublicEnv() {
 
 export function getSupabaseServiceEnv() {
   const publicEnv = getSupabasePublicEnv();
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  const serviceKey = [process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.SUPABASE_SECRET_KEY]
+    .map((key) => key?.trim())
+    .find((key) => key && !/^(your_|replace[-_ ]?me|placeholder|<)/i.test(key));
   if (!publicEnv || !serviceKey) return null;
   return { url: publicEnv.url, key: serviceKey };
 }

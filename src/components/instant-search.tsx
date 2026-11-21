@@ -15,6 +15,7 @@ type InstantResult = {
   id: string;
   title: string;
   cover?: string | null;
+  coverProxyToken?: string;
   author?: string | null;
   lastChapter?: string | null;
   format?: MangaFormat;
@@ -66,6 +67,7 @@ export function InstantSearch({
   });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aborterRef = useRef<AbortController | null>(null);
+  const clientDedupRef = useRef(new Map<string, Promise<Response>>());
 
   // "/" focuses search
   useEffect(() => {
@@ -118,7 +120,16 @@ export function InstantSearch({
       const aborter = new AbortController();
       aborterRef.current = aborter;
       try {
-        const res = await fetch(apiSearchHref(query.trim(), filters, limit), { signal: aborter.signal });
+        const href = apiSearchHref(query.trim(), filters, limit);
+        let pending = clientDedupRef.current.get(href);
+        if (!pending) {
+          pending = fetch(href, { signal: aborter.signal });
+          clientDedupRef.current.set(href, pending);
+          void pending.finally(() => {
+            if (clientDedupRef.current.get(href) === pending) clientDedupRef.current.delete(href);
+          });
+        }
+        const res = await pending;
         if (!res.ok) throw new Error("search failed");
         const data = (await res.json()) as { results: InstantResult[]; errors?: string[] };
         if (!aborter.signal.aborted) {
@@ -132,7 +143,7 @@ export function InstantSearch({
       } finally {
         if (!aborter.signal.aborted) setLoading(false);
       }
-    }, 300);
+    }, 500);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       aborterRef.current?.abort();
@@ -272,7 +283,7 @@ export function InstantSearch({
                       {m.cover && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={imageProxyUrl(m.cover, m.source)}
+                          src={imageProxyUrl(m.cover, m.source, m.coverProxyToken)}
                           alt=""
                           className="absolute inset-0 h-full w-full object-cover"
                           onError={(event) => event.currentTarget.remove()}

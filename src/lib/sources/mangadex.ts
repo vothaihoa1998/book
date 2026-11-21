@@ -140,7 +140,8 @@ function mapManga(entity: MangaDexEntity): Manga {
 
 function mapChapter(entity: MangaDexEntity, mangaId: string): Chapter {
   const chapterNumber = (entity.attributes.chapter as string | undefined) ?? "?";
-  const group = relationship(entity, "scanlation_group")?.attributes?.name;
+  const scanlationGroup = relationship(entity, "scanlation_group");
+  const group = scanlationGroup?.attributes?.name;
   const externalUrl = publisherUrl(entity.attributes.externalUrl);
   return {
     id: makeScopedId("mangadex", entity.id),
@@ -154,6 +155,7 @@ function mapChapter(entity: MangaDexEntity, mangaId: string): Chapter {
     updatedAt: (entity.attributes.updatedAt as string | undefined) ?? new Date().toISOString(),
     externalUrl,
     group: typeof group === "string" ? group : undefined,
+    groupId: scanlationGroup?.id,
   };
 }
 

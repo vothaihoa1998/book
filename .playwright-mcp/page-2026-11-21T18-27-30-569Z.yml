@@ -1,0 +1,14 @@
+- generic [active] [ref=f1e1]:
+  - link "Bỏ qua tới nội dung chính" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=f1e5]:
+    - banner [ref=f1e6]:
+      - generic [ref=f1e7]:
+        - link "Quay lại Tsue to Tsurugi no Wistoria" [ref=f1e8] [cursor=pointer]:
+          - /url: /manga/mangadex%3Ae43a7f5b-6ae7-478d-a4d5-53c8dc3ce52f?lang=vi#chapters
+          - text: Tsue to Tsurugi no Wistoria
+        - button "Ch. 71" [ref=f1e11]
+        - button "Cài đặt đọc" [disabled] [ref=f1e14]
+        - button "Thao tác khác" [ref=f1e18]
+    - main [ref=f1e23]
+  - alert [ref=f1e24]

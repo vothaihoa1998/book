@@ -79,6 +79,58 @@ type CommentInsert = {
 };
 type CommentUpdate = { body?: string; author_name?: string | null; deleted_at?: string | null; updated_at?: string };
 
+type ContentRemovalRequestRow = {
+  id: string;
+  claimant_name: string;
+  claimant_email: string;
+  claim_type: string;
+  group_url: string | null;
+  content_url: string;
+  details: string;
+  status: string;
+  reviewed_at: string | null;
+  resolution_note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+type ContentRemovalRequestInsert = {
+  id?: string;
+  claimant_name: string;
+  claimant_email: string;
+  claim_type: string;
+  group_url?: string | null;
+  content_url: string;
+  details: string;
+  status?: string;
+  reviewed_at?: string | null;
+  resolution_note?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+type ContentRemovalRequestUpdate = {
+  status?: string;
+  reviewed_at?: string | null;
+  resolution_note?: string | null;
+  updated_at?: string;
+};
+type ContentRemovalBlockRow = {
+  id: string;
+  source: string;
+  scope: string;
+  source_id: string;
+  request_id: string | null;
+  created_at: string;
+};
+type ContentRemovalBlockInsert = {
+  id?: string;
+  source: string;
+  scope: string;
+  source_id: string;
+  request_id?: string | null;
+  created_at?: string;
+};
+type ContentRemovalBlockUpdate = { request_id?: string | null };
+
 export type Database = {
   public: {
     Tables: {
@@ -91,6 +143,8 @@ export type Database = {
       chapter_cache: Table<CacheRow, CacheInsert, CacheUpdate>;
       source_fetch_log: Table<FetchLogRow, FetchLogInsert, FetchLogUpdate>;
       comments: Table<CommentRow, CommentInsert, CommentUpdate>;
+      content_removal_requests: Table<ContentRemovalRequestRow, ContentRemovalRequestInsert, ContentRemovalRequestUpdate>;
+      content_removal_blocks: Table<ContentRemovalBlockRow, ContentRemovalBlockInsert, ContentRemovalBlockUpdate>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
