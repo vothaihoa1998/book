@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { AlertTriangle, BookMarked, Clock3, Heart, LogIn, Play, Rows3, UserRound } from "lucide-react";
+import { AlertTriangle, BookMarked, Clock3, Heart, LogIn, Play, Rows3 } from "lucide-react";
 import Link from "next/link";
 import { latestHistoryByManga } from "@/lib/library";
+import { MangaCover } from "@/components/manga-cover";
+import { withMangaImageToken } from "@/lib/image-proxy-token";
+import { filterRemovedManga } from "@/lib/content-removals";
 import { getManga } from "@/lib/sources";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { AlertState, AppLinkButton, EmptyState } from "@/components/ui/primitives";
@@ -80,9 +83,26 @@ export default async function LibraryPage({ searchParams }: Props) {
   ]);
 
   const latestHistory = latestHistoryByManga(historyResult.data ?? []).slice(0, 24);
-  const historyManga = await Promise.all(latestHistory.map((item) => getManga(item.manga_id)));
+  // Saved snapshots are enough to render bookmarks/follows; do not block those tabs
+  // on 24 independent upstream lookups for the history tab.
   const bookmarks = (bookmarksResult.data ?? []).map((item) => ({ ...item, mangaData: storedManga(item.manga_id, item.manga) }));
   const follows = (followsResult.data ?? []).map((item) => ({ ...item, mangaData: storedManga(item.manga_id, item.manga) }));
+  const savedById = new Map([...follows, ...bookmarks].map((item) => [item.manga_id, item.mangaData]));
+  const historyManga = activeTab === "history"
+    ? await Promise.all(latestHistory.map((item) =>
+        savedById.get(item.manga_id)
+          ? Promise.resolve(savedById.get(item.manga_id)!)
+          : getManga(item.manga_id).catch(() => null),
+      ))
+    : [];
+  // Every displayed cover must be signed at render time: never trust a cached
+  // or user-supplied token stored in a bookmark/follow snapshot.
+  const visible = await filterRemovedManga(
+    (activeTab === "history" ? historyManga.filter((manga): manga is Manga => Boolean(manga)) :
+      activeTab === "bookmarks" ? bookmarks.map((item) => item.mangaData) : follows.map((item) => item.mangaData)),
+  );
+  const visibleIds = new Set(visible.map((manga) => manga.id));
+  const signed = (manga: Manga) => withMangaImageToken({ ...manga, coverProxyToken: undefined });
   const errors = [bookmarksResult.error, historyResult.error, followsResult.error].filter(Boolean);
   const total = bookmarks.length + latestHistory.length + follows.length;
   const activeCount = activeTab === "history" ? latestHistory.length : activeTab === "bookmarks" ? bookmarks.length : follows.length;
@@ -137,13 +157,14 @@ export default async function LibraryPage({ searchParams }: Props) {
         {activeTab === "history" && latestHistory.length > 0 && <section>
           <SectionTitle icon={<Clock3 size={18} />} title="Đang đọc" count={latestHistory.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {latestHistory.map((item, index) => {
+            {latestHistory.filter((item) => visibleIds.has(item.manga_id) || !historyManga[latestHistory.indexOf(item)]).map((item) => {
+              const index = latestHistory.indexOf(item);
               const pct = Math.round(Number(item.scroll_percent));
               const chapterLabel = `Ch. ${item.chapter_id.split(":").at(-1)?.replace(/^[0-9a-f-]+/, "").slice(0, 4) ?? item.chapter_id.split(":").at(-1)?.slice(0, 6) ?? "?"}`;
               return (
                 <ShelfCard
                   key={item.manga_id}
-                  manga={historyManga[index] ?? storedManga(item.manga_id, null)}
+                  manga={signed(historyManga[index] ?? storedManga(item.manga_id, null))}
                   href={`/read/${encodeURIComponent(item.chapter_id)}?resume=1`}
                   action={pct > 0 ? `Đọc tiếp · ${pct}%` : "Đọc tiếp"}
                   meta={`${chapterLabel} · cập nhật ${formatDate(item.updated_at)}`}
@@ -158,8 +179,8 @@ export default async function LibraryPage({ searchParams }: Props) {
         {activeTab === "bookmarks" && bookmarks.length > 0 && <section>
           <SectionTitle icon={<BookMarked size={18} />} title="Bookmark" count={bookmarks.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {bookmarks.map((item) => (
-              <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Mở truyện" meta={`Đã lưu · ${formatDate(item.created_at)}`} icon={<BookMarked size={15} />} />
+            {bookmarks.filter((item) => visibleIds.has(item.manga_id)).map((item) => (
+              <ShelfCard key={item.manga_id} manga={signed(item.mangaData)} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Mở truyện" meta={`Đã lưu · ${formatDate(item.created_at)}`} icon={<BookMarked size={15} />} />
             ))}
           </div>
         </section>}
@@ -167,7 +188,7 @@ export default async function LibraryPage({ searchParams }: Props) {
         {activeTab === "follows" && follows.length > 0 && <section>
           <SectionTitle icon={<Heart size={18} />} title="Theo dõi" count={follows.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {follows.map((item) => (
+            {follows.filter((item) => visibleIds.has(item.manga_id)).map((item) => (
               <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Xem cập nhật" meta={`Theo dõi · ${formatDate(item.created_at)}`} icon={<Heart size={15} />} />
             ))}
           </div>
@@ -218,12 +239,7 @@ function ShelfCard({ manga, href, action, meta, progress, icon }: { manga: Manga
       className="group relative grid grid-cols-[82px_1fr] gap-4 overflow-hidden rounded-[var(--radius-card)] border border-border bg-card p-3 transition hover:border-input hover:shadow-[var(--shadow-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
     >
       <div className="relative aspect-[2/3] overflow-hidden rounded-[var(--radius-control)] bg-surface-strong ring-1 ring-border/40">
-        {manga.cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={manga.cover} alt={manga.title} className="h-full w-full object-cover transition group-hover:scale-[1.04]" referrerPolicy="no-referrer" />
-        ) : (
-          <div className="grid h-full place-items-center text-muted-foreground"><UserRound size={22} /></div>
-        )}
+        <MangaCover manga={manga} decorative className="h-full w-full rounded-none transition group-hover:scale-[1.04]" />
         {completed && (
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-1.5 py-1 text-[10px] font-medium uppercase tracking-wider text-white">
             Hoàn thành
