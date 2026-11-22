@@ -4,6 +4,7 @@ import Link from "next/link";
 import { latestHistoryByManga } from "@/lib/library";
 import { MangaCover } from "@/components/manga-cover";
 import { withMangaImageToken } from "@/lib/image-proxy-token";
+import { isAllowedImageUrl } from "@/lib/upstream-policy";
 import { filterRemovedManga } from "@/lib/content-removals";
 import { getManga } from "@/lib/sources";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
@@ -35,14 +36,19 @@ function readTab(searchParams: Record<string, string | string[] | undefined>): L
 function storedManga(mangaId: string, value: Json | null): Manga {
   const parsed = parseScopedId(mangaId);
   const raw = value && typeof value === "object" && !Array.isArray(value) ? value as Partial<Manga> : {};
+  // Bookmarks are client-supplied snapshots. Keep the canonical source/id from
+  // the database key when signing image proxy requests.
+  const cover = typeof raw.cover === "string" && isAllowedImageUrl(raw.cover, parsed.source) &&
+    (parsed.source !== "mangadex" || new URL(raw.cover).pathname.startsWith(`/covers/${parsed.sourceId}/`))
+    ? raw.cover : null;
   return {
     id: mangaId,
-    source: raw.source ?? parsed.source,
-    sourceId: raw.sourceId ?? parsed.sourceId,
+    source: parsed.source,
+    sourceId: parsed.sourceId,
     slug: raw.slug ?? parsed.sourceId,
     title: raw.title ?? mangaId,
     altTitles: raw.altTitles ?? [],
-    cover: raw.cover ?? null,
+    cover,
     author: raw.author ?? null,
     status: raw.status ?? "unknown",
     genres: raw.genres ?? [],
