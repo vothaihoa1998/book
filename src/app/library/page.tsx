@@ -189,7 +189,7 @@ export default async function LibraryPage({ searchParams }: Props) {
           <SectionTitle icon={<Heart size={18} />} title="Theo dõi" count={follows.length} />
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {follows.filter((item) => visibleIds.has(item.manga_id)).map((item) => (
-              <ShelfCard key={item.manga_id} manga={item.mangaData} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Xem cập nhật" meta={`Theo dõi · ${formatDate(item.created_at)}`} icon={<Heart size={15} />} />
+              <ShelfCard key={item.manga_id} manga={signed(item.mangaData)} href={`/manga/${encodeURIComponent(item.manga_id)}`} action="Xem cập nhật" meta={`Theo dõi · ${formatDate(item.created_at)}`} icon={<Heart size={15} />} />
             ))}
           </div>
         </section>}
