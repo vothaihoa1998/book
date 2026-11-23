@@ -9,12 +9,12 @@ export function MangaDescription({ description }: { description: string }) {
   const canExpand = description.trim().length > 360;
 
   return (
-    <div className="mt-5 max-w-3xl">
+    <div className="max-w-3xl">
       <div className="relative">
         <p
           id={contentId}
           className={cn(
-            "font-display text-base leading-7 text-muted-foreground sm:text-lg sm:leading-8 md:text-xl md:leading-9",
+            "text-sm leading-6 text-muted-foreground sm:text-[15px] sm:leading-7",
             canExpand && !expanded && "line-clamp-5 sm:line-clamp-6",
           )}
         >

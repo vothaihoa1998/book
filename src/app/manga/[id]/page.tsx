@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Info, ListOrdered, Play, Radio } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, ChevronDown, Info, ListOrdered, Play, Star } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CommentsPanel, type CommentItem } from "@/components/comments-panel";
@@ -7,7 +7,7 @@ import { ChapterList } from "@/components/chapter-list";
 import { FollowButton } from "@/components/follow-button";
 import { MangaCover } from "@/components/manga-cover";
 import { MangaDescription } from "@/components/manga-description";
-import { AppLinkButton, Badge } from "@/components/ui/primitives";
+import { AppLinkButton, Badge, LinkButton } from "@/components/ui/primitives";
 import { getChapters, getManga } from "@/lib/sources";
 import { siteConfig } from "@/lib/seo";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
@@ -149,63 +149,75 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background" />
           </div>
         )}
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-7 sm:px-6 md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10 md:py-11">
-          {/* Cover — mobile centered ~140px, desktop sticky */}
-          <div className="mx-auto w-[172px] sm:w-[192px] md:mx-0 md:w-full">
-            <MangaCover manga={manga} priority className="hairline rounded-[var(--radius-card)] shadow-[0_24px_60px_-24px_rgba(60,28,8,0.4)]" />
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-7 sm:px-6 md:grid-cols-[minmax(210px,255px)_minmax(0,1fr)] md:items-start md:gap-9 md:py-12">
+          <div className="mx-auto w-[156px] sm:w-[184px] md:mx-0 md:w-full">
+            <MangaCover manga={manga} priority className="hairline rounded-xl shadow-[0_24px_60px_-24px_rgba(0,0,0,0.7)]" />
           </div>
 
-          {/* Info */}
-          <div className="min-w-0">
-            {/* Source eyebrow */}
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-code text-[11px] uppercase tracking-[1.5px] text-muted-foreground">
+          <div className="min-w-0 md:pt-0.5">
+            <div className="flex flex-wrap items-center gap-2">
               {manga.source === "mangadex" ? (
-                <a href={`https://mangadex.org/title/${encodeURIComponent(manga.sourceId)}`} target="_blank" rel="noreferrer" className="hover:text-primary">
+                <a href={`https://mangadex.org/title/${encodeURIComponent(manga.sourceId)}`} target="_blank" rel="noreferrer" className="rounded-md bg-secondary px-2.5 py-1 font-code text-[10px] font-medium uppercase tracking-wide text-muted-foreground transition hover:text-foreground">
                   MangaDex
                 </a>
               ) : (
-                <span>{manga.source === "otruyen" ? "OTruyen" : "Mẫu"}</span>
+                <span className="rounded-md bg-secondary px-2.5 py-1 font-code text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{manga.source === "otruyen" ? "OTruyen" : "InkRail"}</span>
               )}
-              {manga.format && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-primary">{mangaFormatLabels[manga.format]}</span>}
-              {manga.releaseYear && <span>{manga.releaseYear}</span>}
-              <span className="text-muted-foreground/40">·</span>
-              <span className="text-foreground">{statusLabels[manga.status]}</span>
-              {manga.rating ? (<><span className="text-muted-foreground/40">·</span><span className="text-primary font-semibold">★ {manga.rating.toFixed(1)}</span></>) : null}
-            </p>
+              {manga.format && <span className="rounded-md bg-primary/12 px-2.5 py-1 font-code text-[10px] font-medium uppercase tracking-wide text-primary">{mangaFormatLabels[manga.format]}</span>}
+              <span className={`rounded-md px-2.5 py-1 font-code text-[10px] font-medium uppercase tracking-wide ${manga.status === "ongoing" ? "bg-accent-2/12 text-accent-2" : "bg-secondary text-muted-foreground"}`}>{statusLabels[manga.status]}</span>
+              {manga.releaseYear && <span className="rounded-md bg-secondary px-2.5 py-1 font-code text-[10px] text-muted-foreground">{manga.releaseYear}</span>}
+            </div>
 
-            {/* Title */}
-            <h1 className="mt-2 break-words font-display text-[28px] font-medium leading-[1.05] text-foreground sm:text-4xl md:text-5xl md:leading-[0.98] lg:text-5xl">
+            <h1 className="mt-4 break-words font-ui text-[clamp(1.75rem,4vw,2.75rem)] font-semibold leading-[1.08] tracking-tight text-foreground">
               {manga.title}
             </h1>
 
-            {/* Alt titles */}
             {manga.altTitles.length > 0 && (
-              <p className="mt-1.5 break-words text-[12px] leading-5 text-muted-foreground sm:text-sm sm:leading-6">{manga.altTitles.slice(0, 3).join(" / ")}</p>
+              <p className="mt-2 break-words text-sm leading-6 text-muted-foreground">{manga.altTitles.slice(0, 3).join(" · ")}</p>
             )}
 
-            {/* Description — collapse */}
-            <div className="mt-3 sm:mt-4">
-              <MangaDescription description={manga.description} />
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border py-3 text-sm">
+              {manga.rating ? (
+                <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                  <Star size={15} className="fill-primary text-primary" />
+                  {manga.rating.toFixed(1)}
+                  <span className="font-normal text-muted-foreground">/ 10</span>
+                </span>
+              ) : null}
+              <a href="#chapters" className="inline-flex items-center gap-1.5 text-muted-foreground transition hover:text-foreground">
+                <BookOpen size={15} />
+                {chapters.length} chương
+              </a>
+              {manga.lastChapter && <span className="text-muted-foreground">Mới nhất: {manga.lastChapter}</span>}
             </div>
 
-            {/* Genres */}
             {manga.genres.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {manga.genres.slice(0, 8).map((genre) => (
-                  <Link key={genre} href={`/discover?genres=${encodeURIComponent(genre.toLowerCase())}`} className="rounded-md hover:outline hover:outline-primary/40">
+                  <Link key={genre} href={`/discover?genres=${encodeURIComponent(genre.toLowerCase())}`} className="rounded-md transition hover:ring-1 hover:ring-primary/40">
                     <Badge>{genre}</Badge>
                   </Link>
                 ))}
               </div>
             )}
 
-            {/* CTA row — primary "Đọc" full-width mobile, secondary inline desktop */}
+            {(manga.author || manga.artist) && (
+              <p className="mt-5 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                {manga.author && <span><span className="font-medium text-foreground">Tác giả</span> {manga.author}</span>}
+                {manga.artist && manga.artist !== manga.author && <span><span className="font-medium text-foreground">Họa sĩ</span> {manga.artist}</span>}
+              </p>
+            )}
+
+            <div className="mt-4">
+              <MangaDescription description={manga.description} />
+            </div>
+
             <div className="mt-5 grid grid-cols-1 gap-2 sm:mt-6 sm:flex sm:flex-wrap sm:gap-2.5">
               {continueTarget ? (
                 <AppLinkButton
                   href={`/read/${encodeURIComponent(continueTarget.id)}?resume=1`}
                   size="lg"
-                  className="ink-cta rounded-full sm:px-6"
+                  className="ink-cta sm:px-6"
                 >
                   <Play size={15} fill="currentColor" />
                   Đọc tiếp · {Math.round(continueTarget.progress)}%
@@ -214,7 +226,7 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
                 <AppLinkButton
                   href={`/read/${encodeURIComponent(firstChapter.id)}`}
                   size="lg"
-                  className="ink-cta rounded-full sm:px-6"
+                  className="ink-cta sm:px-6"
                 >
                   <Play size={15} fill="currentColor" />
                   Đọc từ đầu
@@ -225,7 +237,7 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
                   href={`/read/${encodeURIComponent(latestChapter.id)}`}
                   variant="secondary"
                   size="lg"
-                  className="rounded-full sm:px-5"
+                  className="sm:px-5"
                 >
                   Mới nhất <ArrowRight size={14} />
                 </AppLinkButton>
@@ -233,13 +245,11 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
               <FollowButton manga={manga} />
             </div>
 
-            {/* Stats row — 3 cột gọn */}
-            <dl className="mt-5 grid grid-cols-3 gap-x-2 border-y border-border py-3 sm:mt-6 sm:gap-x-4 sm:py-4">
-              {manga.author && <Meta icon={<Radio size={12} />} label="Tác giả" value={manga.author} />}
-              {manga.artist && manga.artist !== manga.author && <Meta icon={<Radio size={12} />} label="Họa sĩ" value={manga.artist} />}
-              <Meta icon={<Info size={12} />} label="Cập nhật" value={formatDate(manga.updatedAt)} />
-              {chapters.length > 0 && <Meta icon={<ListOrdered size={12} />} label="Chương có thể mở" value={String(chapters.length)} />}
-            </dl>
+            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><CalendarDays size={13} /> Cập nhật {formatDate(manga.updatedAt)}</span>
+              <a href="#chapters" className="inline-flex items-center gap-1.5 transition hover:text-foreground"><ListOrdered size={13} /> Xem danh sách chương <ChevronDown size={13} /></a>
+              {manga.source === "mangadex" && <span className="inline-flex items-center gap-1.5"><Info size={13} /> Dữ liệu từ MangaDex</span>}
+            </div>
           </div>
         </div>
       </section>
@@ -270,15 +280,17 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
             {languages.length > 1 && (
               <nav aria-label="Ngôn ngữ chương" className="mb-4 flex flex-wrap gap-2">
                 {[["", "Ưu tiên tiếng Việt"], ...languages.map((code) => [code, chapterLanguageLabel(code)])].map(([code, label]) => (
-                  <Link
+                  <LinkButton
                     key={code}
                     href={code ? `${mangaHref}?lang=${encodeURIComponent(code)}#chapters` : `${mangaHref}#chapters`}
                     aria-current={(language ?? "") === code ? "true" : undefined}
                     prefetch={false}
-                    className={`rounded-lg border px-2.5 py-1.5 text-sm ${(language ?? "") === code ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-card hover:bg-secondary"}`}
+                    variant="secondary"
+                    size="sm"
+                    className={`${(language ?? "") === code ? "border-primary/50 bg-primary/10 text-primary" : "border-border bg-card hover:bg-secondary"}`}
                   >
                     {label}
-                  </Link>
+                  </LinkButton>
                 ))}
               </nav>
             )}
@@ -359,15 +371,4 @@ function chapterLanguageLabel(lang?: string) {
   if (lang === "zh") return "Tiếng Trung";
   if (lang === "zh-hk") return "Tiếng Trung phồn thể";
   return lang.toUpperCase();
-}
-
-function Meta({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div>
-      <p className="meta-mono flex items-center gap-1.5">
-        {icon} {label}
-      </p>
-      <p className="mt-2 break-words text-base font-medium">{value}</p>
-    </div>
-  );
 }
