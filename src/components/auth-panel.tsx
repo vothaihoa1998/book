@@ -105,10 +105,22 @@ export function AuthPanel({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv | n
       setMessage("Chưa cấu hình Supabase env để bật Google OAuth.");
       return;
     }
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: authRedirect() },
-    });
+
+    setLoading(true);
+    setMessage("");
+    try {
+      // The production proxy canonicalizes the origin before this page loads,
+      // keeping Supabase's PKCE verifier and callback on the same hostname.
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: authRedirect() },
+      });
+      if (error) setMessage(`Không đăng nhập được bằng Google: ${error.message}`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể kết nối Google OAuth.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function signOut() {
@@ -166,7 +178,7 @@ export function AuthPanel({ supabaseEnv }: { supabaseEnv: SupabaseBrowserEnv | n
         <h2 className="section-title">Đăng nhập</h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">Tiếp tục nơi bạn đã dừng lại.</p>
       </div>
-      <AppButton onClick={signInWithGoogle} variant="secondary" size="lg" className="mt-8 w-full">
+      <AppButton onClick={signInWithGoogle} disabled={loading} variant="secondary" size="lg" className="mt-8 w-full">
         <GoogleIcon />
         Tiếp tục với Google
       </AppButton>
