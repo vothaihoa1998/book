@@ -15,7 +15,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_publishable_key
 Production/Vercel đổi `NEXT_PUBLIC_SITE_URL` thành domain thật, ví dụ:
 
 ```env
-NEXT_PUBLIC_SITE_URL=https://inkrail.example.com
+NEXT_PUBLIC_SITE_URL=https://mangainkrail.vercel.app
 ```
 
 Không đặt Google Client Secret hoặc Supabase service role dưới `NEXT_PUBLIC_`.
@@ -28,7 +28,7 @@ Authorized JavaScript origins:
 
 ```text
 http://localhost:3000
-https://inkrail.example.com
+https://mangainkrail.vercel.app
 ```
 
 Authorized redirect URIs phải là callback của Supabase project, không phải `/auth/callback` của app:
@@ -55,10 +55,10 @@ Vào `Authentication > Providers > Google` của project `wwdkanwtfgzehjdhhwtc`:
 
 Vào `Authentication > URL Configuration`:
 
-Site URL:
+Site URL (hosted Supabase):
 
 ```text
-http://localhost:3000
+https://mangainkrail.vercel.app
 ```
 
 Redirect URLs:
@@ -66,11 +66,13 @@ Redirect URLs:
 ```text
 http://localhost:3000/auth/callback
 http://localhost:3000/auth/callback?next=/library
-https://inkrail.example.com/auth/callback
-https://inkrail.example.com/auth/callback?next=/library
+http://localhost:3100/auth/callback
+http://localhost:3100/auth/callback?next=/library
+https://mangainkrail.vercel.app/auth/callback
+https://mangainkrail.vercel.app/auth/callback?next=/library
 ```
 
-Khi deploy domain thật, thay `https://inkrail.example.com` bằng domain production.
+Khi deploy domain thật, thay `https://mangainkrail.vercel.app` bằng domain production.
 
 ## 4. Local smoke test
 
@@ -99,3 +101,13 @@ Bấm `Tiếp tục với Google`. Luồng đúng sẽ là:
 - `redirect_uri_mismatch`: Google Console thiếu `https://wwdkanwtfgzehjdhhwtc.supabase.co/auth/v1/callback`.
 - Login xong Supabase có user nhưng web chưa nhận session: kiểm tra Supabase Redirect URLs có `http://localhost:3000/auth/callback` và app đang chạy cùng origin.
 - Production login quay về localhost: đổi Supabase Site URL/Redirect URLs và env deploy sang domain production.
+
+## Production canonical origin
+
+- Vercel project `book` uses `NEXT_PUBLIC_SITE_URL=https://mangainkrail.vercel.app` in Production.
+- `mangainkrail.vercel.app` is the verified domain linked to this project.
+- Production browser visits on Vercel-generated `book-*-thvapp.vercel.app` hostnames redirect to the canonical origin before login, so PKCE verifier cookies and callback stay on the same domain.
+- Do not set the Google Cloud Authorized redirect URI to the Next.js callback. Keep the Supabase callback above.
+- Do not try to share auth cookies between different `.vercel.app` hostnames. Users may have to sign in again once on the canonical domain.
+- Historical immutable Vercel deployments may not have the redirect or environment settings. Use the project production domain rather than their `Visit` link.
+- Verify Google Provider (Client ID/Secret) in the hosted Supabase dashboard; this repository cannot configure the hosted provider automatically.

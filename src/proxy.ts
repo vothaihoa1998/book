@@ -4,6 +4,23 @@ import { getSupabasePublicEnv } from "./lib/supabase/env";
 import type { Database } from "./lib/supabase/types";
 
 export async function proxy(request: NextRequest) {
+  // Keep OAuth PKCE cookies, bookmarks and reading history on one origin.
+  // Redirect only public browser navigation to our production deployment URLs;
+  // preview deployments stay independently testable.
+  const hostname = request.nextUrl.hostname;
+  if (
+    process.env.VERCEL_ENV === "production" &&
+    request.method === "GET" &&
+    hostname !== "mangainkrail.vercel.app" &&
+    (hostname === "book-thvapp.vercel.app" ||
+      hostname === "book-git-main-thvapp.vercel.app" ||
+      /^book-[a-z0-9]+-thvapp\.vercel\.app$/.test(hostname)) &&
+    !request.nextUrl.pathname.startsWith("/api/")
+  ) {
+    const canonical = new URL(request.nextUrl.pathname + request.nextUrl.search, "https://mangainkrail.vercel.app");
+    return NextResponse.redirect(canonical, 308);
+  }
+
   const env = getSupabasePublicEnv();
   if (!env) return NextResponse.next({ request });
 
