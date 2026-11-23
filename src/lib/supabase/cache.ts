@@ -1,5 +1,6 @@
 import "server-only";
 
+import { after } from "next/server";
 import type { Json } from "./types";
 import { getSupabaseAdminClient } from "./admin";
 
@@ -56,5 +57,12 @@ export async function logSourceFetch(source: string, target: string, ok: boolean
     ok,
     status: status ?? null,
     duration_ms: Math.max(0, Math.round(durationMs)),
+  });
+}
+
+// Cache persistence and telemetry must not extend the reader's response time.
+export function deferCacheWork(work: () => Promise<unknown>) {
+  after(async () => {
+    try { await work(); } catch { /* Best effort; upstream data is already available. */ }
   });
 }

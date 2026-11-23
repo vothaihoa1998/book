@@ -1,11 +1,15 @@
 import "server-only";
 
+import { createShortCache } from "./short-cache";
 import type { Chapter, Manga, MangaSource } from "./types";
 import type { ImageProxyClaims } from "./image-proxy-token";
 import { getSupabaseAdminClient } from "./supabase/admin";
 
 type BlockScope = "manga" | "chapter" | "scanlation_group";
 type BlockRow = { scope: BlockScope; source_id: string };
+
+// Removal changes take effect within five seconds on warm instances.
+const cachedBlocks = createShortCache<BlockRow[]>(5_000);
 
 async function findBlocks(source: MangaSource, scopes: BlockScope[], ids: string[]): Promise<BlockRow[]> {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean))).sort();
@@ -20,14 +24,16 @@ async function findBlocks(source: MangaSource, scopes: BlockScope[], ids: string
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("content_removal_blocks")
-    .select("scope, source_id")
-    .eq("source", source)
-    .in("scope", uniqueScopes)
-    .in("source_id", uniqueIds);
-  if (error) throw new Error(`Could not check the content removal blocklist: ${error.message}`);
-  return (data ?? []) as BlockRow[];
+  return cachedBlocks(JSON.stringify([source, uniqueScopes, uniqueIds]), async () => {
+    const { data, error } = await supabase
+      .from("content_removal_blocks")
+      .select("scope, source_id")
+      .eq("source", source)
+      .in("scope", uniqueScopes)
+      .in("source_id", uniqueIds);
+    if (error) throw new Error(`Could not check the content removal blocklist: ${error.message}`);
+    return (data ?? []) as BlockRow[];
+  });
 }
 
 export async function isContentRemoved(claims: ImageProxyClaims) {

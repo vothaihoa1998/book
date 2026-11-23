@@ -1,22 +1,21 @@
 import type { Metadata } from "next";
 import { ExternalLink } from "lucide-react";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { ReaderClient } from "@/components/reader-client";
 import { getReaderPreferences } from "@/lib/reader-preferences-server";
 import { getChapter, getChapters, getManga } from "@/lib/sources";
-import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { langShortLabel } from "@/lib/format-time";
 import { absoluteUrl } from "@/lib/utils";
-import { hashIdentifier, trustedHeadersIp } from "@/lib/upstream";
+import { getRequestContext } from "@/lib/request-context";
 
 type Props = PageProps<"/read/[chapterId]">;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { chapterId } = await params;
-  const chapter = await getChapter(chapterId);
+  const { identity } = await getRequestContext();
+  const chapter = await getChapter(chapterId, identity);
   if (!chapter) return { title: "Chương chưa khả dụng", robots: { index: false } };
-  const manga = await getManga(chapter.mangaId);
+  const manga = await getManga(chapter.mangaId, identity);
   return {
     title: manga ? `${manga.title} · Chương ${chapter.number}` : `Chương ${chapter.number}`,
     alternates: { canonical: absoluteUrl(`/read/${encodeURIComponent(chapter.id)}`) },
@@ -25,15 +24,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ReadPage({ params, searchParams }: Props) {
   const [{ chapterId }, { resume }] = await Promise.all([params, searchParams]);
-  const [headerList, user, supabase] = await Promise.all([headers(), getVerifiedUser(), createServerSupabaseClient()]);
-  const ip = trustedHeadersIp(headerList);
-  const identity = hashIdentifier(user?.id ?? ip ?? "anonymous");
+  const { headerList, user, supabase, identity } = await getRequestContext();
   const chapter = await getChapter(chapterId, identity);
   if (!chapter) {
     return <ChapterStatus title="Chương chưa khả dụng">Nguồn truyện chưa cung cấp chương này hoặc đang tạm gián đoạn.</ChapterStatus>;
   }
 
-  const manga = await getManga(chapter.mangaId, identity);
+  const [manga, chapters, prefs, progress] = await Promise.all([
+    getManga(chapter.mangaId, identity),
+    chapter.externalUrl ? [] : getChapters(chapter.mangaId, chapter.language, identity),
+    user ? getReaderPreferences(user.id) : null,
+    user && supabase ? supabase.from("reading_history").select("page_index, page_offset, scroll_percent, updated_at")
+      .eq("user_id", user.id).eq("manga_id", chapter.mangaId).eq("chapter_id", chapter.id).maybeSingle() : null,
+  ]);
   if (chapter.externalUrl) {
     return (
       <ChapterStatus title={manga?.title ?? `Chương ${chapter.number}`} mangaId={chapter.mangaId}>
@@ -49,15 +52,6 @@ export default async function ReadPage({ params, searchParams }: Props) {
   if (!manga || !chapter.pages.length) {
     return <ChapterStatus title="Chương chưa khả dụng" mangaId={chapter.mangaId}>Chưa tải được ảnh của chương {chapter.number}.</ChapterStatus>;
   }
-
-  const [chapters] = await Promise.all([
-    getChapters(manga.id, chapter.language, identity),
-  ]);
-  const [prefs, progress] = await Promise.all([
-    user ? getReaderPreferences(user.id) : null,
-    user && supabase ? supabase.from("reading_history").select("page_index, page_offset, scroll_percent, updated_at")
-      .eq("user_id", user.id).eq("manga_id", manga.id).eq("chapter_id", chapter.id).maybeSingle() : null,
-  ]);
 
   return (
     <ReaderClient

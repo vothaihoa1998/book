@@ -22,13 +22,13 @@ Authenticated Supabase user IDs and trusted request IPs are hashed before use as
 
 ## Queue and retries
 
-The in-process priority queue is bounded by `MANGADEX_QUEUE_MAX=64` and has a `MANGADEX_QUEUE_WAIT_MS=5000` maximum wait. `MANGADEX_QUEUE_CONCURRENCY=8` limits concurrent upstream work. P0 is reader chapter data, P1 details/chapter lists, P2 search, P3 home/catalog, and P4 prefetch. P4 shed before the configured prefetch budget (`MANGADEX_QUEUE_PREFETCH_BUDGET=8`) is exhausted. The queue never holds the distributed cache lock while waiting.
+The in-process priority queue is bounded by `MANGADEX_QUEUE_MAX=64` and has a `MANGADEX_QUEUE_WAIT_MS=5000` maximum wait. `MANGADEX_QUEUE_CONCURRENCY=8` limits concurrent upstream work. P0 is reader chapter data, P1 details/chapter lists, P2 search, P3 home/catalog, and P4 prefetch. P4 shed before the configured prefetch budget (`MANGADEX_QUEUE_PREFETCH_BUDGET=8`) is exhausted. Cache loaders hold a bounded 20-second distributed lock while queued work completes. Short global API bursts wait up to two one-second admission windows before failing; upstream 429 cooldowns are returned immediately without inline retries.
 
 MangaDex requests have a finite timeout and at most three attempts. 429 responses create a shared cooldown and use bounded backoff with jitter. 403 opens a shared, manual-review circuit breaker.
 
 ## Cache and removal safety
 
-JSON cache keys normalize query parameter order. Metadata TTLs are finite and jittered. Public metadata supports a bounded SWR/stale-if-error window and fitting 404 responses may use a short 120-second negative cache. Cache entries are envelope-tagged so stale and negative records can be distinguished; stale data is only returned for public metadata and only within the configured window. AtHome responses and completed MangaDex chapter page URL payloads are not persisted in Redis or Supabase. Chapter image browser responses use `no-store`. The blocklist is queried directly for removal decisions; stale or cached content is never used to bypass a block. Supabase/Redis must be configured in production for removal enforcement and shared protection.
+JSON cache keys normalize query parameter order. Metadata TTLs are finite and jittered. Public metadata supports a bounded SWR/stale-if-error window; SWR refreshes use a distributed lock and Next.js `after` to finish after the response and fitting 404 responses may use a short 120-second negative cache. Cache entries are envelope-tagged so stale and negative records can be distinguished; stale data is only returned for public metadata and only within the configured window. AtHome responses and completed MangaDex chapter page URL payloads are not persisted in Redis or Supabase. Chapter image browser responses use `no-store`. Blocklist queries are coalesced per instance and cached for at most five seconds, including image checks for the same chapter. Newly added removals therefore take effect within five seconds on warm instances; database errors are never cached or treated as permission to serve content. Supabase/Redis must be configured in production for removal enforcement and shared protection.
 
 ## Monitoring
 
@@ -39,3 +39,7 @@ The endpoint returns `404` when `METRICS_TOKEN` is unset and `401` for incorrect
 ## Tests
 
 `src/lib/upstream.test.ts` mocks Upstash Redis and Ratelimit classes; it does not send network traffic to MangaDex or another upstream. Coverage includes Redis production fail-closed behavior, global/AtHome/random/user limits, 429 cooldown, 403 circuit breaking, cache stampede/dedup, 404 negative cache, stale metadata, queue priority/concurrency/bounds/P4 shedding, and trusted proxy identity handling.
+
+## Response latency
+
+Metadata and page rendering share a request-scoped authenticated identity, so chapter/AtHome loading is not repeated for metadata. Reader dependencies (manga, chapter list, preferences and progress) load in parallel. Supabase cache writes and source-fetch telemetry run with `after` and do not block responses. The public signed-image endpoint bypasses session-refresh middleware; signature checks, removal checks and image limits still apply. Its timeout remains active until the response stream finishes. Image-specific 403 responses do not trip the catalog API breaker.

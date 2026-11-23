@@ -7,6 +7,8 @@ import {
   recordUpstreamLatency,
   recordUpstreamResponse,
   UpstreamHttpError,
+  UpstreamCooldownError,
+  UpstreamRateLimitError,
 } from "../upstream";
 
 type JsonValue = Record<string, unknown> | unknown[];
@@ -73,48 +75,46 @@ export async function fetchJson<T extends JsonValue>(
     ? Math.min(cacheTtlSeconds, next.revalidate)
     : cacheTtlSeconds;
 
-  const load = async () => {
-    const source = await assertUpstreamAvailable(url);
+  const load = () => enqueueMangaDexRequest(inferredPriority, identity ?? "anonymous", async () => {
+    // Check limits when work actually starts, rather than before waiting in the queue.
+    let source;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        source = await assertUpstreamAvailable(url);
+        break;
+      } catch (error) {
+        // A brief burst from a cold page should wait for its global API slot,
+        // rather than turn a valid chapter into an unavailable response.
+        if (!(error instanceof UpstreamRateLimitError) || error.retryAfterSeconds > 1 || attempt >= 2) throw error;
+        await new Promise((resolve) => setTimeout(resolve, error.retryAfterSeconds * 1000));
+      }
+    }
     if (source === "mangadex" && identity) {
-      await assertMangaDexUserLimit(identity, url.includes("/manga?") || url.includes("title=") ? "search" : "api");
+      await assertMangaDexUserLimit(identity, upstreamUrl.pathname === "/manga" && upstreamUrl.searchParams.has("title") ? "search" : "api");
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
     const startedAt = Date.now();
     try {
-      return await enqueueMangaDexRequest(source === "mangadex" ? inferredPriority : 2, identity ?? "anonymous", async () => {
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const response = await fetch(upstreamUrl, {
-            ...rest,
-            signal: controller.signal,
-            headers: requestHeaders,
-            next: { ...next, revalidate },
-          });
-
-          const retryAfter = await recordUpstreamResponse(source, response.status, response.headers);
-          if (response.ok) return (await response.json()) as T;
-          if (response.status === 403) throw new Error("Upstream access is paused for manual review.");
-          if (response.status === 429 && attempt < 2) {
-            const base = (retryAfter ?? 1000) * 2 ** attempt;
-            const jitter = Math.floor(Math.random() * 250);
-            await new Promise((resolve) => setTimeout(resolve, Math.min(5000, base + jitter)));
-            continue;
-          }
-          const detailRetry = parseRetryAfter(response.headers);
-          if (response.status === 404) {
-            throw new UpstreamHttpError(404, `Upstream resource was not found.`);
-          }
-          throw new Error(`Upstream request failed with HTTP ${response.status}${detailRetry ? `; retry after ${Math.ceil(detailRetry / 1000)} seconds` : ""}.`);
-        }
-        throw new Error("Upstream request exhausted bounded retries.");
+      const response = await fetch(upstreamUrl, {
+        ...rest,
+        signal: controller.signal,
+        headers: requestHeaders,
+        next: { ...next, revalidate },
       });
+      const retryAfter = await recordUpstreamResponse(source, response.status, response.headers);
+      if (response.ok) return (await response.json()) as T;
+      if (response.status === 403) throw new Error("Upstream access is paused for manual review.");
+      // Do not keep a reader waiting or retry during the shared cooldown.
+      if (response.status === 429) throw new UpstreamCooldownError(retryAfter ?? 1);
+      if (response.status === 404) throw new UpstreamHttpError(404, "Upstream resource was not found.");
+      const detailRetry = parseRetryAfter(response.headers);
+      throw new Error(`Upstream request failed with HTTP ${response.status}${detailRetry ? `; retry after ${Math.ceil(detailRetry / 1000)} seconds` : ""}.`);
     } finally {
       clearTimeout(timeout);
-      const duration = Date.now() - startedAt;
-      recordUpstreamLatency(duration);
+      recordUpstreamLatency(Date.now() - startedAt);
     }
-  };
+  });
   const key = requestCacheKey(url, rest.method, rest.body);
   if (!key || revalidate <= 0) return load();
   const jitteredTtl = revalidate + Math.floor(Math.random() * Math.max(1, Math.floor(revalidate * 0.1)));

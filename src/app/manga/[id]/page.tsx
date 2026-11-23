@@ -10,13 +10,11 @@ import { MangaDescription } from "@/components/manga-description";
 import { AppLinkButton, Badge, LinkButton } from "@/components/ui/primitives";
 import { getChapters, getManga } from "@/lib/sources";
 import { siteConfig } from "@/lib/seo";
-import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 import { imageProxyUrl, mangaFormatLabels } from "@/lib/types";
 import { normalizeChapterLanguage } from "@/lib/sources/search-utils";
 import { orderChapters } from "@/lib/reader-presets";
 import { absoluteUrl, formatDate, truncate } from "@/lib/utils";
-import { headers } from "next/headers";
-import { hashIdentifier, trustedHeadersIp } from "@/lib/upstream";
+import { getRequestContext } from "@/lib/request-context";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +22,8 @@ type Props = PageProps<"/manga/[id]">;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const manga = await getManga(id);
+  const { identity } = await getRequestContext();
+  const manga = await getManga(id, identity);
   if (!manga) return { title: "Truyện chưa khả dụng", robots: { index: false } };
   const url = absoluteUrl(`/manga/${encodeURIComponent(manga.id)}`);
   const description = manga.description?.trim()
@@ -55,23 +54,33 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function MangaDetailPage({ params, searchParams }: Props) {
   const [{ id }, { lang }] = await Promise.all([params, searchParams]);
   const language = normalizeChapterLanguage(typeof lang === "string" ? lang : null);
-  const [headerList, userResult, supabase] = await Promise.all([headers(), getVerifiedUser(), createServerSupabaseClient()]);
-  const ip = trustedHeadersIp(headerList);
-  const identity = hashIdentifier(userResult?.id ?? ip ?? "anonymous");
+  const { user: userResult, supabase, identity } = await getRequestContext();
   const manga = await getManga(id, identity);
   if (!manga) notFound();
   const mangaHref = `/manga/${encodeURIComponent(manga.id)}`;
-  const [chapters] = await Promise.all([getChapters(manga.id, language, identity)]);
 
-  // Pull reading history to mark which chapters the user has visited + sticky CTA
-  const progressByChapter = new Map<string, { pageIndex: number; scrollPercent: number; updatedAt: string }>();
-  const mangaHistory = supabase && userResult
-    ? await supabase
+  const [chapters, mangaHistory, commentsResult] = await Promise.all([
+    getChapters(manga.id, language, identity),
+    supabase && userResult
+    ? supabase
         .from("reading_history")
         .select("chapter_id, page_index, scroll_percent, updated_at")
         .eq("manga_id", manga.id)
         .order("updated_at", { ascending: false })
-    : null;
+    : null,
+    supabase
+    ? supabase
+        .from("comments")
+        .select("id, user_id, author_name, manga_id, chapter_id, parent_id, body, created_at, updated_at")
+        .eq("manga_id", manga.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(80)
+    : { data: [], error: null },
+  ]);
+
+  // Pull reading history to mark which chapters the user has visited + sticky CTA
+  const progressByChapter = new Map<string, { pageIndex: number; scrollPercent: number; updatedAt: string }>();
   mangaHistory?.data?.forEach((row) => {
     if (!progressByChapter.has(row.chapter_id)) {
       progressByChapter.set(row.chapter_id, {
@@ -81,17 +90,6 @@ export default async function MangaDetailPage({ params, searchParams }: Props) {
       });
     }
   });
-
-  // For the comments panel (unchanged behaviour, fetched separately so it can fail silently).
-  const commentsResult = supabase
-    ? await supabase
-        .from("comments")
-        .select("id, user_id, author_name, manga_id, chapter_id, parent_id, body, created_at, updated_at")
-        .eq("manga_id", manga.id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(80)
-    : { data: [], error: null };
 
   const ordered = orderChapters(chapters);
   const firstChapter = ordered[0];

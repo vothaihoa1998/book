@@ -20,7 +20,7 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"]);
 const SOURCES = new Set<MangaSource>(["mangadex", "otruyen", "sample"]);
 
-function limitedBody(body: ReadableStream<Uint8Array>, maxBytes: number) {
+function limitedBody(body: ReadableStream<Uint8Array>, maxBytes: number, finish: () => void) {
   const reader = body.getReader();
   let total = 0;
   return new ReadableStream<Uint8Array>({
@@ -28,21 +28,25 @@ function limitedBody(body: ReadableStream<Uint8Array>, maxBytes: number) {
       try {
         const { done, value } = await reader.read();
         if (done) {
+          finish();
           controller.close();
           return;
         }
         total += value.byteLength;
         if (total > maxBytes) {
+          finish();
           await reader.cancel();
           controller.error(new Error("Image response exceeded the size limit."));
           return;
         }
         controller.enqueue(value);
       } catch (error) {
+        finish();
         controller.error(error);
       }
     },
     cancel(reason) {
+      finish();
       return reader.cancel(reason);
     },
   });
@@ -105,6 +109,7 @@ export async function GET(request: Request) {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
+  let streaming = false;
   try {
     const upstream = await fetch(target, {
       redirect: "error",
@@ -116,7 +121,8 @@ export async function GET(request: Request) {
       next: { revalidate: 60 },
     });
 
-    const cooldownSeconds = upstreamSource
+    // An expired image session must not permanently disable the catalog API.
+    const cooldownSeconds = upstreamSource && upstream.status !== 403
       ? await recordUpstreamResponse(upstreamSource, upstream.status, upstream.headers)
       : null;
 
@@ -151,13 +157,14 @@ export async function GET(request: Request) {
       headers.set("content-length", String(contentLength));
     }
 
-    return new Response(limitedBody(upstream.body, MAX_IMAGE_BYTES), { headers });
+    streaming = true;
+    return new Response(limitedBody(upstream.body, MAX_IMAGE_BYTES, () => clearTimeout(timeout)), { headers });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       return new Response("Image source timed out", { status: 504, headers: responseHeaders() });
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    if (!streaming) clearTimeout(timeout);
   }
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { getSupabasePublicEnv } from "./env";
 import type { Database } from "./types";
@@ -29,10 +30,10 @@ export async function createServerSupabaseClient() {
   });
 }
 
-export async function getVerifiedUser() {
+export const getVerifiedUser = cache(async () => {
   const supabase = await createServerSupabaseClient();
   if (!supabase) return null;
   const { data, error } = await supabase.auth.getUser();
   if (error) return null;
   return data.user;
-}
+});

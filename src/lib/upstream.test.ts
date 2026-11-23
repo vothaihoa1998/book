@@ -6,6 +6,8 @@ const redisState = vi.hoisted(() => ({
   ratelimitCalls: [] as string[],
 }));
 
+vi.mock("next/server", () => ({ after: (work: () => Promise<void>) => { void work(); } }));
+
 vi.mock("@upstash/redis", () => ({
   Redis: class {
     async get<T>(key: string) { return (redisState.store.get(key) as T | undefined) ?? null; }
@@ -13,6 +15,10 @@ vi.mock("@upstash/redis", () => ({
       if (options?.nx && redisState.store.has(key)) return null;
       redisState.store.set(key, value);
       return "OK";
+    }
+    async eval(_script: string, keys: string[], args: string[]) {
+      if (redisState.store.get(keys[0]) === args[0]) redisState.store.delete(keys[0]);
+      return 1;
     }
     async del(key: string) { redisState.store.delete(key); return 1; }
     async ttl(key: string) { return redisState.store.has(key) ? 30 : -1; }
@@ -88,6 +94,11 @@ describe("upstream protection", () => {
     ]));
   });
 
+  it("allows the OTruyen adapter's catalog host and rejects lookalikes", async () => {
+    await expect(assertUpstreamAvailable("https://otruyenapi.com/v1/api/danh-sach/truyen-moi")).resolves.toBe("otruyen");
+    await expect(assertUpstreamAvailable("https://otruyenapi.com.attacker.test/v1/api/danh-sach/truyen-moi")).rejects.toThrow(/Unsupported upstream host/);
+  });
+
   it("returns rejection for exhausted Redis limits", async () => {
     process.env.UPSTASH_REDIS_REST_URL = "https://redis.example.com";
     process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
@@ -141,6 +152,23 @@ describe("upstream protection", () => {
       throw new Error("upstream unavailable");
     }, { staleIfErrorSeconds: 300 })).resolves.toEqual({ title: "cached" });
     vi.useRealTimers();
+  });
+
+  it("keeps one background refresh for repeated stale requests", async () => {
+    vi.useFakeTimers();
+    try {
+      await cacheUpstreamResponse("swr", 1, async () => "old", { staleWhileRevalidateSeconds: 30 });
+      vi.advanceTimersByTime(2000);
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => { release = resolve; });
+      const load = vi.fn(async () => { await gate; return "fresh"; });
+      for (let i = 0; i < 3; i++) {
+        expect(await cacheUpstreamResponse("swr", 1, load, { staleWhileRevalidateSeconds: 30 })).toBe("old");
+      }
+      expect(load).toHaveBeenCalledTimes(1);
+      release();
+      await gate;
+    } finally { vi.useRealTimers(); }
   });
 
   it("bounds the queue, applies priority, and limits concurrency", async () => {

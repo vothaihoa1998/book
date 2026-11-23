@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { sampleChapters, sampleManga } from "../sample-data";
-import { logSourceFetch, readCache, readCacheWithStatus, writeCache, writeCacheWithStatus } from "../supabase/cache";
+import { deferCacheWork, logSourceFetch, readCache, readCacheWithStatus, writeCache, writeCacheWithStatus } from "../supabase/cache";
 import { type Json } from "../supabase/types";
 import { type Chapter, type HomePayload, makeScopedId, type Manga, type MangaSearchParams, type MangaSearchResult, parseScopedId } from "../types";
 import { withChapterImageTokens, withMangaImageToken } from "../image-proxy-token";
@@ -35,7 +35,7 @@ async function cachedMaybe<T>(
   if (cached) return cached;
 
   const value = await loader();
-  if (value && isCacheable(value)) await writeCache(table, cacheKey, source, value as Json, ttlSeconds);
+  if (value && isCacheable(value)) deferCacheWork(() => writeCache(table, cacheKey, source, value as Json, ttlSeconds));
   return value;
 }
 
@@ -51,7 +51,7 @@ async function cachedList<T>(
   if (cached && cached.length) return cached;
 
   const value = await loader();
-  if (value.length) await writeCache(table, cacheKey, source, value as Json, ttlSeconds);
+  if (value.length) deferCacheWork(() => writeCache(table, cacheKey, source, value as Json, ttlSeconds));
   return value;
 }
 
@@ -79,7 +79,7 @@ export const getHome = cache(async (): Promise<HomePayload> => {
     recent: recentItems,
     errors,
   };
-  if (!errors.length) await writeCache("manga_cache", key, "mixed", payload as unknown as Json, 60 * 30);
+  if (!errors.length) deferCacheWork(() => writeCache("manga_cache", key, "mixed", payload as unknown as Json, 60 * 30));
   return withHomeImageTokens(payload);
 });
 
@@ -126,10 +126,12 @@ async function runSearchSource(
   const startedAt = Date.now();
   try {
     const payload = await loader();
-    await logSourceFetch(source, target, true, Date.now() - startedAt).catch(() => undefined);
+    const durationMs = Date.now() - startedAt;
+    deferCacheWork(() => logSourceFetch(source, target, true, durationMs));
     return { source, ...payload, error: false };
   } catch {
-    await logSourceFetch(source, target, false, Date.now() - startedAt).catch(() => undefined);
+    const durationMs = Date.now() - startedAt;
+    deferCacheWork(() => logSourceFetch(source, target, false, durationMs));
     return { source, results: [], total: 0, hasMore: false, error: true };
   }
 }
@@ -180,7 +182,7 @@ export const searchMangaWithMeta = cache(async (params: MangaSearchParams = {}):
   };
 
   if (!errors.length && !cacheError) {
-    await writeCacheWithStatus("manga_cache", cacheKey, normalized.source, payload as unknown as Json, 60 * 10);
+    deferCacheWork(() => writeCacheWithStatus("manga_cache", cacheKey, normalized.source, payload as unknown as Json, 60 * 10));
   }
   const visibleResults = await filterRemovedManga(payload.results);
   return { ...payload, results: visibleResults.map(withMangaImageToken) };

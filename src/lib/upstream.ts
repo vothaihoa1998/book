@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
 import { Ratelimit } from "@upstash/ratelimit";
 import type { Duration } from "@upstash/ratelimit";
@@ -14,6 +15,7 @@ type MemoryEntry = {
 };
 
 const memoryCache = new Map<string, MemoryEntry>();
+const refreshing = new Set<string>();
 const inFlight = new Map<string, Promise<unknown>>();
 const localRateWindows = new Map<string, number[]>();
 const localCooldowns = new Map<string, number>();
@@ -185,7 +187,7 @@ function sourceForUrl(value: string): { source: UpstreamSource; host: string; pa
   if (host === "api.mangadex.org" || host === "uploads.mangadex.org" || host.endsWith(".mangadex.network")) {
     return { source: "mangadex", host, path: url.pathname };
   }
-  if (host === "api.otruyenapi.com" || host === "img.otruyenapi.com" || host.endsWith(".otruyencdn.com")) {
+  if (host === "otruyenapi.com" || host === "api.otruyenapi.com" || host === "img.otruyenapi.com" || host.endsWith(".otruyencdn.com")) {
     return { source: "otruyen", host, path: url.pathname };
   }
   throw new Error(`Unsupported upstream host: ${host}`);
@@ -248,8 +250,8 @@ export async function assertUpstreamAvailable(value: string) {
   const keys = upstreamKeys(source);
 
   if (redis) {
-    if (await redis.get(keys.blocked)) throw new UpstreamBlockedError();
-    const cooldown = await redis.get(keys.cooldown);
+    const [blocked, cooldown] = await Promise.all([redis.get(keys.blocked), redis.get(keys.cooldown)]);
+    if (blocked) throw new UpstreamBlockedError();
     if (cooldown) {
       const ttl = await redis.ttl(keys.cooldown);
       throw new UpstreamCooldownError(Math.max(1, ttl));
@@ -268,7 +270,7 @@ export async function assertUpstreamAvailable(value: string) {
     } else if (path === "/manga/random") {
       await assertRateLimit("mangadex-random", "shared-egress", policy.randomPerMinute(), 60_000);
     }
-  } else if (source === "otruyen" && host === "api.otruyenapi.com") {
+  } else if (source === "otruyen" && (host === "otruyenapi.com" || host === "api.otruyenapi.com")) {
     await assertRateLimit("otruyen-api", "shared-egress", 4, 1_000);
   } else if (source === "firecrawl") {
     await assertRateLimit("firecrawl-api", "shared-egress", 4, 1_000);
@@ -391,9 +393,18 @@ export async function cacheUpstreamResponse<T>(
         return cachedEnvelope.value as T;
       } else if (cachedEnvelope.staleUntil > now && options.staleWhileRevalidateSeconds) {
         metrics.cacheHits++;
-        if (options.staleWhileRevalidateSeconds) {
-          void (async () => {
+        if (!refreshing.has(cacheKey)) {
+          refreshing.add(cacheKey);
+          // Keep refresh work alive on Vercel and deduplicate across instances.
+          after(async () => {
+            const lockKey = `${cacheKey}:lock`;
+            const lockToken = randomUUID();
+            let acquired = false;
             try {
+              if (redis) {
+                acquired = await redis.set(lockKey, lockToken, { nx: true, ex: 20 }) === "OK";
+                if (!acquired) return;
+              }
               const value = await load();
               const envelope: CacheEnvelope<T> = {
                 inkrailCache: true,
@@ -405,8 +416,13 @@ export async function cacheUpstreamResponse<T>(
               else memoryCache.set(cacheKey, { value: envelope, expiresAt: envelope.staleUntil });
             } catch {
               // Keep the stale envelope until staleUntil.
+            } finally {
+              refreshing.delete(cacheKey);
+              if (redis && acquired) {
+                await redis.eval('if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end', [lockKey], [lockToken]);
+              }
             }
-          })();
+          });
         }
         return cachedEnvelope.value as T;
       }
@@ -486,8 +502,7 @@ export async function cacheUpstreamResponse<T>(
         throw error;
       }
     } finally {
-      const currentToken = await redis.get<string>(lockKey);
-      if (currentToken === lockToken) await redis.del(lockKey);
+      await redis.eval('if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end', [lockKey], [lockToken]);
     }
   })();
 
@@ -552,6 +567,7 @@ export function __resetUpstreamTestState() {
   limiters.clear();
   memoryCache.clear();
   inFlight.clear();
+  refreshing.clear();
   localRateWindows.clear();
   localCooldowns.clear();
   localFailures.clear();
