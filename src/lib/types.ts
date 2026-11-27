@@ -60,6 +60,7 @@ export type ReaderPrefs = {
   fontSize: number;
   gap: number;
   tapEdges: boolean;
+  showSideArrows: boolean;
   swipe: boolean;
   autoHide: boolean;
   hideDelay: number;

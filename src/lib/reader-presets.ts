@@ -17,6 +17,7 @@ export function defaultReaderPrefs(dark: boolean): ReaderPrefs {
     fontSize: 18,
     gap: 8,
     tapEdges: true,
+    showSideArrows: true,
     swipe: true,
     autoHide: true,
     hideDelay: 3,
@@ -42,7 +43,7 @@ export function resolveReaderLayout(
 ): Exclude<ReaderLayout, "auto"> {
   if (prefs.layout && prefs.layout !== "auto") return prefs.layout;
   if (format === "webtoon") return "strip";
-  return narrow ? "single" : "double";
+  return narrow ? "strip" : "single";
 }
 
 export function resolvePrefetchCount(

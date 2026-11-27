@@ -180,7 +180,8 @@ export function ReaderSettings({
         )}
         draggable={false}
         maxHeightClass="h-[90dvh] max-h-[90dvh]"
-        panelClassName="top-[10dvh] bottom-0 rounded-t-[27px] md:inset-y-0 md:left-auto md:right-0 md:top-0 md:bottom-0 md:h-dvh md:max-h-dvh md:w-[min(580px,92vw)] md:rounded-none md:rounded-l-3xl md:border-l md:border-t-0"
+        placement="responsive-right"
+        panelClassName="rounded-t-[27px] md:w-[min(580px,92vw)] md:rounded-l-3xl"
       >
         {advanced ? (
           <div className="space-y-7 pb-4">
@@ -230,7 +231,7 @@ export function ReaderSettings({
               />
               <ToggleControl
                 label="Chạm hai bên để lật trang"
-                description="Chạm vùng lề trái hoặc phải của trang."
+                description="Chạm vùng lề trái hoặc phải trên điện thoại."
                 checked={prefs.tapEdges}
                 disabled={layout === "strip"}
                 onChange={(tapEdges) => onChange({ tapEdges })}
@@ -316,6 +317,12 @@ export function ReaderSettings({
                 columns={2}
                 compact
                 onChange={(value) => onChange({ layout: value })}
+              />
+              <ToggleControl
+                label="Nút lật trang hai bên"
+                description="Hiện mũi tên hai bên khi đọc theo trang trên màn hình rộng."
+                checked={prefs.showSideArrows}
+                onChange={(showSideArrows) => onChange({ showSideArrows })}
               />
             </section>
             <section className="space-y-3">

@@ -33,18 +33,18 @@ const chapter: Chapter = {
 };
 
 describe("reader defaults", () => {
-  it("uses screen-fit images and single-page mode for automatic mobile manga", () => {
+  it("uses screen-fit images and vertical scrolling for automatic mobile manga", () => {
     const prefs = defaultReaderPrefs(true);
 
     expect(prefs.direction).toBe("horizontal-ltr");
     expect(prefs.fit).toBe("smart");
-    expect(resolveReaderLayout(prefs, manga, chapter, true)).toBe("single");
+    expect(resolveReaderLayout(prefs, manga, chapter, true)).toBe("strip");
   });
 
-  it("uses a spread for desktop manga and keeps explicit layouts across resize", () => {
+  it("uses one page for desktop manga and keeps explicit layouts across resize", () => {
     const prefs = defaultReaderPrefs(true);
 
-    expect(resolveReaderLayout(prefs, manga, chapter, false)).toBe("double");
+    expect(resolveReaderLayout(prefs, manga, chapter, false)).toBe("single");
     expect(resolveReaderLayout({ ...prefs, layout: "double" }, manga, chapter, true)).toBe("double");
     expect(resolveReaderLayout({ ...prefs, layout: "single" }, manga, chapter, false)).toBe("single");
   });

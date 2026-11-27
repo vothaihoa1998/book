@@ -11,13 +11,14 @@ import { usePathname } from "next/navigation";
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
+  const isReader = pathname.startsWith("/read/");
 
   // Fade-in on route change. Skip animation entirely if the user has
   // prefers-reduced-motion set (also handled in globals.css, but the JS
   // check avoids briefly painting the offset state).
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
+    if (!node || isReader) return;
     const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (reduced) {
       node.style.opacity = "1";
@@ -32,12 +33,12 @@ export function PageTransition({ children }: { children: ReactNode }) {
       node.style.transform = "translateY(0)";
     });
     return () => cancelAnimationFrame(raf);
-  }, [pathname]);
+  }, [isReader, pathname]);
 
   // Pull-to-refresh (mobile only, passive). Touch-start at top of page,
   // pull down past 90px → reload on release.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (isReader || typeof window === "undefined") return;
     if (window.matchMedia("(min-width: 768px)").matches) return; // desktop off
     // Don't hijack the gesture if the user has reduced motion or on iOS Safari
     // overscroll already does its own thing.
@@ -82,7 +83,10 @@ export function PageTransition({ children }: { children: ReactNode }) {
       window.removeEventListener("touchend", onEnd);
       window.removeEventListener("touchcancel", onEnd);
     };
-  }, []);
+  }, [isReader]);
+
+  // Reader toolbars need the viewport as their fixed containing block.
+  if (isReader) return children;
 
   return (
     <div ref={ref}>

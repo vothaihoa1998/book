@@ -38,6 +38,7 @@ export function normalizeReaderPrefs(value: unknown, fallback: ReaderPrefs): Rea
     fontSize: boundedInt(value.fontSize, 14, 24, fallback.fontSize),
     gap: boundedInt(value.gap, 0, 32, fallback.gap),
     tapEdges: typeof value.tapEdges === "boolean" ? value.tapEdges : fallback.tapEdges,
+    showSideArrows: typeof value.showSideArrows === "boolean" ? value.showSideArrows : fallback.showSideArrows,
     swipe: typeof value.swipe === "boolean" ? value.swipe : fallback.swipe,
     autoHide: typeof value.autoHide === "boolean" ? value.autoHide : fallback.autoHide,
     hideDelay: boundedInt(value.hideDelay, 2, 8, fallback.hideDelay),

@@ -21,6 +21,8 @@ export type SheetProps = {
   maxHeightClass?: string;
   /** Optional positioning and sizing styles for a specific sheet. */
   panelClassName?: string;
+  /** Open from the right on wider screens and from the bottom on phones. */
+  placement?: "bottom" | "responsive-right";
   /** Whether the decorative handle can dismiss the sheet by dragging. */
   draggable?: boolean;
 };
@@ -43,8 +45,10 @@ export function Sheet({
   footer,
   maxHeightClass = "max-h-[60vh]",
   panelClassName,
+  placement = "bottom",
   draggable = true,
 }: SheetProps) {
+  const opensOnRight = placement === "responsive-right";
   const dragYRef = useRef(0);
   const dragStartY = useRef(0);
   const dragActive = useRef(false);
@@ -128,7 +132,10 @@ export function Sheet({
         aria-hidden="true"
         tabIndex={-1}
         onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/40 backdrop-blur-sm transition-opacity"
+        className={cn(
+          "absolute inset-0 cursor-default rounded-none! transition-opacity",
+          opensOnRight ? "bg-black/15" : "bg-black/40 backdrop-blur-sm",
+        )}
       />
       {/* Sheet */}
       <div
@@ -141,12 +148,17 @@ export function Sheet({
         className={cn(
           "absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-3xl border-t border-border bg-background shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none transition-transform duration-200 ease-out",
           maxHeightClass,
+          opensOnRight && "md:inset-x-auto md:inset-y-0 md:right-0 md:h-dvh md:max-h-dvh md:w-[420px] md:rounded-none md:border-l md:border-t-0",
           panelClassName,
         )}
       >
         {/* Drag handle (only area you can drag from) */}
         <div
-          className={cn("flex shrink-0 items-center justify-center py-2.5", draggable && "cursor-grab touch-none active:cursor-grabbing")}
+          className={cn(
+            "flex shrink-0 items-center justify-center py-2.5",
+            draggable && "cursor-grab touch-none active:cursor-grabbing",
+            opensOnRight && "md:invisible",
+          )}
           aria-hidden="true"
           onPointerDown={draggable ? onPointerDown : undefined}
           onPointerMove={draggable ? onPointerMove : undefined}
@@ -155,14 +167,14 @@ export function Sheet({
         >
           <span className="block h-1 w-9 rounded-full bg-muted-foreground/40" />
         </div>
-        <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-3 top-2 grid size-11 place-items-center rounded-xl text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
+        <button type="button" aria-label="Đóng" onClick={onClose} className="absolute right-3 top-2 z-20 grid size-11 place-items-center rounded-xl text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
           <X size={16} />
         </button>
 
         {header}
 
         {/* Scrollable content */}
-        <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-4 pt-1">{children}</div>
+        <div data-sheet-content className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 pb-4 pt-1">{children}</div>
 
         {/* Footer (action buttons) */}
         {footer && (

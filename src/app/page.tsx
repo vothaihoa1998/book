@@ -6,6 +6,7 @@ import { MangaRail } from "@/components/manga-rail";
 import { filterHomeFeed, getContentPreferences } from "@/lib/content-preferences";
 import { latestHistoryByManga } from "@/lib/library";
 import { getHome, getHomeCollections, getManga } from "@/lib/sources";
+import { imageProxyUrl } from "@/lib/types";
 import { createServerSupabaseClient, getVerifiedUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function HomePage() {
   const latest = latestHistoryByManga(history?.data ?? []).slice(0, 3);
   const reading = (await Promise.all(latest.map(async (item) => {
     const manga = await getManga(item.manga_id);
-    return manga ? { ...item, title: manga.title } : null;
+    return manga ? { ...item, title: manga.title, coverUrl: imageProxyUrl(manga.cover, manga.source, manga.coverProxyToken) } : null;
   }))).filter((item) => item !== null);
 
   return (

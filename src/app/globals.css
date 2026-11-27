@@ -436,3 +436,73 @@ html[data-theme="dark"] .grain::after {
     animation-iteration-count: 1 !important;
   }
 }
+
+.reader-toolbar {
+  --reader-toolbar-accent: #f2b84b;
+  color: #f2f3f8;
+  background: rgb(9 11 22 / 96%);
+  border-color: rgb(255 255 255 / 12%);
+}
+
+.reader-toolbar-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 12%);
+}
+
+.reader-toolbar-button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 10%);
+}
+
+.reader-toolbar-button:disabled {
+  opacity: 0.35;
+}
+
+.reader-toolbar-button.reader-toolbar-next {
+  background: var(--reader-toolbar-accent);
+  color: #080b13;
+  border-color: transparent;
+}
+
+.reader-toolbar-button.reader-toolbar-next:hover {
+  background: #ffd079;
+}
+
+.reader-toolbar-progress {
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.reader-toolbar-progress::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--reader-toolbar-accent) var(--reader-progress), #343744 var(--reader-progress));
+}
+
+.reader-toolbar-progress::-moz-range-track {
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--reader-toolbar-accent) var(--reader-progress), #343744 var(--reader-progress));
+}
+
+.reader-toolbar-progress::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5.5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--reader-toolbar-accent);
+}
+
+.reader-toolbar-progress::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--reader-toolbar-accent);
+}
